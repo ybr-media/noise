@@ -767,3 +767,64 @@ only remaining failure is the already-known `Export2:` failure:
 Could not export to FLAC format!
 BatchCommand finished: Failed!
 ```
+
+## AUP3 WAV serializer
+
+The approved export fallback is implemented in
+`tools/noisegen/aup3_serializer.py`. It performs no DSP: Audacity remains
+responsible for generation, filtering, gain staging, mixing, loudness
+normalization, and fades. The serializer only follows final-track references,
+reads the referenced little-endian float32 blocks, and writes 48 kHz,
+24-bit, stereo WAV.
+
+The serializer accepts readable project XML rather than attempting to decode
+Audacity's private binary XML. It handles:
+
+- one `<wavetrack>` containing two channel `<sequence>` elements;
+- non-monotonic and non-contiguous block IDs in document order;
+- block lengths inferred from successive `waveblock start` offsets;
+- `blockid <= 0` silent runs, validated against their encoded length;
+- clip offsets and sample-based trim boundaries;
+- rejection of missing, wrong-format, or overlapping references.
+
+Superseded `sampleblocks` rows are never read unless the final XML references
+them. The module exposes `extract_track`, `write_wav`, and
+`extract_to_wav`, plus a CLI:
+
+```text
+python tools/noisegen/aup3_serializer.py project.aup3 project.xml output.wav
+```
+
+The orchestrator keeps `Export2:` as the default. The explicit opt-in
+`--aup3-serializer --project-xml <readable.xml>` path replaces `Export2:`
+with `SaveProject2:` and then invokes the serializer. It is intentionally
+not enabled by default.
+
+The final deliverable is now WAV. Variant filenames and QA discovery use
+`wn_<color>_<band>_<motion>_<balance>_s<seed>.wav`. The serializer verifies
+the written file reports 48 kHz, two channels, and `PCM_24`.
+
+### Serializer verification
+
+An analytical live Audacity probe generated a stereo constant signal:
+
+- left channel: exactly `0.25`;
+- right channel: exactly `-0.5`;
+- 2,400 samples per channel at 48 kHz.
+
+The serializer extracted the referenced non-contiguous channel blocks with
+the correct channel order and wrote a WAV reported by libsndfile as:
+
+```text
+48000 Hz, 2 channels, PCM_24
+```
+
+Unit tests cover silent runs, non-contiguous IDs, multi-block sequences,
+channel order, clip trims, stale-block rejection, and WAV format metadata.
+
+A full 240-second Audacity variant was also rendered and saved as `.aup3`
+through all DSP stages. Production extraction and QA are still pending
+because this environment lacks `audacity-project-tools` and no readable
+project XML was available from the pipe; `GetInfo: Type=Clips` exposes clip
+extents but not the final sequence block IDs. The serializer therefore does
+not claim a real-variant QA pass or determinism result yet.

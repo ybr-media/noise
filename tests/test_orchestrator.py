@@ -161,7 +161,7 @@ def test_failure_continues_without_retry(tmp_path: Path) -> None:
     ) == 1
     assert len(created) == 2
     failed_variant = yaml.safe_load(matrix.read_text())["variants"][0]
-    failed_sidecar = output / str(failed_variant["filename"]).replace(".flac", ".json")
+    failed_sidecar = output / str(failed_variant["filename"]).replace(".wav", ".json")
     assert not failed_sidecar.exists()
     records = [json.loads(line) for line in (output / "render_log.jsonl").read_text().splitlines()]
     assert records[0]["exit_state"].startswith("failure:")

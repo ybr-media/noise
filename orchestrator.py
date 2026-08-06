@@ -17,6 +17,7 @@ from typing import Protocol
 
 import yaml
 from audacity_pipe import AudacityPipe, AudacityPipeError
+from aup3_serializer import extract_to_wav
 from render_plan import RenderPlan, build_plan
 
 AUDACITY_VERSION = "3.7.8"
@@ -278,6 +279,8 @@ def render_batch(
     force: bool = False,
     limit: int | None = None,
     dry_run: bool = False,
+    aup3_serializer: bool = False,
+    project_xml: Path | None = None,
     transport_factory: TransportFactory = default_transport,
     process_factory: ProcessFactory = _launch,
 ) -> int:
@@ -307,10 +310,24 @@ def render_batch(
             transport: Transport | None = None
             try:
                 if not dry_run:
+                    if aup3_serializer and project_xml is None:
+                        raise ValueError("--project-xml is required with --aup3-serializer")
                     process = process_factory(audacity_bin)
                     transport = transport_factory(timeout)
-                    for command in plan.commands:
+                    commands = (
+                        plan.commands[:-1]
+                        + (f'SaveProject2: Filename="{export_path.with_suffix(".aup3")}"',)
+                        if aup3_serializer
+                        else plan.commands
+                    )
+                    for command in commands:
                         responses.append(transport.send(command, timeout))
+                    if aup3_serializer:
+                        extract_to_wav(
+                            export_path.with_suffix(".aup3"),
+                            project_xml,
+                            export_path,
+                        )
                     export_path.with_suffix(".json").write_text(
                         json.dumps(_sidecar(plan), indent=2) + "\n",
                         encoding="utf-8",
@@ -360,6 +377,16 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--limit", type=int)
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_SECONDS)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--aup3-serializer",
+        action="store_true",
+        help="opt in to SaveProject2 plus external AUP3-to-WAV serialization",
+    )
+    parser.add_argument(
+        "--project-xml",
+        type=Path,
+        help="readable project XML for --aup3-serializer",
+    )
     return parser
 
 
@@ -373,6 +400,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         force=args.force,
         limit=args.limit,
         dry_run=args.dry_run,
+        aup3_serializer=args.aup3_serializer,
+        project_xml=args.project_xml,
     )
     if failures:
         print(f"{failures} variant(s) failed")

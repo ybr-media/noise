@@ -15,7 +15,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_low-mid_still_bed-forward_s937592149.flac
+  filename: wn_white_low-mid_still_bed-forward_s937592149.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -46,7 +46,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_low-mid_still_balanced_s63059333.flac
+  filename: wn_white_low-mid_still_balanced_s63059333.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -77,7 +77,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_low-mid_still_texture-forward_s1172701323.flac
+  filename: wn_white_low-mid_still_texture-forward_s1172701323.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -108,7 +108,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_low-mid_drift_bed-forward_s678039446.flac
+  filename: wn_white_low-mid_drift_bed-forward_s678039446.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -139,7 +139,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_low-mid_drift_balanced_s173466805.flac
+  filename: wn_white_low-mid_drift_balanced_s173466805.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -170,7 +170,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_low-mid_drift_texture-forward_s1347339288.flac
+  filename: wn_white_low-mid_drift_texture-forward_s1347339288.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -201,7 +201,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_low-mid_breathing_bed-forward_s1957426808.flac
+  filename: wn_white_low-mid_breathing_bed-forward_s1957426808.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -232,7 +232,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_low-mid_breathing_balanced_s1600652172.flac
+  filename: wn_white_low-mid_breathing_balanced_s1600652172.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -263,7 +263,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_low-mid_breathing_texture-forward_s2007237849.flac
+  filename: wn_white_low-mid_breathing_texture-forward_s2007237849.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -294,7 +294,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_mid_still_bed-forward_s1500216909.flac
+  filename: wn_white_mid_still_bed-forward_s1500216909.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -325,7 +325,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_mid_still_balanced_s1665992719.flac
+  filename: wn_white_mid_still_balanced_s1665992719.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -356,7 +356,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_mid_still_texture-forward_s728149646.flac
+  filename: wn_white_mid_still_texture-forward_s728149646.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -387,7 +387,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_mid_drift_bed-forward_s731427774.flac
+  filename: wn_white_mid_drift_bed-forward_s731427774.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -418,7 +418,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_mid_drift_balanced_s340383017.flac
+  filename: wn_white_mid_drift_balanced_s340383017.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -449,7 +449,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_mid_drift_texture-forward_s2100545676.flac
+  filename: wn_white_mid_drift_texture-forward_s2100545676.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -480,7 +480,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_mid_breathing_bed-forward_s1005859733.flac
+  filename: wn_white_mid_breathing_bed-forward_s1005859733.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -511,7 +511,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_mid_breathing_balanced_s1607826650.flac
+  filename: wn_white_mid_breathing_balanced_s1607826650.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -542,7 +542,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_mid_breathing_texture-forward_s779805086.flac
+  filename: wn_white_mid_breathing_texture-forward_s779805086.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -573,7 +573,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_high_still_bed-forward_s1580593332.flac
+  filename: wn_white_high_still_bed-forward_s1580593332.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -604,7 +604,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_high_still_balanced_s1897526325.flac
+  filename: wn_white_high_still_balanced_s1897526325.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -635,7 +635,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_high_still_texture-forward_s1070290496.flac
+  filename: wn_white_high_still_texture-forward_s1070290496.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -666,7 +666,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_high_drift_bed-forward_s823903106.flac
+  filename: wn_white_high_drift_bed-forward_s823903106.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -697,7 +697,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_high_drift_balanced_s2070614180.flac
+  filename: wn_white_high_drift_balanced_s2070614180.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -728,7 +728,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_high_drift_texture-forward_s2105822975.flac
+  filename: wn_white_high_drift_texture-forward_s2105822975.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -759,7 +759,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_high_breathing_bed-forward_s255988501.flac
+  filename: wn_white_high_breathing_bed-forward_s255988501.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -790,7 +790,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_high_breathing_balanced_s289704885.flac
+  filename: wn_white_high_breathing_balanced_s289704885.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -821,7 +821,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_high_breathing_texture-forward_s519834637.flac
+  filename: wn_white_high_breathing_texture-forward_s519834637.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -852,7 +852,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_broad_still_bed-forward_s448725229.flac
+  filename: wn_white_broad_still_bed-forward_s448725229.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -883,7 +883,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_broad_still_balanced_s1966171522.flac
+  filename: wn_white_broad_still_balanced_s1966171522.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -914,7 +914,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_broad_still_texture-forward_s1894629785.flac
+  filename: wn_white_broad_still_texture-forward_s1894629785.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -945,7 +945,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_broad_drift_bed-forward_s788449979.flac
+  filename: wn_white_broad_drift_bed-forward_s788449979.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -976,7 +976,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_broad_drift_balanced_s2101659039.flac
+  filename: wn_white_broad_drift_balanced_s2101659039.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -1007,7 +1007,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_broad_drift_texture-forward_s1810416424.flac
+  filename: wn_white_broad_drift_texture-forward_s1810416424.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -1038,7 +1038,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_broad_breathing_bed-forward_s146158780.flac
+  filename: wn_white_broad_breathing_bed-forward_s146158780.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -1069,7 +1069,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_broad_breathing_balanced_s207484001.flac
+  filename: wn_white_broad_breathing_balanced_s207484001.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -1100,7 +1100,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_broad_breathing_texture-forward_s911805385.flac
+  filename: wn_white_broad_breathing_texture-forward_s911805385.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -1131,7 +1131,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_low-mid_still_bed-forward_s1951852918.flac
+  filename: wn_green_low-mid_still_bed-forward_s1951852918.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -1166,7 +1166,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_low-mid_still_balanced_s452641310.flac
+  filename: wn_green_low-mid_still_balanced_s452641310.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -1201,7 +1201,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_low-mid_still_texture-forward_s758125317.flac
+  filename: wn_green_low-mid_still_texture-forward_s758125317.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -1236,7 +1236,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_low-mid_drift_bed-forward_s1039011139.flac
+  filename: wn_green_low-mid_drift_bed-forward_s1039011139.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -1271,7 +1271,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_low-mid_drift_balanced_s1858713125.flac
+  filename: wn_green_low-mid_drift_balanced_s1858713125.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -1306,7 +1306,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_low-mid_drift_texture-forward_s1134187099.flac
+  filename: wn_green_low-mid_drift_texture-forward_s1134187099.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -1341,7 +1341,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_low-mid_breathing_bed-forward_s426178219.flac
+  filename: wn_green_low-mid_breathing_bed-forward_s426178219.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -1376,7 +1376,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_low-mid_breathing_balanced_s1138887588.flac
+  filename: wn_green_low-mid_breathing_balanced_s1138887588.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -1411,7 +1411,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_low-mid_breathing_texture-forward_s187198257.flac
+  filename: wn_green_low-mid_breathing_texture-forward_s187198257.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -1446,7 +1446,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_mid_still_bed-forward_s1344044137.flac
+  filename: wn_green_mid_still_bed-forward_s1344044137.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -1481,7 +1481,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_mid_still_balanced_s225266379.flac
+  filename: wn_green_mid_still_balanced_s225266379.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -1516,7 +1516,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_mid_still_texture-forward_s1425199069.flac
+  filename: wn_green_mid_still_texture-forward_s1425199069.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -1551,7 +1551,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_mid_drift_bed-forward_s104251891.flac
+  filename: wn_green_mid_drift_bed-forward_s104251891.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -1586,7 +1586,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_mid_drift_balanced_s416515089.flac
+  filename: wn_green_mid_drift_balanced_s416515089.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -1621,7 +1621,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_mid_drift_texture-forward_s295937397.flac
+  filename: wn_green_mid_drift_texture-forward_s295937397.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -1656,7 +1656,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_mid_breathing_bed-forward_s871368153.flac
+  filename: wn_green_mid_breathing_bed-forward_s871368153.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -1691,7 +1691,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_mid_breathing_balanced_s960402826.flac
+  filename: wn_green_mid_breathing_balanced_s960402826.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -1726,7 +1726,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_mid_breathing_texture-forward_s538562882.flac
+  filename: wn_green_mid_breathing_texture-forward_s538562882.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -1761,7 +1761,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_high_still_bed-forward_s1974774130.flac
+  filename: wn_green_high_still_bed-forward_s1974774130.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -1796,7 +1796,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_high_still_balanced_s1977258856.flac
+  filename: wn_green_high_still_balanced_s1977258856.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -1831,7 +1831,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_high_still_texture-forward_s1400341140.flac
+  filename: wn_green_high_still_texture-forward_s1400341140.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -1866,7 +1866,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_high_drift_bed-forward_s312155398.flac
+  filename: wn_green_high_drift_bed-forward_s312155398.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -1901,7 +1901,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_high_drift_balanced_s504717344.flac
+  filename: wn_green_high_drift_balanced_s504717344.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -1936,7 +1936,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_high_drift_texture-forward_s1889460285.flac
+  filename: wn_green_high_drift_texture-forward_s1889460285.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -1971,7 +1971,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_high_breathing_bed-forward_s266584340.flac
+  filename: wn_green_high_breathing_bed-forward_s266584340.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -2006,7 +2006,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_high_breathing_balanced_s1768548815.flac
+  filename: wn_green_high_breathing_balanced_s1768548815.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -2041,7 +2041,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_high_breathing_texture-forward_s2110120878.flac
+  filename: wn_green_high_breathing_texture-forward_s2110120878.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -2076,7 +2076,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_broad_still_bed-forward_s780683547.flac
+  filename: wn_green_broad_still_bed-forward_s780683547.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -2111,7 +2111,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_broad_still_balanced_s589735817.flac
+  filename: wn_green_broad_still_balanced_s589735817.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -2146,7 +2146,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_broad_still_texture-forward_s1160811118.flac
+  filename: wn_green_broad_still_texture-forward_s1160811118.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -2181,7 +2181,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_broad_drift_bed-forward_s606012159.flac
+  filename: wn_green_broad_drift_bed-forward_s606012159.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -2216,7 +2216,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_broad_drift_balanced_s948026449.flac
+  filename: wn_green_broad_drift_balanced_s948026449.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -2251,7 +2251,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_broad_drift_texture-forward_s2134424663.flac
+  filename: wn_green_broad_drift_texture-forward_s2134424663.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -2286,7 +2286,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_broad_breathing_bed-forward_s528581298.flac
+  filename: wn_green_broad_breathing_bed-forward_s528581298.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -2321,7 +2321,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_broad_breathing_balanced_s1893138649.flac
+  filename: wn_green_broad_breathing_balanced_s1893138649.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -2356,7 +2356,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_broad_breathing_texture-forward_s753015335.flac
+  filename: wn_green_broad_breathing_texture-forward_s753015335.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -2391,7 +2391,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_low-mid_still_bed-forward_s520447819.flac
+  filename: wn_pink_low-mid_still_bed-forward_s520447819.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -2422,7 +2422,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_low-mid_still_balanced_s348877489.flac
+  filename: wn_pink_low-mid_still_balanced_s348877489.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -2453,7 +2453,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_low-mid_still_texture-forward_s2130689164.flac
+  filename: wn_pink_low-mid_still_texture-forward_s2130689164.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -2484,7 +2484,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_low-mid_drift_bed-forward_s335306308.flac
+  filename: wn_pink_low-mid_drift_bed-forward_s335306308.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -2515,7 +2515,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_low-mid_drift_balanced_s1430281675.flac
+  filename: wn_pink_low-mid_drift_balanced_s1430281675.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -2546,7 +2546,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_low-mid_drift_texture-forward_s79074128.flac
+  filename: wn_pink_low-mid_drift_texture-forward_s79074128.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -2577,7 +2577,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_low-mid_breathing_bed-forward_s319992182.flac
+  filename: wn_pink_low-mid_breathing_bed-forward_s319992182.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -2608,7 +2608,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_low-mid_breathing_balanced_s1847207049.flac
+  filename: wn_pink_low-mid_breathing_balanced_s1847207049.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -2639,7 +2639,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_low-mid_breathing_texture-forward_s582043548.flac
+  filename: wn_pink_low-mid_breathing_texture-forward_s582043548.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -2670,7 +2670,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_mid_still_bed-forward_s1826716863.flac
+  filename: wn_pink_mid_still_bed-forward_s1826716863.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -2701,7 +2701,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_mid_still_balanced_s335311483.flac
+  filename: wn_pink_mid_still_balanced_s335311483.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -2732,7 +2732,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_mid_still_texture-forward_s1485122356.flac
+  filename: wn_pink_mid_still_texture-forward_s1485122356.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -2763,7 +2763,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_mid_drift_bed-forward_s1362916913.flac
+  filename: wn_pink_mid_drift_bed-forward_s1362916913.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -2794,7 +2794,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_mid_drift_balanced_s51869882.flac
+  filename: wn_pink_mid_drift_balanced_s51869882.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -2825,7 +2825,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_mid_drift_texture-forward_s125285220.flac
+  filename: wn_pink_mid_drift_texture-forward_s125285220.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -2856,7 +2856,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_mid_breathing_bed-forward_s1482926935.flac
+  filename: wn_pink_mid_breathing_bed-forward_s1482926935.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -2887,7 +2887,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_mid_breathing_balanced_s39804323.flac
+  filename: wn_pink_mid_breathing_balanced_s39804323.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -2918,7 +2918,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_mid_breathing_texture-forward_s267388115.flac
+  filename: wn_pink_mid_breathing_texture-forward_s267388115.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -2949,7 +2949,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_high_still_bed-forward_s1819357851.flac
+  filename: wn_pink_high_still_bed-forward_s1819357851.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -2980,7 +2980,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_high_still_balanced_s866558312.flac
+  filename: wn_pink_high_still_balanced_s866558312.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -3011,7 +3011,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_high_still_texture-forward_s419443747.flac
+  filename: wn_pink_high_still_texture-forward_s419443747.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -3042,7 +3042,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_high_drift_bed-forward_s442961110.flac
+  filename: wn_pink_high_drift_bed-forward_s442961110.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -3073,7 +3073,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_high_drift_balanced_s676663111.flac
+  filename: wn_pink_high_drift_balanced_s676663111.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -3104,7 +3104,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_high_drift_texture-forward_s1055231110.flac
+  filename: wn_pink_high_drift_texture-forward_s1055231110.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -3135,7 +3135,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_high_breathing_bed-forward_s2136352149.flac
+  filename: wn_pink_high_breathing_bed-forward_s2136352149.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -3166,7 +3166,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_high_breathing_balanced_s513554684.flac
+  filename: wn_pink_high_breathing_balanced_s513554684.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -3197,7 +3197,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_high_breathing_texture-forward_s1603618479.flac
+  filename: wn_pink_high_breathing_texture-forward_s1603618479.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -3228,7 +3228,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_broad_still_bed-forward_s1481144203.flac
+  filename: wn_pink_broad_still_bed-forward_s1481144203.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -3259,7 +3259,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_broad_still_balanced_s992160217.flac
+  filename: wn_pink_broad_still_balanced_s992160217.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -3290,7 +3290,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_broad_still_texture-forward_s1410613073.flac
+  filename: wn_pink_broad_still_texture-forward_s1410613073.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -3321,7 +3321,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_broad_drift_bed-forward_s2073585639.flac
+  filename: wn_pink_broad_drift_bed-forward_s2073585639.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -3352,7 +3352,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_broad_drift_balanced_s1495450835.flac
+  filename: wn_pink_broad_drift_balanced_s1495450835.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -3383,7 +3383,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_broad_drift_texture-forward_s393887415.flac
+  filename: wn_pink_broad_drift_texture-forward_s393887415.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -3414,7 +3414,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_broad_breathing_bed-forward_s1575004970.flac
+  filename: wn_pink_broad_breathing_bed-forward_s1575004970.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -3445,7 +3445,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_broad_breathing_balanced_s106775190.flac
+  filename: wn_pink_broad_breathing_balanced_s106775190.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -3476,7 +3476,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_broad_breathing_texture-forward_s1590020321.flac
+  filename: wn_pink_broad_breathing_texture-forward_s1590020321.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -3507,7 +3507,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_low-mid_still_bed-forward_s602360113.flac
+  filename: wn_brown_low-mid_still_bed-forward_s602360113.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -3538,7 +3538,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_low-mid_still_balanced_s552927571.flac
+  filename: wn_brown_low-mid_still_balanced_s552927571.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -3569,7 +3569,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_low-mid_still_texture-forward_s997390051.flac
+  filename: wn_brown_low-mid_still_texture-forward_s997390051.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -3600,7 +3600,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_low-mid_drift_bed-forward_s937499486.flac
+  filename: wn_brown_low-mid_drift_bed-forward_s937499486.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -3631,7 +3631,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_low-mid_drift_balanced_s301160167.flac
+  filename: wn_brown_low-mid_drift_balanced_s301160167.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -3662,7 +3662,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_low-mid_drift_texture-forward_s7793440.flac
+  filename: wn_brown_low-mid_drift_texture-forward_s7793440.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -3693,7 +3693,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_low-mid_breathing_bed-forward_s1258124584.flac
+  filename: wn_brown_low-mid_breathing_bed-forward_s1258124584.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -3724,7 +3724,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_low-mid_breathing_balanced_s1932023335.flac
+  filename: wn_brown_low-mid_breathing_balanced_s1932023335.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -3755,7 +3755,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_low-mid_breathing_texture-forward_s1382577587.flac
+  filename: wn_brown_low-mid_breathing_texture-forward_s1382577587.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -3786,7 +3786,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_mid_still_bed-forward_s320953291.flac
+  filename: wn_brown_mid_still_bed-forward_s320953291.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -3817,7 +3817,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_mid_still_balanced_s2125019060.flac
+  filename: wn_brown_mid_still_balanced_s2125019060.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -3848,7 +3848,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_mid_still_texture-forward_s2021042110.flac
+  filename: wn_brown_mid_still_texture-forward_s2021042110.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -3879,7 +3879,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_mid_drift_bed-forward_s1742181745.flac
+  filename: wn_brown_mid_drift_bed-forward_s1742181745.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -3910,7 +3910,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_mid_drift_balanced_s1547690611.flac
+  filename: wn_brown_mid_drift_balanced_s1547690611.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -3941,7 +3941,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_mid_drift_texture-forward_s524750567.flac
+  filename: wn_brown_mid_drift_texture-forward_s524750567.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -3972,7 +3972,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_mid_breathing_bed-forward_s1222544090.flac
+  filename: wn_brown_mid_breathing_bed-forward_s1222544090.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -4003,7 +4003,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_mid_breathing_balanced_s767954655.flac
+  filename: wn_brown_mid_breathing_balanced_s767954655.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -4034,7 +4034,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_mid_breathing_texture-forward_s2015466571.flac
+  filename: wn_brown_mid_breathing_texture-forward_s2015466571.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -4065,7 +4065,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_high_still_bed-forward_s77164237.flac
+  filename: wn_brown_high_still_bed-forward_s77164237.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -4096,7 +4096,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_high_still_balanced_s2025057975.flac
+  filename: wn_brown_high_still_balanced_s2025057975.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -4127,7 +4127,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_high_still_texture-forward_s2085876277.flac
+  filename: wn_brown_high_still_texture-forward_s2085876277.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -4158,7 +4158,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_high_drift_bed-forward_s954372527.flac
+  filename: wn_brown_high_drift_bed-forward_s954372527.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -4189,7 +4189,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_high_drift_balanced_s251474877.flac
+  filename: wn_brown_high_drift_balanced_s251474877.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -4220,7 +4220,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_high_drift_texture-forward_s1275246320.flac
+  filename: wn_brown_high_drift_texture-forward_s1275246320.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -4251,7 +4251,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_high_breathing_bed-forward_s1989145690.flac
+  filename: wn_brown_high_breathing_bed-forward_s1989145690.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -4282,7 +4282,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_high_breathing_balanced_s156724758.flac
+  filename: wn_brown_high_breathing_balanced_s156724758.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -4313,7 +4313,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_high_breathing_texture-forward_s183907932.flac
+  filename: wn_brown_high_breathing_texture-forward_s183907932.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -4344,7 +4344,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_broad_still_bed-forward_s916764773.flac
+  filename: wn_brown_broad_still_bed-forward_s916764773.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -4375,7 +4375,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_broad_still_balanced_s1836846022.flac
+  filename: wn_brown_broad_still_balanced_s1836846022.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -4406,7 +4406,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_broad_still_texture-forward_s758361594.flac
+  filename: wn_brown_broad_still_texture-forward_s758361594.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -4437,7 +4437,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_broad_drift_bed-forward_s943743787.flac
+  filename: wn_brown_broad_drift_bed-forward_s943743787.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -4468,7 +4468,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_broad_drift_balanced_s1365549720.flac
+  filename: wn_brown_broad_drift_balanced_s1365549720.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -4499,7 +4499,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_broad_drift_texture-forward_s1347051631.flac
+  filename: wn_brown_broad_drift_texture-forward_s1347051631.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0
@@ -4530,7 +4530,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_broad_breathing_bed-forward_s456626427.flac
+  filename: wn_brown_broad_breathing_bed-forward_s456626427.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
   gain_texture_db: -12.0
@@ -4561,7 +4561,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_broad_breathing_balanced_s1687403382.flac
+  filename: wn_brown_broad_breathing_balanced_s1687403382.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -4592,7 +4592,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_broad_breathing_texture-forward_s1891943957.flac
+  filename: wn_brown_broad_breathing_texture-forward_s1891943957.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0

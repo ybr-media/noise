@@ -483,7 +483,7 @@ def build_plan(
 ) -> RenderPlan:
     """Build the full command sequence for one variant.
 
-    ``export_path`` is the absolute path Audacity writes the FLAC to; the
+    ``export_path`` is the absolute path Audacity writes the WAV to; the
     caller is responsible for combining the output directory with the
     variant's ``filename``.
     """

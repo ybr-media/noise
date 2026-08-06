@@ -67,7 +67,7 @@ def _tilted_cell(rng: np.random.Generator, slope: float = 0) -> np.ndarray:
 
 def make_track(
     directory: Path,
-    name: str = "wn_white_full_static_balanced_s1.flac",
+    name: str = "wn_white_full_static_balanced_s1.wav",
     *,
     slope: float = 0,
     bell: bool = False,
@@ -87,7 +87,7 @@ def make_track(
     loudness = pyln.Meter(SAMPLE_RATE).integrated_loudness(audio)
     audio *= 10 ** ((-20 - loudness) / 20)
     path = directory / name
-    sf.write(path, audio, SAMPLE_RATE, subtype="PCM_24", format="FLAC")
+    sf.write(path, audio, SAMPLE_RATE, subtype="PCM_24", format="WAV")
     metadata = sidecar(tilt_db_per_oct=slope)
     if bell:
         metadata["color"] = "green"
@@ -117,39 +117,39 @@ def test_targeted_basic_failures(tmp_path: Path) -> None:
     path = make_track(tmp_path)
     audio, rate = sf.read(path, dtype="float64", always_2d=True)
     audio *= 2
-    sf.write(path, audio, rate, subtype="PCM_24", format="FLAC")
+    sf.write(path, audio, rate, subtype="PCM_24", format="WAV")
     assert_only(path, "Loudness")
 
-    path = make_track(tmp_path, "wn_white_full_static_balanced_s2.flac")
+    path = make_track(tmp_path, "wn_white_full_static_balanced_s2.wav")
     audio, rate = sf.read(path, dtype="float64", always_2d=True)
     audio[100000, 0] = 1.0
-    sf.write(path, audio, rate, subtype="PCM_24", format="FLAC")
+    sf.write(path, audio, rate, subtype="PCM_24", format="WAV")
     result = checks(path)
     failing = {name for name, check in result.items() if not check.passed}
     # A full-scale sample also necessarily exceeds the -3 dBTP true-peak limit.
     assert failing == {"Clipping", "True peak"}
 
-    path = make_track(tmp_path, "wn_white_full_static_balanced_s3.flac")
+    path = make_track(tmp_path, "wn_white_full_static_balanced_s3.wav")
     audio, rate = sf.read(path, dtype="float64", always_2d=True)
     audio += 0.001
-    sf.write(path, audio, rate, subtype="PCM_24", format="FLAC")
+    sf.write(path, audio, rate, subtype="PCM_24", format="WAV")
     assert_only(path, "DC offset")
 
-    path = make_track(tmp_path, "wn_white_full_static_balanced_s4.flac")
+    path = make_track(tmp_path, "wn_white_full_static_balanced_s4.wav")
     audio, rate = sf.read(path, dtype="float64", always_2d=True)
     audio[:, 1] = audio[:, 0]
-    sf.write(path, audio, rate, subtype="PCM_24", format="FLAC")
+    sf.write(path, audio, rate, subtype="PCM_24", format="WAV")
     assert_only(path, "Stereo decorrelation")
 
 
 def test_tilts_and_green_bell(tmp_path: Path) -> None:
-    pink = make_track(tmp_path, "wn_pink_full_static_balanced_s1.flac", slope=-3)
-    brown = make_track(tmp_path, "wn_brown_full_static_balanced_s1.flac", slope=-6)
+    pink = make_track(tmp_path, "wn_pink_full_static_balanced_s1.wav", slope=-3)
+    brown = make_track(tmp_path, "wn_brown_full_static_balanced_s1.wav", slope=-6)
     assert checks(pink)["Spectral tilt"].passed
     assert checks(brown)["Spectral tilt"].passed
-    green = make_track(tmp_path, "wn_green_full_static_balanced_s1.flac", bell=True)
+    green = make_track(tmp_path, "wn_green_full_static_balanced_s1.wav", bell=True)
     assert checks(green)["Green bell"].passed
-    missing = make_track(tmp_path, "wn_green_full_static_balanced_s2.flac")
+    missing = make_track(tmp_path, "wn_green_full_static_balanced_s2.wav")
     metadata = json.loads(missing.with_suffix(".json").read_text())
     metadata["color"] = "green"
     metadata["bell"] = {"gain_db": 6, "center_hz": 500, "q": 1}
@@ -164,31 +164,31 @@ def test_wrong_tilt_gap_and_first_seam_click(tmp_path: Path) -> None:
     path.with_suffix(".json").write_text(json.dumps(metadata))
     assert_only(path, "Spectral tilt")
 
-    path = make_track(tmp_path, "wn_white_full_static_balanced_s2.flac")
+    path = make_track(tmp_path, "wn_white_full_static_balanced_s2.wav")
     audio, rate = sf.read(path, dtype="float64", always_2d=True)
     audio[150000:150000 + round(0.2 * rate)] = 0
-    sf.write(path, audio, rate, subtype="PCM_24", format="FLAC")
+    sf.write(path, audio, rate, subtype="PCM_24", format="WAV")
     assert_only(path, "Silence/dropout")
 
-    path = make_track(tmp_path, "wn_white_full_static_balanced_s3.flac")
+    path = make_track(tmp_path, "wn_white_full_static_balanced_s3.wav")
     audio, rate = sf.read(path, dtype="float64", always_2d=True)
     boundary = CELL_FRAMES
     audio[boundary, :] += 0.65
-    sf.write(path, audio, rate, subtype="PCM_24", format="FLAC")
+    sf.write(path, audio, rate, subtype="PCM_24", format="WAV")
     assert_only(path, "Loop seam")
 
 
 def test_uniqueness_and_input_errors_do_not_abort_good_file(tmp_path: Path) -> None:
     first = make_track(tmp_path)
-    second = tmp_path / "wn_white_full_static_balanced_s2.flac"
+    second = tmp_path / "wn_white_full_static_balanced_s2.wav"
     shutil.copyfile(first, second)
     shutil.copyfile(first.with_suffix(".json"), second.with_suffix(".json"))
-    missing = tmp_path / "wn_white_full_static_balanced_s3.flac"
+    missing = tmp_path / "wn_white_full_static_balanced_s3.wav"
     shutil.copyfile(first, missing)
-    malformed = tmp_path / "wn_white_full_static_balanced_s4.flac"
+    malformed = tmp_path / "wn_white_full_static_balanced_s4.wav"
     shutil.copyfile(first, malformed)
     malformed.with_suffix(".json").write_text("{")
-    missing_key = tmp_path / "wn_white_full_static_balanced_s5.flac"
+    missing_key = tmp_path / "wn_white_full_static_balanced_s5.wav"
     shutil.copyfile(first, missing_key)
     incomplete = sidecar()
     incomplete.pop("sample_rate")
@@ -223,12 +223,12 @@ def test_comparison_missing_and_empty_dirs(tmp_path: Path) -> None:
     make_track(left)
     shutil.copytree(left, right, dirs_exist_ok=True)
     assert qa_harness.compare_dirs(left, right).passed
-    altered, rate = sf.read(right / "wn_white_full_static_balanced_s1.flac", dtype="float64", always_2d=True)
+    altered, rate = sf.read(right / "wn_white_full_static_balanced_s1.wav", dtype="float64", always_2d=True)
     altered[100, 0] += 0.01
-    sf.write(right / "wn_white_full_static_balanced_s1.flac", altered, rate, subtype="PCM_24", format="FLAC")
+    sf.write(right / "wn_white_full_static_balanced_s1.wav", altered, rate, subtype="PCM_24", format="WAV")
     assert not qa_harness.compare_dirs(left, right).passed
-    shutil.copyfile(left / "wn_white_full_static_balanced_s1.flac", right / "wn_white_full_static_balanced_s1.flac")
-    (right / "extra.flac").write_bytes(b"")
+    shutil.copyfile(left / "wn_white_full_static_balanced_s1.wav", right / "wn_white_full_static_balanced_s1.wav")
+    (right / "extra.wav").write_bytes(b"")
     assert not qa_harness.compare_dirs(left, right).passed
     empty = tmp_path / "empty"
     empty.mkdir()
@@ -247,5 +247,5 @@ def test_cli_exit_codes_reports_and_read_only(tmp_path: Path) -> None:
     assert before == after
     audio, rate = sf.read(path, dtype="float64", always_2d=True)
     audio[:, 1] = audio[:, 0]
-    sf.write(path, audio, rate, subtype="PCM_24", format="FLAC")
+    sf.write(path, audio, rate, subtype="PCM_24", format="WAV")
     assert qa_harness.run(tmp_path, None, report, result_path) != 0

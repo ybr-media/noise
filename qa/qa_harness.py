@@ -35,8 +35,8 @@ from report import (
 
 
 def compare_dirs(original: Path, rerender: Path) -> ComparisonResult:
-    left = {path.name: path for path in original.glob("*.flac")}
-    right = {path.name: path for path in rerender.glob("*.flac")}
+    left = {path.name: path for path in original.glob("*.wav")}
+    right = {path.name: path for path in rerender.glob("*.wav")}
     variants: list[VariantComparison] = []
     for name in sorted(set(left) | set(right)):
         if name not in left or name not in right:
@@ -107,7 +107,7 @@ def _summary(files: tuple[FileReport, ...], comparison: ComparisonResult | None,
 
 
 def run(output_dir: Path, compare_dir: Path | None, report: Path, json_path: Path) -> int:
-    files = tuple(inspect_file(path) for path in sorted(output_dir.glob("wn_*.flac")) if path.is_file())
+    files = tuple(inspect_file(path) for path in sorted(output_dir.glob("wn_*.wav")) if path.is_file())
     by_hash: dict[str, list[str]] = {}
     for file_report in files:
         if file_report.decoded_pcm_sha256 is not None:
@@ -122,7 +122,7 @@ def run(output_dir: Path, compare_dir: Path | None, report: Path, json_path: Pat
             updated.append(file_report.with_check(CheckResult("Uniqueness", "unique decoded PCM", "no duplicate decoded PCM", True)))
     final_files = tuple(updated)
     comparison = compare_dirs(output_dir, compare_dir) if compare_dir is not None else None
-    error = "no matching wn_*.flac files found" if not final_files else None
+    error = "no matching wn_*.wav files found" if not final_files else None
     result = RunReport(_summary(final_files, comparison, error), final_files, comparison, error)
     write_reports(report, json_path, result)
     return 0 if result.summary.overall_verdict == "PASS" else 1

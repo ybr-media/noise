@@ -107,7 +107,7 @@ def build_variants(config: Mapping[str, object], pilot: bool = False) -> list[Ya
             for channel in channels:
                 seeds[f"{stem}_{channel}"] = _seed(variant_id, stem, channel)
         row["seeds"] = seeds
-        row["filename"] = f"{variant_id}_s{seeds['bed_l']}.flac"
+        row["filename"] = f"{variant_id}_s{seeds['bed_l']}.wav"
         row.update(cast(YamlMapping, dict(_mapping(config["output"], "output"))))
         rows.append(row)
     return rows

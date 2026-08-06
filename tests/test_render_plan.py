@@ -99,7 +99,7 @@ def test_gains_select_each_track_first() -> None:
 def test_seeded_noise_and_distinct_channels() -> None:
     output, rows = _pilot()
     for row in rows:
-        plan = build_plan(row, output, "/tmp/out.flac")
+        plan = build_plan(row, output, "/tmp/out.wav")
         for stem in ("bed", "texture", "motion"):
             for channel in ("l", "r"):
                 seed = plan.variant.seed(stem, channel)
@@ -125,7 +125,7 @@ def test_motion_modulator_matches_stem_duration() -> None:
 
 def test_spectrum_curves_and_motion_variants() -> None:
     output, rows = _pilot()
-    plans = {row["color"]: build_plan(row, output, "/tmp/out.flac") for row in rows[:4]}
+    plans = {row["color"]: build_plan(row, output, "/tmp/out.wav") for row in rows[:4]}
     assert not _filter_commands(plans["white"])
 
     pink_points = _curve_points(_filter_commands(plans["pink"])[0])
@@ -154,9 +154,9 @@ def test_spectrum_curves_and_motion_variants() -> None:
     assert center_gain == max(gain for _, gain in green_points)
     assert len(_filter_commands(plans["pink"])) == 1
 
-    still = build_plan(rows[6], output, "/tmp/out.flac")
-    drift = build_plan(rows[0], output, "/tmp/out.flac")
-    breathing = build_plan(rows[7], output, "/tmp/out.flac")
+    still = build_plan(rows[6], output, "/tmp/out.wav")
+    drift = build_plan(rows[0], output, "/tmp/out.wav")
+    breathing = build_plan(rows[7], output, "/tmp/out.wav")
     still_motion = next(
         command for command in still.commands
         if f"(random-seed {still.variant.seed('motion', 'l')})" in command
@@ -170,7 +170,7 @@ def test_spectrum_curves_and_motion_variants() -> None:
 def test_band_edges_and_nyquist_expression() -> None:
     output, rows = _pilot()
     for row in rows:
-        plan = build_plan(row, output, "/tmp/out.flac")
+        plan = build_plan(row, output, "/tmp/out.wav")
         texture = next(command for command in plan.commands if "(lowpass8" in command)
         assert str(row["band_high_hz"]) in texture
         assert str(row["band_low_hz"]) in texture
@@ -207,14 +207,14 @@ def test_project_rate_export_and_order() -> None:
     assert "SetProject: Rate=48000" in commands
     export = commands[-1]
     assert export.startswith("Export2:")
-    assert 'Filename="/tmp/wn_white_mid_drift_balanced_s340383017.flac"' in export
+    assert 'Filename="/tmp/wn_white_mid_drift_balanced_s340383017.wav"' in export
     assert export.endswith("NumChannels=2")
     assert all(
         command.endswith("NumChannels=2")
         for command in plan.commands
         if command.startswith("Export2:")
     )
-    assert export.split("Filename=", 1)[1].split('"', 2)[1].endswith(".flac")
+    assert export.split("Filename=", 1)[1].split('"', 2)[1].endswith(".wav")
     # Export2 has no bit-depth parameter; 24-bit is represented by the
     # sidecar and Audacity's persisted export preferences, not this stream.
     assert plan.output.sample_rate == 48000
