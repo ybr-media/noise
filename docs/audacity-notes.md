@@ -1006,6 +1006,38 @@ The rerendered pilot and corrected QA report are:
 /tmp/noise-pilot-bellmetric/qa_results.json
 ```
 
+### Final green/brown pilot follow-up
+
+The green bell was restored to all three colored stems. The spectral-tilt
+check now uses the same broad 100 Hz–10 kHz fit and bell-octave exclusion as
+the bell-baseline fit. Green's tilt moved from `-4.406 dB/oct` to
+`-3.216 dB/oct`, confirming that the prior value was partly contaminated by
+the bell tail.
+
+The brown rolloff corner was raised from 20 Hz to 30 Hz. Standalone brown-bed
+measurement after the change was:
+
+```text
+mean: 0.00000064
+0.1–20 Hz PSD: -75.89 dB
+```
+
+The final brown pilot now passes DC offset (`0.0000098`) and true peak
+(`-6.761 dBTP`) while retaining the intended tilt (`-5.984 dB/oct`).
+
+The final pilot is in `/tmp/noise-pilot-green30/`:
+
+```text
+/tmp/noise-pilot-green30/qa_report.html
+/tmp/noise-pilot-green30/qa_results.json
+```
+
+Seven of eight variants pass. Pink, brown, white, and all format/loudness/
+seam/decorrelation/uniqueness checks pass. Green measures `-3.216 dB/oct`
+for tilt and `3.759 dB` bell excess; the unchanged 4–8 dB bell requirement
+therefore remains a narrowly failing check. The +6 dB curve was not
+increased merely to force the threshold.
+
 ### Rolloff and green-bell follow-up
 
 The color tilt curves now include explicit sub-20 Hz points:

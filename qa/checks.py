@@ -304,7 +304,12 @@ def analyze_spectrum(data: np.ndarray, sidecar: Sidecar) -> Spectrum:
 
 
 def spectral_tilt(spectrum: Spectrum, sidecar: Sidecar) -> CheckResult:
-    slope, _intercept = _fit_tilt(spectrum, sidecar)
+    if sidecar.bell is None:
+        slope, _intercept = _fit_tilt(spectrum, sidecar)
+    else:
+        slope, _intercept = _fit_tilt(
+            spectrum, sidecar, low_override=100.0, high_override=10000.0
+        )
     return _result(
         "Spectral tilt",
         f"{slope:.3f} dB/oct",

@@ -342,15 +342,26 @@ def _spectrum_commands(
 
 
 def tilt_points(spectrum: Spectrum) -> list[tuple[float, float]]:
-    """Point grid describing tilt with a sub-20 Hz high-pass rolloff."""
+    """Point grid describing tilt with a sub-30 Hz high-pass rolloff."""
+    corner_hz = 30.0
     frequencies = _log_spaced(spectrum.tilt_low_hz, spectrum.tilt_high_hz, TILT_POINTS)
     gains = [
         spectrum.tilt_db_per_oct * math.log2(hz / TILT_REFERENCE_HZ) for hz in frequencies
     ]
     ceiling = max(gains)
-    points = [(hz, gain - ceiling) for hz, gain in zip(frequencies, gains, strict=True)]
-    at_20 = next(gain for frequency, gain in points if frequency == 20.0)
-    return [(1.0, at_20 - 72.0), (5.0, at_20 - 36.0), (10.0, at_20 - 12.0), *points]
+    points = [
+        (hz, gain - ceiling)
+        for hz, gain in zip(frequencies, gains, strict=True)
+        if hz >= corner_hz
+    ]
+    at_corner = spectrum.tilt_db_per_oct * math.log2(corner_hz / TILT_REFERENCE_HZ) - ceiling
+    return [
+        (1.0, at_corner - 96.0),
+        (5.0, at_corner - 60.0),
+        (15.0, at_corner - 24.0),
+        (corner_hz, at_corner),
+        *points,
+    ]
 
 
 def bell_points(spectrum: Spectrum) -> list[tuple[float, float]]:
@@ -431,9 +442,7 @@ def _texture_commands(variant: Variant, track_index: int, duration: float) -> li
             )
         )
     )
-    commands.extend(
-        _spectrum_commands(variant.spectrum, track_index, duration, include_bell=False)
-    )
+    commands.extend(_spectrum_commands(variant.spectrum, track_index, duration))
     return commands
 
 
@@ -457,9 +466,7 @@ def _motion_commands(variant: Variant, track_index: int, duration: float) -> lis
             )
         )
     )
-    commands.extend(
-        _spectrum_commands(variant.spectrum, track_index, duration, include_bell=False)
-    )
+    commands.extend(_spectrum_commands(variant.spectrum, track_index, duration))
     return commands
 
 
