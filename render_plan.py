@@ -317,6 +317,24 @@ def _filter_curve(points: Sequence[tuple[float, float]]) -> str:
     )
 
 
+def _spectrum_commands(
+    spectrum: Spectrum, track_index: int, duration: float
+) -> list[str]:
+    if spectrum.tilt_db_per_oct == 0.0 and not spectrum.has_bell:
+        return []
+    commands = [
+        (
+            f"Select: Start=0 End={_seconds(duration)} "
+            f"Track={track_index} TrackCount=1 Mode=Set RelativeTo=ProjectStart"
+        )
+    ]
+    if spectrum.tilt_db_per_oct != 0.0:
+        commands.append(_filter_curve(tilt_points(spectrum)))
+    if spectrum.has_bell:
+        commands.append(_filter_curve(bell_points(spectrum)))
+    return commands
+
+
 def tilt_points(spectrum: Spectrum) -> list[tuple[float, float]]:
     """Point grid describing the spectral slope, normalised to 0 dB maximum."""
     frequencies = _log_spaced(spectrum.tilt_low_hz, spectrum.tilt_high_hz, TILT_POINTS)
@@ -381,10 +399,7 @@ def _bed_commands(variant: Variant, track_index: int, duration: float) -> list[s
             )
         )
     )
-    if spectrum.tilt_db_per_oct != 0.0:
-        commands.append(_filter_curve(tilt_points(spectrum)))
-    if spectrum.has_bell:
-        commands.append(_filter_curve(bell_points(spectrum)))
+    commands.extend(_spectrum_commands(spectrum, track_index, duration))
     return commands
 
 
@@ -408,6 +423,7 @@ def _texture_commands(variant: Variant, track_index: int, duration: float) -> li
             )
         )
     )
+    commands.extend(_spectrum_commands(variant.spectrum, track_index, duration))
     return commands
 
 
@@ -431,6 +447,7 @@ def _motion_commands(variant: Variant, track_index: int, duration: float) -> lis
             )
         )
     )
+    commands.extend(_spectrum_commands(variant.spectrum, track_index, duration))
     return commands
 
 

@@ -892,3 +892,75 @@ The loop-seam negative control is covered by a test that replaces one cell
 with an uncorrelated, substantially discontinuous noise splice; the seam
 check fails (`8.652x second-difference median`) while the legitimate
 repeated-cell result remains at the near-zero discontinuity value.
+
+### FilterCurve investigation and corrected pilot
+
+The live Audacity 3.7.8 contract is:
+
+```text
+Help: Command=FilterCurve
+FilterLength: size_t, default 8191
+InterpolateLin: bool, default False
+InterpolationMethod: enum { B-spline, Cosine, Cubic }, default B-spline
+```
+
+The dynamic curve-point fields are accepted empirically as `f0`, `f1`, ...
+for frequencies and `v0`, `v1`, ... for gains. A one-second stereo noise
+probe with the emitted curve changed from approximately flat to
+`-3.004 dB/oct`; the same probe with the curve omitted measured
+`-0.003 dB/oct`. The emitted `FilterCurve:` syntax is therefore effective.
+
+`GetInfo: Type=Selection Format=JSON` after a 62-second Nyquist replacement
+reported `Start=0, End=62`. The filter was being applied to the generated
+track, not its one-second placeholder. The root cause of the pilot's
+near-flat final measurements was that color shaping was only applied to the
+bed while the uncolored texture and motion stems dominated the final mix.
+Color curves are now applied through Audacity to all three generated stems.
+
+Standalone bed measurements after the corrected plan were:
+
+```text
+white  +0.005 dB/oct
+pink   -3.004 dB/oct
+brown  -6.004 dB/oct
+green  -3.512 dB/oct, with the bell present
+```
+
+Standalone band probes also confirmed the band dimension is active:
+
+```text
+low-mid: energy concentrated in 800–2500 Hz
+mid:     energy concentrated in 800–2500 Hz
+high:    energy concentrated in 2500–8000 Hz
+```
+
+The corrected eight-track pilot is in `/tmp/noise-pilot-colored/` and was
+run through the serializer path without parameter tuning. QA results are
+in:
+
+```text
+/tmp/noise-pilot-colored/qa_report.html
+/tmp/noise-pilot-colored/qa_results.json
+```
+
+The color slopes now measure correctly in the final files:
+
+```text
+white       +0.031 dB/oct
+pink        approximately -2.96 to -3.05 dB/oct
+brown       -5.994 dB/oct
+green       -4.997 dB/oct
+```
+
+The corrected pilot still fails seven of eight overall. Colored variants
+developed DC offset and the brown variant exceeded true peak; green's
+bell measured `11.837 dB` against the existing 4–8 dB acceptance range.
+These are reported findings, not hidden with threshold or DSP changes.
+The corrected pilot's failures are:
+
+- brown: true peak and DC offset;
+- green: spectral tilt, green bell, and DC offset;
+- all pink variants: DC offset;
+- white: no failures.
+
+The full 144-track matrix remains intentionally unstarted.

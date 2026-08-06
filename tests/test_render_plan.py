@@ -152,7 +152,7 @@ def test_spectrum_curves_and_motion_variants() -> None:
     center_gain = next(gain for frequency, gain in green_points if frequency == 500)
     assert center_gain == pytest.approx(6.0)
     assert center_gain == max(gain for _, gain in green_points)
-    assert len(_filter_commands(plans["pink"])) == 1
+    assert len(_filter_commands(plans["pink"])) == 3
 
     still = build_plan(rows[6], output, "/tmp/out.wav")
     drift = build_plan(rows[0], output, "/tmp/out.wav")
@@ -165,6 +165,18 @@ def test_spectrum_curves_and_motion_variants() -> None:
     assert "(noise " in still_motion
     assert "(lfo 0.02)" in "\n".join(drift.commands)
     assert "(lfo 0.08)" in "\n".join(breathing.commands)
+
+
+def test_filter_curve_selection_covers_generated_stem() -> None:
+    plan = _plan(1)
+    filter_index = next(
+        index
+        for index, command in enumerate(plan.commands)
+        if command.startswith("FilterCurve:")
+    )
+    assert plan.commands[filter_index - 1].startswith(
+        "Select: Start=0 End=62 Track=0 TrackCount=1"
+    )
 
 
 def test_band_edges_and_nyquist_expression() -> None:
