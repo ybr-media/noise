@@ -525,18 +525,19 @@ def build_plan(
         "Trim:",
     ]
 
-    # `Repeat: Count=N` appends N further copies of the selection, so the
-    # selection plus its copies is N + 1 cells long.
+    commands.append(
+        "LoudnessNormalization: "
+        f"LUFSLevel={_decibels(output.target_lufs)} NormalizeTo=0 "
+        "StereoIndependent=0 DualMono=0"
+    )
+
+    # `Repeat: Count=N` appends N further copies of the normalized selection,
+    # so the selection plus its copies is N + 1 cells long.
     if output.repeats > 1:
         commands.append(f"Repeat: Count={output.repeats - 1}")
 
     commands += [
         f"Select: Start=0 End={_seconds(total_seconds)} Mode=Set RelativeTo=ProjectStart",
-        (
-            "LoudnessNormalization: "
-            f"LUFSLevel={_decibels(output.target_lufs)} NormalizeTo=0 "
-            "StereoIndependent=0 DualMono=0"
-        ),
     ]
     commands += _fade_commands(output, total_seconds)
     commands.append(f"Export2: Filename={_quote(export_path)} NumChannels=2")

@@ -604,6 +604,45 @@ normalization. The command still returns `BatchCommand finished: Failed!`.
 Changing only `StereoIndependent` to `1` also fails on this full generated
 sequence, although it succeeds on an isolated corrected Nyquist noise track.
 
+### Normalize before repeat
+
+The plan now normalizes the trimmed single cell before `Repeat:`. This is
+intentional: `Repeat:` creates multiple clips, while the loudness effect
+works on a clean single-cell case more reliably. The command order is now:
+
+```text
+<crossfade>
+Select: Start=0 End=5 Track=0 TrackCount=1 Mode=Set RelativeTo=ProjectStart
+Trim:
+LoudnessNormalization: LUFSLevel=-20 NormalizeTo=0 StereoIndependent=0 DualMono=0
+Repeat: Count=3
+Select: Start=0 End=20 Mode=Set RelativeTo=ProjectStart
+<fades>
+```
+
+The live test still failed at the single-cell normalization step, with the
+track and selection both reporting 5 seconds. This is now the minimal
+reproducer boundary; no further parameter permutations were performed.
+Because the single-cell effect failed, final integrated loudness after repeat
+and fades could not be measured through Audacity's loudness effect.
+
+The ordering remains the better design even if the current failure requires
+another Audacity-native fix: concatenating N identical cells does not change
+integrated loudness, so normalizing one cell and then repeating it is
+mathematically equivalent to normalizing the repeated signal, aside from the
+small final fade contribution that QA must measure.
+
+`GetInfo: Type=Commands Format=JSON` contains no `Join` command, and
+`Help: Command=Join` / `Help: Command=Disjoin` both returned `Command not
+found`. The official `audacity-project-tools` utility was not installed in
+the environment, and its CMake/Conan dependencies were unavailable, so a
+schema-level `<waveclip>` count was not obtained in this round. No clip
+consolidation workaround was added.
+
+`ApplyMacro:` was also checked through `Help`; Audacity returned `Command not
+found`, so the alternate macro export path was not available for a quick
+probe.
+
 ## Export-registry evidence correction
 
 The generic `Could not export to <format> format!` response is emitted by

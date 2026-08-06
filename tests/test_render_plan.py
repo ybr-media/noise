@@ -70,14 +70,14 @@ def test_order_duration_and_documented_command_names() -> None:
     fade_out = commands.index("FadeOut:")
     export = next(index for index, command in enumerate(commands) if command.startswith("Export2:"))
 
-    assert max(generation) < first_gain < mix < repeat_index < normalization
-    assert normalization < fade_in < fade_out < export
+    assert max(generation) < first_gain < mix < normalization < repeat_index
+    assert repeat_index < fade_in < fade_out < export
 
     repeat_count = int(re.search(r"Count=(\d+)", commands[repeat_index]).group(1))
     assert plan.output.cell_seconds * (repeat_count + 1) == plan.output.cell_seconds * plan.output.repeats == 240
     assert commands.count("Silence: Duration=1") == 3
     assert commands.count("Trim:") == 1
-    assert commands.index("Trim:") < repeat_index
+    assert commands.index("Trim:") < normalization < repeat_index
 
 
 def test_gains_select_each_track_first() -> None:
