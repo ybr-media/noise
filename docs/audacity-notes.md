@@ -124,4 +124,31 @@ As a cross-build check, the sanctioned 3.7.7 x64 22.04 AppImage was extracted
 and launched with the same pre-seeded module paths, ALSA null device, Xvfb,
 and pipe client. After correcting its module timestamps, its Tone-generated
 WAV and FLAC exports failed with the same generic format-specific errors.
-Flatpak is not installed in this environment, so no Flatpak test was possible.
+Flatpak was not installed at the time of this initial cross-build check; a
+later installation attempt is recorded below.
+
+## Final 3.4.2 and resampler checks
+
+The Audacity 3.4.2 x64 AppImage was also downloaded and extracted. Its
+`mod-pcm.so`, `mod-flac.so`, and `mod-script-pipe.so` modules are present, and
+the pre-seeded config was adjusted to its module paths and actual module
+timestamps. Audacity created both script FIFOs, but the 3.4.2 pipe server did
+not return a response to `Help: Command=Help` with the current client
+protocol; therefore no honest 3.4.2 export result can be claimed. This is a
+script-pipe compatibility/startup blocker, not evidence that 3.4.2's exporter
+works or fails.
+
+Neither the 3.4.2 nor 3.7.7 AppImage ships `libsoxr`, and neither the main
+binary nor the export modules has a `libsoxr` dynamic dependency. The host
+does provide `/usr/lib/x86_64-linux-gnu/libsoxr.so.0`, but Audacity's
+export-related objects do not resolve it or require it. The successful
+generation/export attempts used the project's native sample rate (44.1 kHz);
+they already failed without a sample-rate conversion stage, so a missing
+resampler cannot explain the observed generic export failure.
+
+Flatpak was subsequently installed and the Flathub `org.audacityteam.Audacity`
+stable application (version 3.7.8) was installed. Launching it in this
+headless container required `--no-documents-portal`; even then it did not
+create usable script-pipe FIFOs under the isolated run, so it did not provide
+an independent export result. The AppImage 3.7.7 and 3.7.8 failures therefore
+remain the only complete cross-build export results.
