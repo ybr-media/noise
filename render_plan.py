@@ -28,6 +28,11 @@ CHANNELS: tuple[str, ...] = ("l", "r")
 #: crossfade that makes the cell loop seamlessly.
 CROSSFADE_SECONDS: float = 2.0
 
+# A Nyquist ``noise`` stem is approximately full scale.  The worst-case sum
+# of three such stems is +9.54 dBFS, so this common offset leaves substantial
+# headroom without changing the configured inter-stem balance.
+STEM_HEADROOM_DB: float = -12.0
+
 #: Reference frequency at which the spectral tilt curve is anchored.
 TILT_REFERENCE_HZ: float = 1000.0
 
@@ -507,7 +512,7 @@ def build_plan(
             "RelativeTo=ProjectStart"
         )
         commands.append(
-            f"SetTrackAudio: Gain={_decibels(variant.gain_db(stem))}"
+            f"SetTrackAudio: Volume={_decibels(variant.gain_db(stem) + STEM_HEADROOM_DB)}"
         )
 
     commands += [

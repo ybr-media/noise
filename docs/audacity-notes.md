@@ -723,3 +723,47 @@ single-sound operations. In Audacity 3.7.8's version-4 Nyquist environment,
 `s` is the dummy float `0.25`, not selected audio; `*track*` is a sound for
 mono and an array of sounds for stereo. Direct `extract-abs` on the stereo
 array type-errors, which is why the per-channel expansion is required.
+
+## Mix headroom and `SetTrackAudio`
+
+The level hypothesis exposed an additional command-contract bug. Live help
+for Audacity 3.7.8 shows that `SetTrackAudio` accepts `Volume` and `Pan`;
+the planner had been emitting an unsupported `Gain` parameter. Audacity
+silently left the intended attenuation unapplied, and the resulting three
+stem mix could exceed full scale.
+
+Measured little-endian float32 sampleblocks from saved projects included:
+
+| Material | Peak | RMS | Loudness (`StereoIndependent=1`) |
+| --- | ---: | ---: | --- |
+| One unattenuated Nyquist stem | 0.999996 | 0.577398 | Pass |
+| Three-stem mix with the invalid gain command | 2.48 observed | 0.584 | Fail |
+| Correctly headroom-staged mixed output | 0.2233 active mixed block | 0.0815 | Pass |
+
+The raw project database also retains superseded sampleblocks, so the active
+mixed blocks were measured separately from stale stem blocks. The
+unattenuated stem's approximately full-scale peak confirms that three such
+signals cannot safely be summed without common headroom.
+
+The planner now emits the valid Audacity-native form:
+
+```text
+SetTrackAudio: Volume=-18
+SetTrackAudio: Volume=-21
+SetTrackAudio: Volume=-24
+```
+
+These preserve the configured bed/texture/motion differences of
+`-6/-9/-12 dB` while applying a common `-12 dB` offset. Three full-scale
+signals have a worst-case coherent sum of +9.54 dB, so this leaves
+approximately 2.46 dB of theoretical margin before mixing. The offset is
+represented by `STEM_HEADROOM_DB` and is asserted by the render-plan tests.
+
+With valid volume staging and the common offset, the full short sequence
+executes through loudness normalization, repeat, selection, and fades. The
+only remaining failure is the already-known `Export2:` failure:
+
+```text
+Could not export to FLAC format!
+BatchCommand finished: Failed!
+```

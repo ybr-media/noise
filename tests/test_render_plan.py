@@ -13,7 +13,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from render_plan import RenderPlan, build_plan
+from render_plan import STEM_HEADROOM_DB, RenderPlan, build_plan
 
 ROOT = Path(__file__).parents[1]
 CURVE_VALUE = re.compile(r'([fv])(\d+)="([^"]+)"')
@@ -86,7 +86,10 @@ def test_gains_select_each_track_first() -> None:
         gain_index = next(
             i for i, command in enumerate(plan.commands)
             if command.startswith("SetTrackAudio:")
-            and f"Gain={plan.variant.gain_db(stem):g}" in command
+            and (
+                f"Volume={plan.variant.gain_db(stem) + STEM_HEADROOM_DB:g}"
+                in command
+            )
         )
         selection = plan.commands[gain_index - 1]
         assert f"Track={index} TrackCount=1 Mode=Set" in selection
