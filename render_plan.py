@@ -312,15 +312,21 @@ def _filter_curve(points: Sequence[tuple[float, float]]) -> str:
     parts = [f'f{index}={_quote(_seconds(hz))}' for index, (hz, _) in enumerate(points)]
     parts += [f'v{index}={_quote(_decibels(db))}' for index, (_, db) in enumerate(points)]
     return (
-        "FilterCurve: FilterLength=8191 InterpolateLin=0 "
+        "FilterCurve: FilterLength=8191 InterpolateLin=1 "
         'InterpolationMethod="B-spline" ' + " ".join(parts)
     )
 
 
 def _spectrum_commands(
-    spectrum: Spectrum, track_index: int, duration: float
+    spectrum: Spectrum,
+    track_index: int,
+    duration: float,
+    *,
+    include_bell: bool = True,
 ) -> list[str]:
-    if spectrum.tilt_db_per_oct == 0.0 and not spectrum.has_bell:
+    if spectrum.tilt_db_per_oct == 0.0 and (
+        not include_bell or not spectrum.has_bell
+    ):
         return []
     commands = [
         (
@@ -330,19 +336,21 @@ def _spectrum_commands(
     ]
     if spectrum.tilt_db_per_oct != 0.0:
         commands.append(_filter_curve(tilt_points(spectrum)))
-    if spectrum.has_bell:
+    if include_bell and spectrum.has_bell:
         commands.append(_filter_curve(bell_points(spectrum)))
     return commands
 
 
 def tilt_points(spectrum: Spectrum) -> list[tuple[float, float]]:
-    """Point grid describing the spectral slope, normalised to 0 dB maximum."""
+    """Point grid describing tilt with a sub-20 Hz high-pass rolloff."""
     frequencies = _log_spaced(spectrum.tilt_low_hz, spectrum.tilt_high_hz, TILT_POINTS)
     gains = [
         spectrum.tilt_db_per_oct * math.log2(hz / TILT_REFERENCE_HZ) for hz in frequencies
     ]
     ceiling = max(gains)
-    return [(hz, gain - ceiling) for hz, gain in zip(frequencies, gains, strict=True)]
+    points = [(hz, gain - ceiling) for hz, gain in zip(frequencies, gains, strict=True)]
+    at_20 = next(gain for frequency, gain in points if frequency == 20.0)
+    return [(1.0, at_20 - 72.0), (5.0, at_20 - 36.0), (10.0, at_20 - 12.0), *points]
 
 
 def bell_points(spectrum: Spectrum) -> list[tuple[float, float]]:
@@ -423,7 +431,9 @@ def _texture_commands(variant: Variant, track_index: int, duration: float) -> li
             )
         )
     )
-    commands.extend(_spectrum_commands(variant.spectrum, track_index, duration))
+    commands.extend(
+        _spectrum_commands(variant.spectrum, track_index, duration, include_bell=False)
+    )
     return commands
 
 
@@ -447,7 +457,9 @@ def _motion_commands(variant: Variant, track_index: int, duration: float) -> lis
             )
         )
     )
-    commands.extend(_spectrum_commands(variant.spectrum, track_index, duration))
+    commands.extend(
+        _spectrum_commands(variant.spectrum, track_index, duration, include_bell=False)
+    )
     return commands
 
 

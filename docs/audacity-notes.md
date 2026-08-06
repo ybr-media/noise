@@ -964,3 +964,45 @@ The corrected pilot's failures are:
 - white: no failures.
 
 The full 144-track matrix remains intentionally unstarted.
+
+### Rolloff and green-bell follow-up
+
+The color tilt curves now include explicit sub-20 Hz points:
+
+```text
+1 Hz  = gain at 20 Hz - 72 dB
+5 Hz  = gain at 20 Hz - 36 dB
+10 Hz = gain at 20 Hz - 12 dB
+20 Hz = unchanged tilt curve
+```
+
+They are emitted with `InterpolateLin=1`; the measured slopes above 20 Hz
+remain on target. The green bell is applied only to the bed stem rather than
+stacked independently on all three stems. A direct comparison showed that
+per-stem bell application did not triple the response, but moving it to the
+bed makes the structural intent explicit and avoids applying a feature
+curve to unrelated stems.
+
+The final corrected pilot is in `/tmp/noise-pilot-rolloff/`:
+
+```text
+/tmp/noise-pilot-rolloff/qa_report.html
+/tmp/noise-pilot-rolloff/qa_results.json
+```
+
+QA result: six of eight variants pass overall. Measured spectral results are:
+
+```text
+white       +0.031 dB/oct
+pink        -2.952 to -3.041 dB/oct
+brown       -5.984 dB/oct
+green       -4.406 dB/oct
+green bell  11.387 dB
+```
+
+The rolloff fixed DC offset for all pink variants and restored brown's true
+peak to `-4.387 dBTP`, within its `-3 dBTP` limit. Brown still fails DC
+offset at `0.0002195`. Green's DC offset now passes (`0.0000211`), and its
+tilt is within the existing tolerance, but its bell remains outside the
+4–8 dB acceptance range at `11.387 dB`. No QA threshold or bell gain was
+changed.

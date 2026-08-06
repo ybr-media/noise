@@ -130,10 +130,11 @@ def test_spectrum_curves_and_motion_variants() -> None:
 
     pink_points = _curve_points(_filter_commands(plans["pink"])[0])
     brown_points = _curve_points(_filter_commands(plans["brown"])[0])
-    assert all(left[1] > right[1] for left, right in pairwise(pink_points))
-    assert all(left[1] > right[1] for left, right in pairwise(brown_points))
+    assert [point[0] for point in pink_points[:4]] == [1.0, 5.0, 10.0, 20.0]
+    assert all(left[1] > right[1] for left, right in pairwise(pink_points[3:]))
+    assert all(left[1] > right[1] for left, right in pairwise(brown_points[3:]))
 
-    for points, expected_slope in ((pink_points, -3.0), (brown_points, -6.0)):
+    for points, expected_slope in ((pink_points[3:], -3.0), (brown_points[3:], -6.0)):
         first_frequency, first_gain = points[0]
         _, octave_gain = min(
             points[1:],
@@ -153,6 +154,7 @@ def test_spectrum_curves_and_motion_variants() -> None:
     assert center_gain == pytest.approx(6.0)
     assert center_gain == max(gain for _, gain in green_points)
     assert len(_filter_commands(plans["pink"])) == 3
+    assert len(_filter_commands(plans["green"])) == 4
 
     still = build_plan(rows[6], output, "/tmp/out.wav")
     drift = build_plan(rows[0], output, "/tmp/out.wav")
