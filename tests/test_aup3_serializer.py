@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import sqlite3
+import struct
 import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
@@ -12,17 +14,25 @@ sys.path.insert(0, str(Path(__file__).parents[1]))
 from aup3_serializer import _BinaryXML, extract_track, write_wav
 
 
+def _dictionary(*names: str, char_size: int = 4) -> bytes:
+    result = bytearray([0, char_size])
+    for identifier, name in enumerate(names):
+        encoded = name.encode("utf-32-le")
+        result += bytes([15]) + struct.pack("<HH", identifier, len(encoded)) + encoded
+    return bytes(result)
+
+
 def test_binary_xml_decoder_resolves_dictionary_names() -> None:
-    dictionary = b"\x00\x04" + b"\x0f\x00\x00\x10\x00" + "root".encode("utf-32-le")
+    dictionary = b"\x00\x04" + b"\x0f\x00\x00\x1c\x00" + "project".encode("utf-32-le")
     document = b"\x01\x00\x00\x02\x00\x00"
-    assert _BinaryXML(dictionary, document).decode() == "<root></root>"
+    assert _BinaryXML(dictionary, document).decode() == "<project></project>"
 
 
 def test_binary_xml_decoder_escapes_attribute_values() -> None:
     dictionary = (
         b"\x00\x04"
-        + b"\x0f\x00\x00\x10\x00"
-        + "root".encode("utf-32-le")
+            + b"\x0f\x00\x00\x1c\x00"
+        + "project".encode("utf-32-le")
         + b"\x0f\x01\x00\x14\x00"
         + "title".encode("utf-32-le")
     )
@@ -35,7 +45,63 @@ def test_binary_xml_decoder_escapes_attribute_values() -> None:
         + b"\x02\x00\x00"
     )
     assert _BinaryXML(dictionary, document).decode() == (
-        '<root title="a&amp;&quot;&lt;"></root>'
+        '<project title="a&amp;&quot;&lt;"></project>'
+    )
+
+
+def test_binary_xml_rejects_malformed_char_size() -> None:
+    with pytest.raises(ValueError, match="character size"):
+        _BinaryXML(b"\x00\x03", b"")
+
+
+def test_binary_xml_rejects_unknown_token_and_name() -> None:
+    dictionary = _dictionary("project")
+    with pytest.raises(ValueError, match="opcode"):
+        _BinaryXML(dictionary, b"\x10").decode()
+    with pytest.raises(ValueError, match="unknown name"):
+        _BinaryXML(dictionary, b"\x01\x63\x00\x02\x00\x00").decode()
+    with pytest.raises(ValueError, match="FT_StartTag"):
+        _BinaryXML(dictionary, b"\x0b\x00\x00\x00\x00").decode()
+
+
+def test_binary_xml_rejects_wrong_schema_attribute_type() -> None:
+    dictionary = _dictionary("project", "numsamples")
+    document = (
+        b"\x01\x00\x00"
+        + b"\x04\x01\x00"
+        + struct.pack("<i", 4)
+        + b"\x02\x00\x00"
+    )
+    with pytest.raises(ValueError, match="numsamples"):
+        _BinaryXML(dictionary, document).decode()
+
+
+def test_binary_xml_push_pop_scopes_names() -> None:
+    dictionary = _dictionary("project")
+    scoped = (
+        b"\x01\x00\x00"
+        b"\x0d"
+        + b"\x0f"
+        + struct.pack("<HH", 0, len("title".encode("utf-32-le")))
+        + "title".encode("utf-32-le")
+        + b"\x03\x00\x00\x14\x00\x00\x00"
+        + "hello".encode("utf-32-le")
+        + b"\x0e"
+        + b"\x02\x00\x00"
+    )
+    assert _BinaryXML(dictionary, scoped).decode() == '<project title="hello"></project>'
+
+
+def test_binary_xml_longlong_preserves_large_negative_values() -> None:
+    dictionary = _dictionary("project", "blockid")
+    document = (
+        b"\x01\x00\x00"
+        + b"\x07\x01\x00"
+        + struct.pack("<q", -(2**40))
+        + b"\x02\x00\x00"
+    )
+    assert _BinaryXML(dictionary, document).decode() == (
+        '<project blockid="-1099511627776"></project>'
     )
 
 

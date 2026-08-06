@@ -26,138 +26,195 @@ FLOAT32_SAMPLE_FORMAT = 262159
 
 
 class _BinaryXML:
-    """Small decoder for Audacity's documented field-op binary XML."""
+    """Strict decoder for Audacity's documented field-op binary XML."""
 
-    CHAR_SIZE = 0
-    START_TAG = 1
-    END_TAG = 2
-    STRING = 3
-    INT = 4
-    BOOL = 5
-    LONG = 6
-    LONG_LONG = 7
-    SIZE_T = 8
-    FLOAT = 9
-    DOUBLE = 10
-    DATA = 11
-    RAW = 12
-    PUSH = 13
-    POP = 14
-    NAME = 15
+    CHAR_SIZE, START_TAG, END_TAG = 0, 1, 2
+    STRING, INT, BOOL, LONG = 3, 4, 5, 6
+    LONG_LONG, SIZE_T, FLOAT, DOUBLE = 7, 8, 9, 10
+    DATA, RAW, PUSH, POP, NAME = 11, 12, 13, 14, 15
 
     def __init__(self, dictionary: bytes, document: bytes) -> None:
-        self.data = dictionary + document
-        self.offset = 0
+        self.dictionary = dictionary
+        self.document = document
         self.char_size = 0
         self.names: dict[int, str] = {}
+        self._parse_dictionary()
 
-    def _read(self, fmt: str) -> int | float:
+    @staticmethod
+    def _read(blob: bytes, offset: int, fmt: str) -> tuple[int | float, int]:
         size = struct.calcsize(fmt)
-        if self.offset + size > len(self.data):
+        if offset + size > len(blob):
             raise Aup3Error("truncated binary XML")
-        value = struct.unpack_from(fmt, self.data, self.offset)[0]
-        self.offset += size
-        return value
+        return struct.unpack_from(fmt, blob, offset)[0], offset + size
 
-    def _string(self, wide_length: bool) -> str:
-        length = int(self._read("<I" if wide_length else "<H"))
-        size = length
-        if self.offset + size > len(self.data):
-            raise Aup3Error("truncated binary XML string")
-        raw = self.data[self.offset : self.offset + size]
-        self.offset += size
+    def _decode_text(self, raw: bytes) -> str:
         try:
             return raw.decode({1: "utf-8", 2: "utf-16-le", 4: "utf-32-le"}[self.char_size])
         except (KeyError, UnicodeDecodeError) as exc:
             raise Aup3Error("invalid binary XML string") from exc
 
-    def _name(self, identifier: int) -> str:
-        try:
-            return self.names[identifier]
-        except KeyError as exc:
-            raise Aup3Error(f"binary XML references unknown name {identifier}") from exc
+    def _read_text(self, blob: bytes, offset: int, length_fmt: str) -> tuple[str, int]:
+        length, offset = self._read(blob, offset, length_fmt)
+        length = int(length)
+        if length < 0 or offset + length > len(blob):
+            raise Aup3Error("truncated binary XML string")
+        return self._decode_text(blob[offset : offset + length]), offset + length
+
+    def _parse_dictionary(self) -> None:
+        token, offset = self._read(self.dictionary, 0, "<B")
+        if token != self.CHAR_SIZE:
+            raise Aup3Error("dictionary must start with FT_CharSize")
+        self.char_size, offset = self._read(self.dictionary, offset, "<B")
+        self.char_size = int(self.char_size)
+        if self.char_size not in {1, 2, 4}:
+            raise Aup3Error(f"invalid binary XML character size: {self.char_size}")
+        while offset < len(self.dictionary):
+            token, offset = self._read(self.dictionary, offset, "<B")
+            if token != self.NAME:
+                raise Aup3Error(f"unexpected dictionary token {token}")
+            identifier, offset = self._read(self.dictionary, offset, "<H")
+            name, offset = self._read_text(self.dictionary, offset, "<H")
+            identifier = int(identifier)
+            if identifier in self.names:
+                raise Aup3Error(f"duplicate binary XML name {identifier}")
+            self.names[identifier] = name
 
     @staticmethod
     def _xml_value(value: object) -> str:
         if isinstance(value, bool):
             return "true" if value else "false"
-        if isinstance(value, float):
-            value = repr(value)
-        return html.escape(str(value), quote=True)
+        return html.escape(repr(value) if isinstance(value, float) else str(value), quote=True)
+
+    @staticmethod
+    def _check_attribute_type(name: str, opcode: int, parent: str | None) -> None:
+        expected: dict[str, set[int]] = {
+            "start": {7}, "numsamples": {7}, "blockid": {7},
+            "offset": {10}, "trimleft": {10}, "trimright": {10},
+            "maxsamples": {8}, "effectivesampleformat": {8},
+            "rate": {10}, "volume": {10}, "pan": {10},
+        }
+        allowed = ({8} if parent == "sequence" else {4, 6, 8}) if name == "sampleformat" else expected.get(name)
+        if allowed is not None and opcode not in allowed:
+            raise Aup3Error(f"binary XML attribute {name} has token {opcode}, expected {sorted(allowed)}")
 
     def decode(self) -> str:
+        blob, offset = self.document, 0
         output: list[str] = []
         pending: list[tuple[str, object]] = []
-        stack: list[str] = []
+        tags: list[str] = []
+        scopes: list[dict[int, str]] = []
+        identifiers = self.names.copy()
+        scoped_names = False
         current_tag: str | None = None
+        saw_root = saw_non_raw = False
+        first_record = True
+
+        def name(identifier: int) -> str:
+            try:
+                return identifiers[identifier]
+            except KeyError as exc:
+                raise Aup3Error(f"binary XML references unknown name {identifier}") from exc
 
         def flush_start() -> None:
-            nonlocal current_tag
+            nonlocal current_tag, saw_root
             if current_tag is None:
                 return
+            if not saw_root:
+                if current_tag != "project":
+                    raise Aup3Error("binary XML root is not project")
+                saw_root = True
             output.append("<" + current_tag)
             for key, value in pending:
                 output.append(f' {key}="{self._xml_value(value)}"')
             pending.clear()
             output.append(">")
-            stack.append(current_tag)
+            tags.append(current_tag)
             current_tag = None
 
-        while self.offset < len(self.data):
-            opcode = int(self._read("<B"))
-            if opcode == self.CHAR_SIZE:
-                self.char_size = int(self._read("<B"))
-            elif opcode == self.NAME:
-                identifier = int(self._read("<H"))
-                self.names[identifier] = self._string(False)
-            elif opcode == self.DATA:
-                flush_start()
-                output.append(self._string(True))
-            elif opcode == self.RAW:
-                self._string(True)
-            elif opcode in (self.PUSH, self.POP):
-                pass
-            elif opcode in (self.STRING, self.INT, self.BOOL, self.LONG, self.LONG_LONG, self.SIZE_T,
-                            self.FLOAT, self.DOUBLE):
-                identifier = int(self._read("<H"))
-                if opcode == self.STRING:
-                    value = self._string(True)
-                elif opcode in (self.INT, self.LONG):
-                    value = self._read("<i")
-                elif opcode == self.BOOL:
-                    value = bool(self._read("<B"))
-                elif opcode == self.LONG_LONG:
-                    value = self._read("<q")
-                elif opcode == self.SIZE_T:
-                    value = self._read("<I")
-                elif opcode == self.FLOAT:
-                    value = self._read("<f")
-                    self._read("<I")  # display precision
-                else:
-                    value = self._read("<d")
-                    self._read("<I")  # display precision
-                pending.append((self._name(identifier), value))
-            elif opcode == self.START_TAG:
-                flush_start()
-                current_tag = self._name(int(self._read("<H")))
-            elif opcode == self.END_TAG:
-                flush_start()
-                name = self._name(int(self._read("<H")))
-                if not stack or stack[-1] != name:
-                    raise Aup3Error(f"binary XML tag mismatch: {name}")
-                stack.pop()
-                output.append(f"</{name}>")
-            else:
+        while offset < len(blob):
+            opcode, offset = self._read(blob, offset, "<B")
+            opcode = int(opcode)
+            if opcode not in range(16):
                 raise Aup3Error(f"unsupported binary XML opcode {opcode}")
+            if opcode == self.CHAR_SIZE:
+                raise Aup3Error("FT_CharSize is only valid at dictionary start")
+            if opcode == self.NAME:
+                if not scoped_names:
+                    raise Aup3Error("inline FT_Name is not valid in document stream")
+                identifier, offset = self._read(blob, offset, "<H")
+                scoped_name, offset = self._read_text(blob, offset, "<H")
+                identifiers[int(identifier)] = scoped_name
+                continue
+            if opcode == self.RAW:
+                _, offset = self._read_text(blob, offset, "<i")
+                if saw_non_raw:
+                    raise Aup3Error("FT_Raw is only valid before the document root")
+                continue
+            if opcode == self.PUSH:
+                if first_record:
+                    raise Aup3Error("document must begin with FT_StartTag after FT_Raw")
+                scopes.append(identifiers)
+                identifiers = {}
+                scoped_names = True
+                continue
+            if opcode == self.POP:
+                if first_record:
+                    raise Aup3Error("document must begin with FT_StartTag after FT_Raw")
+                if not scopes:
+                    raise Aup3Error("binary XML scope stack underflow")
+                identifiers = scopes.pop()
+                scoped_names = bool(scopes)
+                continue
+            if first_record and opcode != self.START_TAG:
+                raise Aup3Error("document must begin with FT_StartTag after FT_Raw")
+            first_record = False
+            saw_non_raw = True
+            if opcode == self.DATA:
+                flush_start()
+                value, offset = self._read_text(blob, offset, "<i")
+                output.append(html.escape(value))
+                continue
+            if opcode == self.START_TAG:
+                flush_start()
+                identifier, offset = self._read(blob, offset, "<H")
+                current_tag = name(int(identifier))
+                continue
+            if opcode == self.END_TAG:
+                flush_start()
+                identifier, offset = self._read(blob, offset, "<H")
+                tag = name(int(identifier))
+                if not tags or tags[-1] != tag:
+                    raise Aup3Error(f"binary XML tag mismatch: {tag}")
+                tags.pop()
+                output.append(f"</{tag}>")
+                continue
+            identifier, offset = self._read(blob, offset, "<H")
+            attr_name = name(int(identifier))
+            if opcode == self.STRING:
+                value, offset = self._read_text(blob, offset, "<i")
+            elif opcode in (self.INT, self.LONG):
+                value, offset = self._read(blob, offset, "<i")
+            elif opcode == self.BOOL:
+                value, offset = self._read(blob, offset, "<B")
+                if value not in (0, 1):
+                    raise Aup3Error("invalid binary XML boolean")
+                value = bool(value)
+            elif opcode == self.LONG_LONG:
+                value, offset = self._read(blob, offset, "<q")
+            elif opcode == self.SIZE_T:
+                value, offset = self._read(blob, offset, "<I")
+            elif opcode == self.FLOAT:
+                value, offset = self._read(blob, offset, "<f")
+                _, offset = self._read(blob, offset, "<i")
+            else:
+                value, offset = self._read(blob, offset, "<d")
+                _, offset = self._read(blob, offset, "<i")
+            self._check_attribute_type(attr_name, opcode, tags[-1] if tags else current_tag)
+            pending.append((attr_name, value))
         if current_tag is not None:
             flush_start()
-            name = stack.pop()
-            output.append(f"</{name}>")
-        if pending or stack:
-            raise Aup3Error(
-                f"incomplete binary XML document at {self.offset}: "
-                f"{len(stack)} open tags, {len(pending)} pending attributes"
-            )
+        if pending or tags or scopes or not saw_root:
+            raise Aup3Error(f"incomplete binary XML document at {offset}")
         return "".join(output)
 
 

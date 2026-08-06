@@ -965,6 +965,52 @@ The corrected pilot's failures are:
 
 The full 144-track matrix remains intentionally unstarted.
 
+### AUP3 wire-format audit
+
+The binary XML decoder now follows the authoritative `ProjectSerializer.cpp`
+format field by field:
+
+- `project.dict` and `project.doc` are parsed separately.
+- The dictionary requires `FT_CharSize` with width 1, 2, or 4, followed only
+  by `FT_Name` records. Unreferenced cumulative dictionary names are retained
+  and tolerated.
+- The document permits leading `FT_Raw` only, then requires a `project`
+  `FT_StartTag`; all opcodes, lengths, name IDs, tag nesting, and scope
+  operations are validated.
+- `FT_Push`/`FT_Pop` maintain nested ID-map scopes; scoped `FT_Name` records
+  are supported, while unexpected inline names fail.
+- Integer, length, float/double, digits, and signed `LongLong` widths match
+  the fixed little-endian wire widths. Large negative `blockid` values are
+  preserved as signed int64 values.
+- Schema-critical attributes assert their expected token types before any
+  XML is emitted: block starts/IDs and sample counts are `LongLong`, trims
+  and offsets are `Double`, sequence sample formats are `SizeT`, and track
+  formats accept the documented legacy integer forms.
+
+Malformed character sizes, unknown opcodes, unresolved names, invalid first
+records, wrong critical attribute types, scope underflow, and large negative
+silent-run IDs are covered by tests. Any assertion failure aborts extraction
+before WAV output.
+
+The hardened decoder re-extracted all eight existing corrected-pilot
+projects from `/tmp/noise-pilot-warpfix2/`. Every resulting WAV was
+byte-identical to the previously produced pilot WAV:
+
+```text
+8/8 byte-identical WAV files
+```
+
+The documented Audacity process-effect behavior remains the basis for the
+warp fix: selection length is one local time unit, so `D × N` is intended
+semantics rather than an implementation accident. `abs-env` is the official
+idiom for durations and envelopes that must use absolute seconds. The
+one-second generation placeholder remains because it is tested and
+load-bearing, while envelope-bearing expressions use `abs-env` explicitly.
+
+The `Export2:` branch remains the default for a future Audacity fix, but its
+registry diagnosis is unresolved and deliberately abandoned. No export
+diagnostics are being run; the proven serializer path is the active path.
+
 ### Nyquist warp audit: crossfade and motion LFO
 
 Audacity's process-type Nyquist effects set `*warp*` to the selection
