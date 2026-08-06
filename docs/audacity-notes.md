@@ -215,3 +215,96 @@ rate; the second selects 24-bit FLAC encoding. These are configuration
 defaults only. End-to-end encoded-file verification remains blocked by the
 documented Audacity export failure, but the generated config and live
 temporary profile were read back after launch to confirm both values landed.
+
+## Client constraint: preserve Audacity DSP
+
+Audacity is required for the specific DSP character of the rendered noise.
+Replacing its generation or processing with SoX, FFmpeg, Python DSP, or
+another audio engine is therefore not an acceptable fallback. If direct
+export remains unavailable, the only compatible fallback is to keep Audacity
+for all generation and DSP and serialize the samples stored in its `.aup3`
+project.
+
+## Follow-up export experiments
+
+### Experiment 1: select tracks explicitly
+
+The suspected missing track selection was tested using two fresh 3.7.8
+AppImage processes. Each generated a 440 Hz tone, then sent:
+
+```text
+SelectAll:
+SelAllTracks:
+Export2: Filename="/tmp/exp1-selalltracks.wav" NumChannels=2
+```
+
+The WAV export returned:
+
+```text
+Could not export to WAV format!
+BatchCommand finished: Failed!
+```
+
+The same sequence with a `.flac` destination returned the corresponding FLAC
+failure. Neither destination was created, so neither produced verifiable
+non-silent audio. Explicit track selection does not fix the blocker.
+
+### Experiment 2: XDG user directories and D-Bus
+
+For two more fresh 3.7.8 processes, temporary homes were given a
+`~/Documents` directory, `xdg-user-dirs-update` was run, and Audacity was
+launched under `dbus-run-session` and Xvfb. The same explicit time and track
+selection sequence was used. WAV and FLAC both failed immediately with the
+same generic responses. Stderr contained only portal/GTK display warnings
+from the headless D-Bus session; no exporter error appeared. Missing
+`~/Documents`, XDG setup, and D-Bus are not sufficient to fix export here.
+
+### Experiment 3: live export-module diagnostics
+
+Against a live 3.7.8 profile, with `AUDACITY_MODULES_PATH` set explicitly to
+the extracted AppImage module directory, the pipe returned:
+
+```text
+GetPreference: Name=/Module/mod-pcm
+1
+BatchCommand finished: OK
+
+GetPreference: Name=/Module/mod-flac
+1
+BatchCommand finished: OK
+
+GetPreference: Name=/Module/mod-script-pipe
+1
+BatchCommand finished: OK
+```
+
+The live profile retained status `1` for all three modules. Captured stdout
+contained the expected bundled library list and stderr was empty; no module
+initialization error was logged. This rules out the proposed cached
+load-failure status `3` and leaves the registration failure unresolved:
+module status and library loading still do not result in a usable exporter.
+
+### Experiment 4: Audacity 3.4.2 old-exporter test
+
+The 3.4.2 AppImage was launched once under Xvfb with a fresh home. Its config
+contained `mod-script-pipe=4`, while the module path and timestamp entries
+matched the extracted bundle. Following the documented fix, only that status
+was changed from `4` to `1`; paths and timestamps were not changed. A
+relaunch created both script FIFOs and the existing pipe client successfully
+completed `Help`, track creation, tone generation, `SelectAll:`, and
+`SelAllTracks:`.
+
+The decisive old-exporter attempt still failed:
+
+```text
+Export2: Filename="/tmp/exp4-tone.wav" NumChannels=2
+Could not export to WAV format!
+BatchCommand finished: Failed!
+```
+
+No WAV was created, so no non-silent audio was observed. The pre-3.5
+exporter therefore does not resolve the headless failure either.
+
+Since all four experiments failed, the 20-run gate, PCM determinism check,
+and live orchestrator render remain blocked by the absence of any exported
+file.
