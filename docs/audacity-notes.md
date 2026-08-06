@@ -187,3 +187,23 @@ process crash. Since no 3.4.2 command response could be obtained after trying
 both orderings and line endings, the existing 3.7-compatible client was left
 unchanged and no 3.4.2 export result was claimed. A Tone-to-WAV or FLAC
 export cannot be tested honestly without a working command response.
+
+## Export preferences
+
+`Export2:` selects the container from the filename extension, but its
+scriptable command does not expose FLAC bit depth or export sample-rate
+parameters. The setup config therefore pre-seeds the preferences that the
+interactive exporter would otherwise persist:
+
+```ini
+[SamplingRate]
+DefaultProjectSampleRate=48000
+[FileFormats]
+FLACBitDepth=24
+```
+
+The first value makes newly created Audacity projects use the required 48 kHz
+rate; the second selects 24-bit FLAC encoding. These are configuration
+defaults only. End-to-end encoded-file verification remains blocked by the
+documented Audacity export failure, but the generated config and live
+temporary profile were read back after launch to confirm both values landed.
