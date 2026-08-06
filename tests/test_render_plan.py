@@ -13,7 +13,14 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from render_plan import STEM_HEADROOM_DB, RenderPlan, build_plan
+from render_plan import (
+    MAX_CELL_SECONDS,
+    MIN_CELL_SECONDS,
+    STEM_HEADROOM_DB,
+    RenderPlan,
+    build_plan,
+    cell_frames_for_variant,
+)
 
 ROOT = Path(__file__).parents[1]
 CURVE_VALUE = re.compile(r'([fv])(\d+)="([^"]+)"')
@@ -74,7 +81,12 @@ def test_order_duration_and_documented_command_names() -> None:
     assert repeat_index < fade_in < fade_out < export
 
     repeat_count = int(re.search(r"Count=(\d+)", commands[repeat_index]).group(1))
-    assert plan.output.cell_seconds * (repeat_count + 1) == plan.output.cell_seconds * plan.output.repeats == 240
+    assert repeat_count + 1 == plan.output.repeats == 4
+    assert plan.output.cell_seconds * plan.output.sample_rate == round(
+        plan.output.cell_seconds * plan.output.sample_rate
+    )
+    assert MIN_CELL_SECONDS <= plan.output.cell_seconds <= MAX_CELL_SECONDS
+    assert plan.output.cell_seconds * plan.output.repeats == plan.total_seconds
     assert commands.count("Silence: Duration=1") == 3
     assert commands.count("Trim:") == 1
     assert commands.index("Trim:") < normalization < repeat_index
@@ -113,6 +125,20 @@ def test_seeded_noise_and_distinct_channels() -> None:
         assert all("(seed-random " not in command for command in plan.commands)
 
 
+def test_variant_duration_is_seeded_whole_sample_and_varies() -> None:
+    output, rows = _pilot()
+    plans = [build_plan(row, output, "/tmp/out.wav") for row in rows]
+    durations = {plan.output.cell_seconds for plan in plans}
+    assert len(durations) > 1
+    for plan in plans:
+        expected_frames = cell_frames_for_variant(plan.variant, plan.output.sample_rate)
+        assert round(plan.output.cell_seconds * plan.output.sample_rate) == expected_frames
+        assert MIN_CELL_SECONDS <= plan.output.cell_seconds <= MAX_CELL_SECONDS
+        assert plan.total_seconds == plan.output.cell_seconds * 4
+        total_text = f"End={plan.total_seconds:.6f}".rstrip("0").rstrip(".")
+        assert any(total_text in command for command in plan.commands)
+
+
 def test_motion_modulator_matches_stem_duration() -> None:
     plan = _plan()
     motion = next(
@@ -120,8 +146,14 @@ def test_motion_modulator_matches_stem_duration() -> None:
         for command in plan.commands
         if "(force-srate *sound-srate* (lfo " in command
     )
-    assert "(stretch-abs 62" in motion
-    assert "(abs-env (stretch-abs 62 (force-srate *sound-srate* (lfo 0.02))))" in motion
+    duration = _plan().output.cell_seconds + 2
+    duration_text = f"{duration:.6f}".rstrip("0").rstrip(".")
+    assert f"(stretch-abs {duration_text}" in motion
+    assert (
+        f"(abs-env (stretch-abs {duration_text} "
+        "(force-srate *sound-srate* (lfo 0.02))))"
+        in motion
+    )
 
 
 def test_spectrum_curves_and_motion_variants() -> None:
@@ -177,8 +209,10 @@ def test_filter_curve_selection_covers_generated_stem() -> None:
         for index, command in enumerate(plan.commands)
         if command.startswith("FilterCurve:")
     )
+    stem_duration = plan.output.cell_seconds + 2
+    duration_text = f"{stem_duration:.6f}".rstrip("0").rstrip(".")
     assert plan.commands[filter_index - 1].startswith(
-        "Select: Start=0 End=62 Track=0 TrackCount=1"
+        f"Select: Start=0 End={duration_text} Track=0 TrackCount=1"
     )
 
 

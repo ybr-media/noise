@@ -14,6 +14,7 @@ import soundfile as sf
 sys.path.insert(0, str(Path(__file__).parents[1] / "qa"))
 
 import qa_harness
+from checks import Sidecar, duration_format
 
 SAMPLE_RATE = 48000
 CELL_SECONDS = 2
@@ -232,6 +233,18 @@ def test_uniqueness_and_input_errors_do_not_abort_good_file(tmp_path: Path) -> N
     }
     assert not uniqueness[first.name]["passed"]
     assert not uniqueness[second.name]["passed"]
+
+
+def test_duration_format_requires_exact_variant_frame_count(tmp_path: Path) -> None:
+    track = make_track(tmp_path)
+    with sf.SoundFile(track) as info:
+        result = duration_format(info, Sidecar.from_json(track.with_suffix(".json")))
+    assert result.passed
+    altered = tmp_path / "altered.wav"
+    sf.write(altered, np.zeros((CELL_FRAMES * REPEATS - 1, 2)), SAMPLE_RATE, subtype="PCM_24")
+    with sf.SoundFile(altered) as info:
+        result = duration_format(info, Sidecar.from_json(track.with_suffix(".json")))
+    assert not result.passed
 
 
 def test_comparison_missing_and_empty_dirs(tmp_path: Path) -> None:

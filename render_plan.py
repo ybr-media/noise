@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 STEMS: tuple[str, ...] = ("bed", "texture", "motion")
 CHANNELS: tuple[str, ...] = ("l", "r")
@@ -27,6 +27,8 @@ CHANNELS: tuple[str, ...] = ("l", "r")
 #: Extra audio generated beyond the cell length, consumed by the tail-to-head
 #: crossfade that makes the cell loop seamlessly.
 CROSSFADE_SECONDS: float = 2.0
+MIN_CELL_SECONDS: int = 45
+MAX_CELL_SECONDS: int = 75
 
 # A Nyquist ``noise`` stem is approximately full scale.  The worst-case sum
 # of three such stems is +9.54 dBFS, so this common offset leaves substantial
@@ -152,6 +154,15 @@ def _number(row: Mapping[str, object], key: str, context: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise PlanError(f"{context}: {key} must be numeric")
     return float(value)
+
+
+def cell_frames_for_variant(variant: Variant, sample_rate: int) -> int:
+    """Return the deterministic whole-sample cell length for one variant."""
+    if sample_rate <= 0:
+        raise PlanError("sample_rate must be positive")
+    minimum = MIN_CELL_SECONDS * sample_rate
+    span = (MAX_CELL_SECONDS - MIN_CELL_SECONDS) * sample_rate
+    return minimum + variant.seed("bed", "l") % (span + 1)
 
 
 def _integer(row: Mapping[str, object], key: str, context: str) -> int:
@@ -525,6 +536,8 @@ def build_plan(
     """
     variant = parse_variant(variant_row)
     output = parse_output(output_row)
+    cell_frames = cell_frames_for_variant(variant, output.sample_rate)
+    output = replace(output, cell_seconds=cell_frames / output.sample_rate)
     if crossfade_seconds <= 0 or crossfade_seconds >= output.cell_seconds:
         raise PlanError("crossfade_seconds must be positive and shorter than the cell")
     if output.repeats < 1:

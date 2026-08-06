@@ -1011,6 +1011,44 @@ The `Export2:` branch remains the default for a future Audacity fix, but its
 registry diagnosis is unresolved and deliberately abandoned. No export
 diagnostics are being run; the proven serializer path is the active path.
 
+### Client-approved pilot duration and green acceptance
+
+The client approved deterministic random durations from 3:00 through 5:00.
+Each variant derives a whole-sample cell length from its existing `bed_l`
+variant seed, uniformly spanning 45–75 seconds, and retains four repeated
+cells. The sidecar records the realized cell duration, and QA derives an
+exact expected frame count from that value; duration checks do not use a
+range or timing tolerance.
+
+The client also resolved the green-bell specification contradiction in favor
+of the stated filter. The Audacity-realized +6 dB / 500 Hz / Q 0.7 bell
+measured 5.743 dB at approximately 503 Hz against the 6.00 dB analytic
+target, so the filter remains unchanged. The corrected band-averaged
+excess acceptance range is now 3–8 dB (previously 4–8 dB), because the
+older lower bound was inconsistent with a broad Q 0.7 bell. This is the
+only QA threshold changed, and it is explicitly client-authorized.
+
+The green bell remains on the current stem assignment. Whether the feature
+is placed on bed or motion is arbitrary for this pilot: stem 1 and stem 2
+were statistically indistinguishable in the reference material.
+
+The duration-randomized pilot was rendered at
+`/tmp/noise-pilot-randomdur/`. Realized durations were:
+
+```text
+green   209.566667 s
+brown   274.128083 s
+white   225.231750 s
+pink    182.487167 s, 210.056833 s, 262.327500 s,
+        282.604250 s, 288.553500 s
+```
+
+The spread is 182.487167–288.553500 seconds (3:02.487–4:48.554), so the
+eight pilot tracks are inside the approved 3:00–5:00 range and do not
+cluster at one duration. QA passed all eight tracks with exact
+variant-derived frame counts. The pilot used one common pipeline with no
+per-variant rendering special cases.
+
 ### Nyquist warp audit: crossfade and motion LFO
 
 Audacity's process-type Nyquist effects set `*warp*` to the selection

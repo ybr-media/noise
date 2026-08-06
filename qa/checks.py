@@ -371,8 +371,8 @@ def green_bell(spectrum: Spectrum, sidecar: Sidecar) -> CheckResult:
     return _result(
         "Green bell",
         f"{excess:.3f} dB",
-        "4 to 8 dB",
-        4 <= excess <= 8,
+        "3 to 8 dB",
+        3 <= excess <= 8,
         {
             "metric": "excess-over-fitted-tilt",
             "fitted_slope_db_per_oct": slope,
@@ -405,8 +405,7 @@ def decorrelation(data: np.ndarray) -> CheckResult:
 
 
 def duration_format(info: sf.SoundFile, sidecar: Sidecar) -> CheckResult:
-    expected = sidecar.cell_seconds * sidecar.repeats * sidecar.sample_rate
-    tolerance = sidecar.sample_rate * 0.05
+    expected = round(sidecar.cell_seconds * sidecar.sample_rate) * sidecar.repeats
     subtype_bits = {"PCM_16": 16, "PCM_24": 24, "PCM_32": 32}.get(info.subtype, 0)
-    passed = info.samplerate == sidecar.sample_rate and info.channels == 2 and subtype_bits == sidecar.bit_depth and abs(info.frames - expected) <= tolerance
-    return _result("Duration/format", f"{info.frames} frames, {info.samplerate} Hz, {info.channels}ch, {info.subtype}", f"{expected:.0f} frames +/- 50 ms; {sidecar.sample_rate} Hz stereo {sidecar.bit_depth}-bit", passed)
+    passed = info.samplerate == sidecar.sample_rate and info.channels == 2 and subtype_bits == sidecar.bit_depth and info.frames == expected
+    return _result("Duration/format", f"{info.frames} frames, {info.samplerate} Hz, {info.channels}ch, {info.subtype}", f"exactly {expected} frames; {sidecar.sample_rate} Hz stereo {sidecar.bit_depth}-bit", passed)
