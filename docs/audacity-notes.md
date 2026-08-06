@@ -643,6 +643,52 @@ consolidation workaround was added.
 found`, so the alternate macro export path was not available for a quick
 probe.
 
+## Loudness stage bisection
+
+Audacity 3.7.8 supports:
+
+```text
+GetInfo: Type=Clips Format=JSON
+```
+
+Fresh-process probes were run on a reduced five-second-cell plan. Each probe
+queried tracks, clips, and selection immediately before running
+`LoudnessNormalization:`. Results:
+
+| Stage | Track extent | Clip count | `StereoIndependent=0` | `StereoIndependent=1` |
+| --- | ---: | ---: | --- | --- |
+| One bed stem generated | 7 s | 1 | **fail** | **pass** |
+| Three stems, before mix | 7 s | 3 | **fail** | **pass** |
+| After `MixAndRender:` | 7 s | 1 | **fail** | **fail** |
+| After crossfade Nyquist replacement | 7 s | 1 | **fail** | **fail** |
+| After `Trim:` | 5 s | 1 | **fail** | **fail** |
+
+The transition from pass to fail is `MixAndRender:` for the complete
+three-stem material. Clip count remains one at that transition, so the
+multi-clip hypothesis is not supported by this measurement. The crossfade
+and `Trim:` are not the first failing stages.
+
+Additional controls narrowed this further:
+
+- A bed-only `MixAndRender:` succeeds with `StereoIndependent=1`.
+- The complete three-stem material succeeds before mixing with
+  `StereoIndependent=1` but fails after mixing.
+- `StereoIndependent=0` fails even on the isolated generated stem, matching
+  the earlier parameter split.
+
+Thus the current minimal material-level reproducer is a complete
+three-stem `MixAndRender:` result with one 7-second clip. The exact response
+is:
+
+```text
+LoudnessNormalization: LUFSLevel=-20 NormalizeTo=0 StereoIndependent=1 DualMono=0
+BatchCommand finished: Failed!
+```
+
+No external normalizer or gain computation was used. The research question
+now points at the mixed three-stem audio content/state rather than clip
+count, crossfade, trim, or repeated timeline structure.
+
 ## Export-registry evidence correction
 
 The generic `Could not export to <format> format!` response is emitted by
