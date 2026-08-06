@@ -93,3 +93,35 @@ stderr in this headless mode.
 The export blocker therefore remains reproducible and independent of the audio
 generator, selection state after a valid selection, output path, and WAV versus
 FLAC format. No alternate engine or non-Audacity export path was used.
+
+## Export-module and filesystem checks
+
+The extracted 3.7.8 AppImage contains 16 `mod-*.so` files, including
+`mod-pcm.so`, `mod-flac.so`, and `mod-script-pipe.so`. The generated and live
+temporary-profile configs contain all 16 module names, each with status `1`
+(enabled), absolute paths into the AppImage's
+`lib/audacity/modules` directory, and matching module timestamps. A live
+process inspection also showed `mod-pcm.so`, `mod-flac.so`, and
+`mod-script-pipe.so` mapped into the running `bin/audacity` process. The
+plugin registry contains the built-in `Export2` script command; native export
+modules are not represented as Nyquist/plugin-registry entries. Thus the
+failure is not explained by `mod-script-pipe` being the only enabled module or
+by an absent module search path.
+
+`SaveProject2:` successfully wrote a 2.1 MB `.aup3` project into the same
+temporary profile/output area, proving that the directory is writable and
+that Audacity's project-file I/O works. The configured Audacity temp directory
+(`/var/tmp/audacity-ubuntu`) is also writable. Both `/tmp` and the repository
+filesystem have ample space and inodes; no filesystem or rename-space issue
+was observed.
+
+Metadata-editor settings do not apply to `Export2:`'s non-interactive command
+path, which constructs the exporter directly rather than opening the normal
+export dialog. Export failures returned immediately and never created a
+modal-dialog wait condition.
+
+As a cross-build check, the sanctioned 3.7.7 x64 22.04 AppImage was extracted
+and launched with the same pre-seeded module paths, ALSA null device, Xvfb,
+and pipe client. After correcting its module timestamps, its Tone-generated
+WAV and FLAC exports failed with the same generic format-specific errors.
+Flatpak is not installed in this environment, so no Flatpak test was possible.
