@@ -308,3 +308,98 @@ exporter therefore does not resolve the headless failure either.
 Since all four experiments failed, the 20-run gate, PCM determinism check,
 and live orchestrator render remain blocked by the absence of any exported
 file.
+
+## Export registry and `.aup3` serialization follow-up
+
+### Multi-format registry probe
+
+A single fresh 3.7.8 process generated a tone, selected both time and tracks,
+and attempted `Export2:` to each of these extensions:
+
+```text
+.wav  .aiff  .au  .flac  .ogg  .mp3  .zzz
+```
+
+Every attempt failed immediately with the same format-specific template,
+including the deliberately bogus `.zzz` extension:
+
+```text
+Could not export to WAV format!
+Could not export to AIFF format!
+Could not export to AU format!
+Could not export to FLAC format!
+Could not export to OGG format!
+Could not export to MP3 format!
+Could not export to ZZZ format!
+BatchCommand finished: Failed!
+```
+
+No destination file was created. The identical behavior for a bogus
+extension is strong evidence that `FindFormat(extension)` is returning null
+before any encoder or file-I/O stage. This confirms the findings document's
+Branch A diagnosis: the export registry is empty or otherwise unavailable to
+the scriptable exporter.
+
+### Filename quoting and case
+
+The same tone/selection sequence was tested with:
+
+```text
+Export2: Filename=/tmp/ext-unquoted.wav NumChannels=2
+Export2: Filename="/tmp/ext-quoted.wav" NumChannels=2
+Export2: Filename=/tmp/ext-uppercase.WAV NumChannels=2
+```
+
+All three returned the normal WAV failure and created no file. Quoting is
+therefore not corrupting the extension, and `_quote()` in `render_plan.py` is
+not the cause.
+
+### Module path layout
+
+The extracted AppImage stores the relevant modules at:
+
+```text
+<extracted>/lib/audacity/modules/mod-pcm.so
+<extracted>/lib/audacity/modules/mod-flac.so
+```
+
+It does not use an `<extracted>/usr/lib/audacity/modules` directory. It also
+contains the separate resource directory
+`<extracted>/share/audacity/plug-ins`. The explicit
+`AUDACITY_MODULES_PATH` used in the live diagnostic points to the actual
+`lib/audacity/modules` directory, so the proposed `usr/` path mismatch is
+eliminated.
+
+### Measuring the sanctioned `.aup3` fallback
+
+The fallback mechanism was measured without adding it to the renderer:
+Audacity generated and mixed a pilot variant entirely through its script
+pipe, then `SaveProject2:` wrote an `.aup3` before the later crossfade
+Nyquist step. A controlled short version of the same complete generation and
+mix sequence produced a 60 MB project containing:
+
+```text
+sampleblocks rows: 58
+sampleblocks.samples bytes: 59,136,000
+sampleblocks.samples interpreted as <f4: 14,784,000 values
+```
+
+Reading the first blocks directly from SQLite with
+`numpy.frombuffer(blob, dtype="<f4")` produced non-silent PCM. For example,
+the first block had 262,144 float32 values, peak approximately
+`0.999981`, and RMS approximately `0.577285`. The stored `sampleformat`
+was Audacity's float32 format (`262159`).
+
+This proves that Audacity's `.aup3` contains the rendered PCM in
+`sampleblocks.samples` and that an external serializer can read it as
+little-endian float32 without performing DSP. The project XML uses Audacity's
+binary XML representation and the sampleblock table does not itself carry
+track/channel or timeline metadata, so a production serializer must also
+decode the project document to map blocks to channels and duration. The
+measurement did not wire this path into the orchestrator.
+
+The attempted full 240-second pilot sequence also reached `MixAndRender` and
+saved successfully, but its subsequent crossfade Nyquist command failed;
+therefore no claim is made that the final orchestrator render currently
+completes. This is separate from the confirmed viability of reading the
+Audacity-generated PCM already stored in `.aup3`.
