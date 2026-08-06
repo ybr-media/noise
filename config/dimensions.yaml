@@ -1,0 +1,131 @@
+# Variant matrix dimensions for the white-noise generator.
+#
+# Everything here is data: adding a value to any dimension (or a new pilot
+# tuple) is a pure YAML edit and requires no change to gen_variants.py.
+
+output:
+  sample_rate: 48000
+  bit_depth: 24
+  cell_seconds: 60
+  repeats: 4
+  fade_seconds: 3
+  target_lufs: -20.0
+  true_peak_max_dbtp: -3.0
+
+dimensions:
+  color:
+    white:
+      spectrum:
+        tilt_db_per_oct: 0.0
+        tilt_low_hz: 20
+        tilt_high_hz: 20000
+    green:
+      spectrum:
+        tilt_db_per_oct: -3.0
+        tilt_low_hz: 20
+        tilt_high_hz: 20000
+        bell:
+          gain_db: 6.0
+          center_hz: 500
+          q: 0.7
+    pink:
+      spectrum:
+        tilt_db_per_oct: -3.0
+        tilt_low_hz: 20
+        tilt_high_hz: 20000
+    brown:
+      spectrum:
+        tilt_db_per_oct: -6.0
+        tilt_low_hz: 20
+        tilt_high_hz: 20000
+
+  band:
+    low-mid:
+      band_low_hz: 250
+      band_high_hz: 800
+    mid:
+      band_low_hz: 800
+      band_high_hz: 2500
+    high:
+      band_low_hz: 2500
+      band_high_hz: 8000
+    broad:
+      band_low_hz: 200
+      band_high_hz: 6000
+
+  motion:
+    still:
+      lfo_depth: 0.0
+      lfo_rate_hz: 0.0
+    drift:
+      lfo_depth: 0.10
+      lfo_rate_hz: 0.02
+    breathing:
+      lfo_depth: 0.20
+      lfo_rate_hz: 0.08
+
+  balance:
+    bed-forward:
+      gain_bed_db: -3.0
+      gain_texture_db: -12.0
+      gain_motion_db: -15.0
+    balanced:
+      gain_bed_db: -6.0
+      gain_texture_db: -9.0
+      gain_motion_db: -12.0
+    texture-forward:
+      gain_bed_db: -9.0
+      gain_texture_db: -6.0
+      gain_motion_db: -10.0
+
+# Order of dimensions in the cross product (outermost first). Names must match
+# keys under `dimensions`.
+dimension_order:
+  - color
+  - band
+  - motion
+  - balance
+
+# Stems and channels that each get their own deterministic seed.
+stems:
+  - bed
+  - texture
+  - motion
+channels:
+  - l
+  - r
+
+# Spanning pilot subset: varies one dimension at a time.
+pilot:
+  - color: white
+    band: mid
+    motion: drift
+    balance: balanced
+  - color: green
+    band: mid
+    motion: drift
+    balance: balanced
+  - color: pink
+    band: mid
+    motion: drift
+    balance: balanced
+  - color: brown
+    band: mid
+    motion: drift
+    balance: balanced
+  - color: pink
+    band: low-mid
+    motion: drift
+    balance: balanced
+  - color: pink
+    band: high
+    motion: drift
+    balance: balanced
+  - color: pink
+    band: mid
+    motion: still
+    balance: balanced
+  - color: pink
+    band: mid
+    motion: breathing
+    balance: texture-forward
