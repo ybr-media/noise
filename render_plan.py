@@ -436,13 +436,18 @@ def _crossfade_expression(cell_seconds: float, crossfade_seconds: float) -> str:
     cell = _nyquist_number(cell_seconds)
     fade = _nyquist_number(crossfade_seconds)
     return (
-        f"(let* ((cell {cell}) (xf {fade}) (src (extract-abs 0 (+ cell xf) *track*))"
-        " (head (extract-abs 0 xf src))"
-        " (tail (cue (extract-abs cell (+ cell xf) src)))"
-        " (seam (sim (mult head (pwlv 0 xf 1))"
-        " (mult tail (pwlv 1 xf 0))))"
-        " (body (at-abs xf (cue (extract-abs xf cell src)))))"
-        " (sim seam body))"
+        f"(let* ((cell {cell}) (xf {fade}) "
+        "(src (multichan-expand #'extract-abs 0 (+ cell xf) *track*))"
+        " (head (multichan-expand #'extract-abs 0 xf src))"
+        " (tail (multichan-expand #'cue"
+        " (multichan-expand #'extract-abs cell (+ cell xf) src)))"
+        " (seam (multichan-expand #'sim"
+        " (multichan-expand #'mult head (pwlv 0 xf 1))"
+        " (multichan-expand #'mult tail (pwlv 1 xf 0))))"
+        " (body (at-abs xf"
+        " (multichan-expand #'cue"
+        " (multichan-expand #'extract-abs xf cell src)))))"
+        " (multichan-expand #'sim seam body))"
     )
 
 

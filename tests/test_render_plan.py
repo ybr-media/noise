@@ -160,12 +160,22 @@ def test_band_edges_and_nyquist_expression() -> None:
     crossfade = next(
         command
         for command in expressions
-        if "(src (extract-abs 0 (+ cell xf) *track*))" in command
+        if "(src (multichan-expand #'extract-abs 0 (+ cell xf) *track*))"
+        in command
     )
-    assert "(head (extract-abs 0 xf src))" in crossfade
-    assert "(tail (cue (extract-abs cell (+ cell xf) src)))" in crossfade
-    assert "(body (at-abs xf (cue (extract-abs xf cell src))))" in crossfade
-    assert "(sim seam body)" in crossfade
+    assert "(head (multichan-expand #'extract-abs 0 xf src))" in crossfade
+    assert (
+        "(tail (multichan-expand #'cue"
+        " (multichan-expand #'extract-abs cell (+ cell xf) src)))"
+    ) in crossfade
+    assert (
+        "(body (at-abs xf"
+        " (multichan-expand #'cue"
+        " (multichan-expand #'extract-abs xf cell src))))"
+    ) in crossfade
+    assert "(multichan-expand #'sim seam body)" in crossfade
+    assert " (extract-abs 0 (+ cell xf) *track*)" not in crossfade
+    assert " (extract-abs 0 xf src)" not in crossfade
 
 
 def test_project_rate_export_and_order() -> None:

@@ -399,7 +399,71 @@ decode the project document to map blocks to channels and duration. The
 measurement did not wire this path into the orchestrator.
 
 The attempted full 240-second pilot sequence also reached `MixAndRender` and
-saved successfully, but its subsequent crossfade Nyquist command failed;
-therefore no claim is made that the final orchestrator render currently
-completes. This is separate from the confirmed viability of reading the
-Audacity-generated PCM already stored in `.aup3`.
+saved successfully. Its subsequent crossfade Nyquist command is covered by
+the live investigation below.
+
+## Live Nyquist crossfade investigation
+
+The initial crossfade expression failed because it passed the stereo
+`*track*` value directly to `extract-abs`, which requires a single Nyquist
+sound. The binding itself is valid, but stereo handling is required.
+
+### Binding probe on stereo audio
+
+On a fresh Audacity 3.7.8 process, a stereo tone was selected and the
+following Nyquist commands were tested:
+
+```text
+*track*
+s
+(mult *track* 0)
+(sim *track* *track*)
+(mult *track* (pwlv 0 1))
+```
+
+The bare `*track*` and bare `s` results did not return a usable command
+response. In contrast, expressions that consume `*track*` as an audio value
+completed successfully. `(mult *track* 0)` created a new stereo silent result
+track, and `(sim *track* *track*)` created a result with doubled peak/RMS.
+The saved `.aup3` sampleblocks confirmed those changes rather than relying on
+the pipe's `OK` response alone.
+
+This establishes that Audacity 3.7.8 supplies the selected stereo audio
+through `*track*`; `s` is not a usable selected-audio binding in this
+environment. The bare `*track*` probe is not itself a valid output because a
+multichannel array must be consumed or transformed into an output sound.
+
+### Construct bisection
+
+Direct calls such as:
+
+```text
+(extract-abs 0 1 *track*)
+(cue (extract-abs 0 1 *track*))
+```
+
+failed on stereo input. The same operations wrapped with
+`multichan-expand` completed:
+
+```text
+(multichan-expand #'extract-abs 0 1 *track*)
+(multichan-expand #'cue
+  (multichan-expand #'extract-abs 0 1 *track*))
+```
+
+`multichan-expand` also successfully handled the per-channel `mult`, `sim`,
+and `pwlv` operations. `at-abs` works when applied to the resulting
+multichannel value, rather than being passed through `multichan-expand` as a
+function.
+
+The crossfade expression was rewritten accordingly. A short stereo
+crossfade with a 5-second cell and 2-second overlap returned `OK`; its saved
+sampleblocks contained a distinct output track, and a seeded-noise version
+showed changed samples around the seam rather than merely returning the
+unchanged source.
+
+The corrected expression was then exercised in the real 240-second pilot
+plan. The crossfade command completed successfully, and execution proceeded
+to the later repeat and loudness-normalization commands. The next failure was
+`LoudnessNormalization`, not the crossfade. Thus the stereo-safe crossfade
+does not exhibit a short-versus-240-second failure at this stage.
