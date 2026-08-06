@@ -9,7 +9,13 @@ import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from aup3_serializer import extract_track, write_wav
+from aup3_serializer import _BinaryXML, extract_track, write_wav
+
+
+def test_binary_xml_decoder_resolves_dictionary_names() -> None:
+    dictionary = b"\x00\x04" + b"\x0f\x00\x00\x10\x00" + "root".encode("utf-32-le")
+    document = b"\x01\x00\x00\x02\x00\x00"
+    assert _BinaryXML(dictionary, document).decode() == "<root></root>"
 
 
 def _project(tmp_path: Path, xml: str, rows: list[tuple[int, np.ndarray]]) -> Path:

@@ -777,10 +777,18 @@ normalization, and fades. The serializer only follows final-track references,
 reads the referenced little-endian float32 blocks, and writes 48 kHz,
 24-bit, stereo WAV.
 
-The serializer accepts readable project XML rather than attempting to decode
-Audacity's private binary XML. It handles:
+The serializer accepts readable project XML, and now also decodes Audacity's
+semi-self-describing binary XML directly when no XML file is supplied. The
+decoder follows the 3.7.8 field-op contract: the dictionary supplies UTF-32
+name IDs, while the document stream supplies start/end tags, typed
+attributes, data, and push/pop records. Unknown opcodes, unknown names,
+truncated fields, tag mismatches, and unfinished tags are fatal errors.
 
-- one `<wavetrack>` containing two channel `<sequence>` elements;
+The decoded structure handles:
+
+- either one `<wavetrack>` containing two channel `<sequence>` elements, or
+  Audacity's observed 3.7.8 representation of two linked channel
+  `<wavetrack>` elements containing one sequence each;
 - non-monotonic and non-contiguous block IDs in document order;
 - block lengths inferred from successive `waveblock start` offsets;
 - `blockid <= 0` silent runs, validated against their encoded length;
@@ -796,9 +804,11 @@ python tools/noisegen/aup3_serializer.py project.aup3 project.xml output.wav
 ```
 
 The orchestrator keeps `Export2:` as the default. The explicit opt-in
-`--aup3-serializer --project-xml <readable.xml>` path replaces `Export2:`
-with `SaveProject2:` and then invokes the serializer. It is intentionally
-not enabled by default.
+`--aup3-serializer` path replaces `Export2:` with `SaveProject2:` and then
+invokes the serializer. `--project-xml <readable.xml>` remains available as
+an override, but is no longer required. The binary decoder is intentionally
+strict and refuses to write output when structure and sampleblock or
+duration checks do not reconcile.
 
 The final deliverable is now WAV. Variant filenames and QA discovery use
 `wn_<color>_<band>_<motion>_<balance>_s<seed>.wav`. The serializer verifies
@@ -822,9 +832,30 @@ the correct channel order and wrote a WAV reported by libsndfile as:
 Unit tests cover silent runs, non-contiguous IDs, multi-block sequences,
 channel order, clip trims, stale-block rejection, and WAV format metadata.
 
-A full 240-second Audacity variant was also rendered and saved as `.aup3`
-through all DSP stages. Production extraction and QA are still pending
-because this environment lacks `audacity-project-tools` and no readable
-project XML was available from the pipe; `GetInfo: Type=Clips` exposes clip
-extents but not the final sequence block IDs. The serializer therefore does
-not claim a real-variant QA pass or determinism result yet.
+A full 240-second Audacity variant was rendered twice, saved as `.aup3`, and
+decoded directly from the project/autosave blobs. The final structure had
+two channel wavetracks, four 60-second clips per channel, and 2,976,000
+samples per clip with two seconds of trimmed tail. The extracted output was
+11,520,000 stereo frames at 48 kHz. Both renders produced identical decoded
+PCM (`maxdiff = 0`).
+
+The first extracted render was passed to the QA harness. All checks passed:
+
+```text
+Loudness          -20.083 LUFS
+True peak         -14.153 dBTP
+Clipping          0 samples
+DC offset         0.0000510
+Loop seam         -6153.053 dBFS
+Spectral tilt     0.031 dB/oct
+Silence/dropout   0.0 ms
+Stereo correlation r=-0.00032
+Format            11,520,000 frames, 48 kHz, stereo PCM_24
+Overall            PASS
+```
+
+The decoded PCM SHA-256 for both renders was:
+
+```text
+75aefcb2caeb1844be2f664cbc20ab1c2419db680e87c417b53b2a2e75a2c2d2
+```

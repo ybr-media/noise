@@ -4,15 +4,15 @@ This module deliberately performs no DSP.  Audacity owns generation, effects,
 mixing, normalization, and fades; this code only follows the final project's
 document references, reads float32 sample blocks, and serializes them.
 
-The project document must be supplied as readable XML, for example from
-``audacity-project-tools -extract_project``.  Decoding Audacity's private
-binary XML format is intentionally outside this module.
+The project document may be supplied as readable XML, or decoded directly
+from Audacity's semi-self-describing project blobs.
 """
 
 from __future__ import annotations
 
 import argparse
 import sqlite3
+import struct
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,6 +21,153 @@ import numpy as np
 import soundfile as sf
 
 FLOAT32_SAMPLE_FORMAT = 262159
+
+
+class _BinaryXML:
+    """Small decoder for Audacity's documented field-op binary XML."""
+
+    CHAR_SIZE = 0
+    START_TAG = 1
+    END_TAG = 2
+    STRING = 3
+    INT = 4
+    BOOL = 5
+    LONG = 6
+    LONG_LONG = 7
+    SIZE_T = 8
+    FLOAT = 9
+    DOUBLE = 10
+    DATA = 11
+    RAW = 12
+    PUSH = 13
+    POP = 14
+    NAME = 15
+
+    def __init__(self, dictionary: bytes, document: bytes) -> None:
+        self.data = dictionary + document
+        self.offset = 0
+        self.char_size = 0
+        self.names: dict[int, str] = {}
+
+    def _read(self, fmt: str) -> int | float:
+        size = struct.calcsize(fmt)
+        if self.offset + size > len(self.data):
+            raise Aup3Error("truncated binary XML")
+        value = struct.unpack_from(fmt, self.data, self.offset)[0]
+        self.offset += size
+        return value
+
+    def _string(self, wide_length: bool) -> str:
+        length = int(self._read("<I" if wide_length else "<H"))
+        size = length
+        if self.offset + size > len(self.data):
+            raise Aup3Error("truncated binary XML string")
+        raw = self.data[self.offset : self.offset + size]
+        self.offset += size
+        try:
+            return raw.decode({1: "utf-8", 2: "utf-16-le", 4: "utf-32-le"}[self.char_size])
+        except (KeyError, UnicodeDecodeError) as exc:
+            raise Aup3Error("invalid binary XML string") from exc
+
+    def _name(self, identifier: int) -> str:
+        try:
+            return self.names[identifier]
+        except KeyError as exc:
+            raise Aup3Error(f"binary XML references unknown name {identifier}") from exc
+
+    @staticmethod
+    def _xml_value(value: object) -> str:
+        if isinstance(value, bool):
+            return "true" if value else "false"
+        if isinstance(value, float):
+            return repr(value)
+        return str(value)
+
+    def decode(self) -> str:
+        output: list[str] = []
+        pending: list[tuple[str, object]] = []
+        stack: list[str] = []
+        current_tag: str | None = None
+
+        def flush_start() -> None:
+            nonlocal current_tag
+            if current_tag is None:
+                return
+            output.append("<" + current_tag)
+            for key, value in pending:
+                output.append(f' {key}="{self._xml_value(value)}"')
+            pending.clear()
+            output.append(">")
+            stack.append(current_tag)
+            current_tag = None
+
+        while self.offset < len(self.data):
+            opcode = int(self._read("<B"))
+            if opcode == self.CHAR_SIZE:
+                self.char_size = int(self._read("<B"))
+            elif opcode == self.NAME:
+                identifier = int(self._read("<H"))
+                self.names[identifier] = self._string(False)
+            elif opcode == self.DATA:
+                flush_start()
+                output.append(self._string(True))
+            elif opcode == self.RAW:
+                self._string(True)
+            elif opcode in (self.PUSH, self.POP):
+                pass
+            elif opcode in (self.STRING, self.INT, self.BOOL, self.LONG, self.LONG_LONG, self.SIZE_T,
+                            self.FLOAT, self.DOUBLE):
+                identifier = int(self._read("<H"))
+                if opcode == self.STRING:
+                    value = self._string(True)
+                elif opcode in (self.INT, self.LONG):
+                    value = self._read("<i")
+                elif opcode == self.BOOL:
+                    value = bool(self._read("<B"))
+                elif opcode == self.LONG_LONG:
+                    value = self._read("<q")
+                elif opcode == self.SIZE_T:
+                    value = self._read("<I")
+                elif opcode == self.FLOAT:
+                    value = self._read("<f")
+                    self._read("<I")  # display precision
+                else:
+                    value = self._read("<d")
+                    self._read("<I")  # display precision
+                pending.append((self._name(identifier), value))
+            elif opcode == self.START_TAG:
+                flush_start()
+                current_tag = self._name(int(self._read("<H")))
+            elif opcode == self.END_TAG:
+                flush_start()
+                name = self._name(int(self._read("<H")))
+                if not stack or stack[-1] != name:
+                    raise Aup3Error(f"binary XML tag mismatch: {name}")
+                stack.pop()
+                output.append(f"</{name}>")
+            else:
+                raise Aup3Error(f"unsupported binary XML opcode {opcode}")
+        if current_tag is not None:
+            flush_start()
+            name = stack.pop()
+            output.append(f"</{name}>")
+        if pending or stack:
+            raise Aup3Error(
+                f"incomplete binary XML document at {self.offset}: "
+                f"{len(stack)} open tags, {len(pending)} pending attributes"
+            )
+        return "".join(output)
+
+
+def decode_project_xml(project_path: Path, table: str = "project") -> str:
+    """Decode Audacity's project/document blobs into readable XML."""
+    if table not in {"project", "autosave"}:
+        raise Aup3Error(f"unsupported project table: {table}")
+    with sqlite3.connect(project_path) as db:
+        row = db.execute(f"SELECT dict, doc FROM {table} WHERE id = 1").fetchone()
+    if row is None:
+        raise Aup3Error(f"{table} table has no project row")
+    return _BinaryXML(bytes(row[0]), bytes(row[1])).decode()
 
 
 class Aup3Error(ValueError):
@@ -52,10 +199,16 @@ class Clip:
 class Track:
     rate: int
     clips: tuple[Clip, ...]
+    channel: int | None = None
 
 
 def _number(element: ET.Element, name: str, default: str | None = None) -> str:
-    value = element.attrib.get(name, default)
+    value = element.attrib.get(name)
+    if value is None:
+        value = next(
+            (candidate for key, candidate in element.attrib.items() if key.lower() == name.lower()),
+            default,
+        )
     if value is None:
         raise Aup3Error(f"{element.tag}: missing {name}")
     return value
@@ -103,7 +256,8 @@ def parse_project_xml(xml_text: str) -> tuple[Track, ...]:
                     tuple(sequences),
                 )
             )
-        tracks.append(Track(rate, tuple(clips)))
+        channel = track_node.attrib.get("channel")
+        tracks.append(Track(rate, tuple(clips), int(channel) if channel is not None else None))
     if not tracks:
         raise Aup3Error("project XML contains no wavetrack")
     return tuple(tracks)
@@ -160,18 +314,18 @@ def _sequence_samples(db: sqlite3.Connection, sequence: Sequence) -> np.ndarray:
     return values
 
 
-def _clip_samples(db: sqlite3.Connection, clip: Clip, rate: int) -> tuple[int, np.ndarray]:
-    if len(clip.sequences) != 2:
-        raise Aup3Error("final stereo track must contain exactly two sequences")
-    channels = []
-    for sequence in clip.sequences:
-        values = _sequence_samples(db, sequence)
-        end = sequence.num_samples - clip.trim_right
-        if clip.trim_left < 0 or end < clip.trim_left:
-            raise Aup3Error("invalid clip trims")
-        channels.append(values[clip.trim_left:end])
+def _clip_channel_samples(
+    db: sqlite3.Connection, clip: Clip, sequence_index: int, rate: int
+) -> tuple[int, np.ndarray]:
+    if sequence_index >= len(clip.sequences):
+        raise Aup3Error("clip is missing a requested channel sequence")
+    sequence = clip.sequences[sequence_index]
+    values = _sequence_samples(db, sequence)
+    end = sequence.num_samples - clip.trim_right
+    if clip.trim_left < 0 or end < clip.trim_left:
+        raise Aup3Error("invalid clip trims")
     start = round(clip.offset * rate) - clip.trim_left
-    return start, np.column_stack(channels).astype(np.float32, copy=False)
+    return start, values[clip.trim_left:end]
 
 
 def extract_track(project_path: Path, project_xml: str, track_index: int = 0) -> tuple[np.ndarray, int]:
@@ -183,8 +337,46 @@ def extract_track(project_path: Path, project_xml: str, track_index: int = 0) ->
         raise Aup3Error(f"track index out of range: {track_index}") from exc
     if track.rate <= 0:
         raise Aup3Error("track rate must be positive")
+    if all(len(clip.sequences) == 2 for clip in track.clips):
+        channel_tracks = (track, track)
+        sequence_indexes = (0, 1)
+    elif all(len(clip.sequences) == 1 for clip in track.clips):
+        partner = next(
+            (
+                candidate
+                for candidate in tracks
+                if candidate is not track
+                and candidate.rate == track.rate
+                and len(candidate.clips) == len(track.clips)
+                and all(len(clip.sequences) == 1 for clip in candidate.clips)
+                and candidate.channel == 1
+            ),
+            None,
+        )
+        if partner is None:
+            raise Aup3Error("final track does not have a stereo partner")
+        channel_tracks = (track, partner)
+        sequence_indexes = (0, 0)
+    else:
+        raise Aup3Error("unsupported final track sequence layout")
     with sqlite3.connect(project_path) as db:
-        clips = [_clip_samples(db, clip, track.rate) for clip in track.clips]
+        clips = []
+        for left_clip, right_clip in zip(channel_tracks[0].clips, channel_tracks[1].clips):
+            if (left_clip.offset, left_clip.trim_left, left_clip.trim_right) != (
+                right_clip.offset,
+                right_clip.trim_left,
+                right_clip.trim_right,
+            ):
+                raise Aup3Error("stereo channel clip metadata differs")
+            left_start, left = _clip_channel_samples(
+                db, left_clip, sequence_indexes[0], track.rate
+            )
+            right_start, right = _clip_channel_samples(
+                db, right_clip, sequence_indexes[1], track.rate
+            )
+            if left_start != right_start or left.size != right.size:
+                raise Aup3Error("stereo channel clip lengths differ")
+            clips.append((left_start, np.column_stack((left, right))))
     if not clips:
         raise Aup3Error("selected track contains no clips")
     origin = min(start for start, _ in clips)
@@ -215,18 +407,23 @@ def write_wav(samples: np.ndarray, rate: int, output_path: Path) -> None:
 
 def extract_to_wav(
     project_path: Path,
-    project_xml_path: Path,
+    project_xml_path: Path | None,
     output_path: Path,
     track_index: int = 0,
 ) -> None:
-    samples, rate = extract_track(project_path, project_xml_path.read_text(), track_index)
+    project_xml = (
+        project_xml_path.read_text()
+        if project_xml_path is not None
+        else decode_project_xml(project_path)
+    )
+    samples, rate = extract_track(project_path, project_xml, track_index)
     write_wav(samples, rate, output_path)
 
 
 def _main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("project", type=Path)
-    parser.add_argument("project_xml", type=Path)
+    parser.add_argument("project_xml", type=Path, nargs="?")
     parser.add_argument("output", type=Path)
     parser.add_argument("--track", type=int, default=0)
     args = parser.parse_args()

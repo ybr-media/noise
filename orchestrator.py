@@ -310,8 +310,6 @@ def render_batch(
             transport: Transport | None = None
             try:
                 if not dry_run:
-                    if aup3_serializer and project_xml is None:
-                        raise ValueError("--project-xml is required with --aup3-serializer")
                     process = process_factory(audacity_bin)
                     transport = transport_factory(timeout)
                     commands = (
