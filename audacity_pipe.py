@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
+import fcntl
 import os
 import select
 import time
-import fcntl
 from pathlib import Path
+
+from typing_extensions import Self
 
 
 class AudacityPipeError(RuntimeError):
@@ -23,7 +25,7 @@ class AudacityPipe:
         self._to = None
         self._from_fd = None
 
-    def __enter__(self) -> "AudacityPipe":
+    def __enter__(self) -> Self:
         missing = [str(path) for path in (self.to_path, self.from_path) if not path.exists()]
         if missing:
             raise AudacityPipeError(f"Audacity script pipe(s) missing: {', '.join(missing)}")
@@ -80,7 +82,7 @@ class AudacityPipe:
                 if line == "\n" and not lines:
                     continue
                 lines.append(line)
-                if line.startswith("BatchCommand failed:") or line.startswith("Error:"):
+                if line.startswith(("BatchCommand failed:", "Error:")):
                     raise AudacityPipeError("".join(lines).strip())
                 if line.startswith("BatchCommand finished:"):
                     response = "".join(lines)

@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import argparse
 import os
-import signal
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -15,9 +15,7 @@ from pathlib import Path
 
 import numpy as np
 import soundfile as sf
-
 from audacity_pipe import AudacityPipe, AudacityPipeError
-
 
 ROOT = Path(__file__).resolve().parent
 
@@ -99,7 +97,7 @@ def main() -> int:
     output = args.output or ROOT / "smoke-output.wav"
     try:
         run(binary, output, args.seed)
-    except Exception as exc:
+    except (AudacityPipeError, OSError, RuntimeError, TimeoutError, ValueError) as exc:
         print(f"smoke test failed: {exc}", file=sys.stderr)
         return 1
     finally:

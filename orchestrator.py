@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 import time
 from collections.abc import Callable, Mapping, Sequence
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
 
@@ -246,7 +246,7 @@ def _sidecar(plan: RenderPlan) -> dict[str, object]:
             else None
         ),
         "audacity_version": AUDACITY_VERSION,
-        "render_timestamp": datetime.now(UTC).isoformat(),
+        "render_timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
 
