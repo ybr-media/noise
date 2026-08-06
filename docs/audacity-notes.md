@@ -467,3 +467,81 @@ plan. The crossfade command completed successfully, and execution proceeded
 to the later repeat and loudness-normalization commands. The next failure was
 `LoudnessNormalization`, not the crossfade. Thus the stereo-safe crossfade
 does not exhibit a short-versus-240-second failure at this stage.
+
+## Live LoudnessNormalization investigation
+
+`Help: Command=LoudnessNormalization` on Audacity 3.7.8 reports exactly these
+parameters:
+
+```text
+StereoIndependent: bool, default False
+LUFSLevel: double, default -23
+RMSLevel: double, default -20
+DualMono: bool, default True
+NormalizeTo: int, default 0
+```
+
+The current command uses valid names and types:
+
+```text
+LoudnessNormalization: LUFSLevel=-20 NormalizeTo=0
+  StereoIndependent=0 DualMono=0
+```
+
+An explicit `RMSLevel=-20`, integer versus decimal formatting, and adding
+`SelAllTracks:` did not change the result on the failing generated-audio
+case. The RMS parameter is not required by the live command interface.
+
+### Short stereo probes
+
+On a fresh stereo tone, the current LUFS command completed and changed the
+saved sampleblocks: the tone peak changed from `0.5` to approximately
+`0.108177`, with RMS changing from approximately `0.353553` to `0.076493`.
+This proves the command is not a generic headless no-op.
+
+The same short probe after a Nyquist-generated noise result failed with
+`NormalizeTo=0`, even when `RMSLevel` was supplied. Setting
+`StereoIndependent=1` made the simple Nyquist probe complete, but that was
+not sufficient for the real plan sequence.
+
+### Real plan sequence
+
+The pilot plan was reduced to a short cell while retaining the real
+Audacity-generated stems, gains, mix, and stereo-safe crossfade. The
+crossfade succeeded, but `LoudnessNormalization` failed with both
+`StereoIndependent=0` and `StereoIndependent=1`, with and without
+`RMSLevel`.
+
+The failure is not caused solely by timeline length: a short generated
+sequence fails, while a built-in Tone sequence succeeds at both short and
+60-second durations. `GetInfo` showed that the generated/mixed pilot track
+had an unexpected end time (`49` seconds for a nominal 7-second reduced
+cell), although its saved PCM contained no NaN or infinite values. Changing
+the selection to the reported full end time did not make loudness
+normalization succeed.
+
+Consequently, no render-plan parameter change is claimed yet. The live
+evidence points to an incompatibility between Audacity's
+`LoudnessNormalization` command and the current Nyquist-generated/mixed
+track state, rather than a missing parameter or track-selection omission.
+The command remains the active live blocker and requires further diagnosis
+before changing the plan.
+
+### Fade and final-selection probes
+
+Independent of the loudness blocker, the following post-normalization
+sequence was exercised on a stereo tone:
+
+```text
+Select: Start=0 End=1 Mode=Set RelativeTo=ProjectStart
+FadeIn:
+Select: Start=4 End=5 Mode=Set RelativeTo=ProjectStart
+FadeOut:
+Select: Start=0 End=5 Mode=Set RelativeTo=ProjectStart
+```
+
+All commands returned `OK`. Saved sampleblocks showed the intended effect:
+the first and last samples were zero with a ramp at each edge, and
+`GetInfo: Type=Selection Format=JSON` reported `{ "Start":0, "End":5 }`.
+These commands are live-verified on tone but have not yet been reached in
+the real generated plan because loudness normalization fails first.

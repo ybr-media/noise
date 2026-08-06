@@ -61,6 +61,11 @@ def test_order_duration_and_documented_command_names() -> None:
         index for index, command in enumerate(commands)
         if command.startswith("LoudnessNormalization:")
     )
+    normalization_command = commands[normalization]
+    assert "LUFSLevel=-20" in normalization_command
+    assert "NormalizeTo=0" in normalization_command
+    assert "StereoIndependent=0" in normalization_command
+    assert "DualMono=0" in normalization_command
     fade_in = commands.index("FadeIn:")
     fade_out = commands.index("FadeOut:")
     export = next(index for index, command in enumerate(commands) if command.startswith("Export2:"))
