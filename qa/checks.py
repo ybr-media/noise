@@ -304,8 +304,24 @@ def analyze_spectrum(data: np.ndarray, sidecar: Sidecar) -> Spectrum:
 
 
 def spectral_tilt(spectrum: Spectrum, sidecar: Sidecar) -> CheckResult:
-    low = max(100.0, sidecar.band_low_hz)
-    high = min(10000.0, sidecar.band_high_hz)
+    slope, _intercept = _fit_tilt(spectrum, sidecar)
+    return _result(
+        "Spectral tilt",
+        f"{slope:.3f} dB/oct",
+        f"{sidecar.tilt_db_per_oct:.2f} +/- 1.50 dB/oct",
+        bool(np.isfinite(slope) and abs(slope - sidecar.tilt_db_per_oct) <= 1.5),
+    )
+
+
+def _fit_tilt(
+    spectrum: Spectrum,
+    sidecar: Sidecar,
+    *,
+    low_override: float | None = None,
+    high_override: float | None = None,
+) -> tuple[float, float]:
+    low = max(100.0, sidecar.band_low_hz) if low_override is None else low_override
+    high = min(10000.0, sidecar.band_high_hz) if high_override is None else high_override
     mask = (spectrum.frequencies >= low) & (spectrum.frequencies <= high) & (spectrum.psd > 0)
     if sidecar.bell is not None:
         exclusion_low = max(low, sidecar.bell.center_hz / 2)
@@ -322,19 +338,45 @@ def spectral_tilt(spectrum: Spectrum, sidecar: Sidecar) -> CheckResult:
             if np.any(bin_mask):
                 binned_frequency.append(float(np.sqrt(left * right)))
                 binned_psd.append(float(np.mean(selected_psd[bin_mask])))
-        slope = float(np.polyfit(np.log2(binned_frequency), 10 * np.log10(binned_psd), 1)[0]) if len(binned_frequency) >= 2 else float("nan")
+        slope, intercept = (
+            tuple(np.polyfit(np.log2(binned_frequency), 10 * np.log10(binned_psd), 1))
+            if len(binned_frequency) >= 2
+            else (float("nan"), float("nan"))
+        )
     else:
-        slope = float("nan")
-    return _result("Spectral tilt", f"{slope:.3f} dB/oct", f"{sidecar.tilt_db_per_oct:.2f} +/- 1.50 dB/oct", bool(np.isfinite(slope) and abs(slope - sidecar.tilt_db_per_oct) <= 1.5))
+        slope, intercept = float("nan"), float("nan")
+    return float(slope), float(intercept)
 
 
 def green_bell(spectrum: Spectrum, sidecar: Sidecar) -> CheckResult:
     if sidecar.bell is None:
         return _result("Green bell", "not applicable", "not applicable", True)
     near = float(np.mean([spectrum.third_octave[x] for x in (400, 500, 630)]))
+    slope, intercept = _fit_tilt(spectrum, sidecar, low_override=100.0, high_override=10000.0)
+    expected = float(
+        np.mean(
+            [
+                intercept + slope * math.log2(frequency)
+                for frequency in (400, 500, 630)
+            ]
+        )
+    )
+    excess = near - expected
     far = float(np.mean([spectrum.third_octave[x] for x in (2000, 2500, 3150, 4000)]))
-    delta = near - far
-    return _result("Green bell", f"{delta:.3f} dB", "4 to 8 dB", 4 <= delta <= 8, {"note": "A slope fit cannot catch a missing or mis-centered bell.", "third_octave_db": dict(spectrum.third_octave)})
+    return _result(
+        "Green bell",
+        f"{excess:.3f} dB",
+        "4 to 8 dB",
+        4 <= excess <= 8,
+        {
+            "metric": "excess-over-fitted-tilt",
+            "fitted_slope_db_per_oct": slope,
+            "raw_near_level_db": near,
+            "raw_ratio_db": near - far,
+            "expected_near_level_db": expected,
+            "third_octave_db": dict(spectrum.third_octave),
+        },
+    )
 
 
 def silence(data: np.ndarray, sidecar: Sidecar) -> CheckResult:

@@ -147,6 +147,14 @@ def test_tilts_and_green_bell(tmp_path: Path) -> None:
     brown = make_track(tmp_path, "wn_brown_full_static_balanced_s1.wav", slope=-6)
     assert checks(pink)["Spectral tilt"].passed
     assert checks(brown)["Spectral tilt"].passed
+    pink_metadata = json.loads(pink.with_suffix(".json").read_text())
+    pink_metadata["color"] = "green"
+    pink_metadata["bell"] = {"gain_db": 6, "center_hz": 500, "q": 1}
+    pink.with_suffix(".json").write_text(json.dumps(pink_metadata))
+    pink_green = checks(pink)["Green bell"]
+    assert pink_green.passed is False
+    assert float(pink_green.measured.split()[0]) < 1.0
+    assert pink_green.details["raw_ratio_db"] > 6.0
     green = make_track(tmp_path, "wn_green_full_static_balanced_s1.wav", bell=True)
     assert checks(green)["Green bell"].passed
     missing = make_track(tmp_path, "wn_green_full_static_balanced_s2.wav")

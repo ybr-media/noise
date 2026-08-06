@@ -965,6 +965,47 @@ The corrected pilot's failures are:
 
 The full 144-track matrix remains intentionally unstarted.
 
+### Green bell metric correction and brown DC diagnosis
+
+The original green-bell check used the raw difference between the
+400–630 Hz and 2–4 kHz bands. A real pink pilot file with no bell measured
+`6.947 dB` on that raw metric, close to the approximately `7.75 dB`
+predicted from a `-3 dB/oct` slope alone. A regression test now marks a
+pink track as having a green sidecar and confirms that the corrected check
+does not accept the tilt as a bell.
+
+The green-bell check now fits the spectral tilt line over 100 Hz–10 kHz
+while excluding the bell octave, predicts the expected 400–630 Hz level
+from that fit, and measures the actual level's excess over the prediction.
+The unchanged acceptance range remains 4–8 dB. On the pilot green file the
+corrected excess is `3.443 dB`, so the real green bell remains below the
+acceptance range rather than being hidden by a metric change.
+
+Brown DC was diagnosed from the extracted final file and standalone
+Audacity-rendered stems. The final brown file has substantial sub-20 Hz
+energy (`-42.91 dB` average PSD over 0.1–20 Hz) and a mean of
+`0.0000424`; its 30-second means range from `0.0000101` to `0.0000742`.
+The standalone bed and motion stems dominate the offset:
+
+```text
+bed:     mean  0.0002242, 0.1–20 Hz PSD -51.66 dB
+motion:  mean  0.0000724, 0.1–20 Hz PSD -52.39 dB
+texture: mean -0.0000000, 0.1–20 Hz PSD -131.28 dB
+```
+
+The bed and motion means vary substantially over time, indicating very-low-
+frequency wander rather than a stationary constant offset. The motion stem
+also has the expected unipolar amplitude envelope (`0.9 + 0.1*lfo`), which
+can preserve finite-sample low-frequency bias when multiplying noise. No
+threshold or DSP change was made for brown in this round.
+
+The rerendered pilot and corrected QA report are:
+
+```text
+/tmp/noise-pilot-bellmetric/qa_report.html
+/tmp/noise-pilot-bellmetric/qa_results.json
+```
+
 ### Rolloff and green-bell follow-up
 
 The color tilt curves now include explicit sub-20 Hz points:
