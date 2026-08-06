@@ -178,6 +178,17 @@ def test_wrong_tilt_gap_and_first_seam_click(tmp_path: Path) -> None:
     assert_only(path, "Loop seam")
 
 
+def test_loop_seam_negative_control_uncorrelated_splice(tmp_path: Path) -> None:
+    path = make_track(tmp_path, "wn_white_full_static_balanced_s5.wav")
+    audio, rate = sf.read(path, dtype="float64", always_2d=True)
+    rng = np.random.default_rng(12345)
+    audio[CELL_FRAMES : 2 * CELL_FRAMES] = rng.normal(
+        0, 0.5, (CELL_FRAMES, 2)
+    )
+    sf.write(path, audio, rate, subtype="PCM_24", format="WAV")
+    assert not checks(path)["Loop seam"].passed
+
+
 def test_uniqueness_and_input_errors_do_not_abort_good_file(tmp_path: Path) -> None:
     first = make_track(tmp_path)
     second = tmp_path / "wn_white_full_static_balanced_s2.wav"

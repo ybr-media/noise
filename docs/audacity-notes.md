@@ -859,3 +859,36 @@ The decoded PCM SHA-256 for both renders was:
 ```text
 75aefcb2caeb1844be2f664cbc20ab1c2419db680e87c417b53b2a2e75a2c2d2
 ```
+
+### Eight-track pilot
+
+The eight-track pilot was rendered through the explicit serializer path,
+using one fresh Audacity process per variant. Outputs are in
+`/tmp/noise-pilot/`, with the corresponding `.aup3`, `.wav`, `.json`, and
+`render_log.jsonl` artifacts. The QA report is:
+
+```text
+/tmp/noise-pilot/qa_report.html
+/tmp/noise-pilot/qa_results.json
+```
+
+All eight files passed format, duration, loudness, true peak, clipping,
+loop seam, silence, decorrelation, and uniqueness checks. The following
+findings were observed without tuning:
+
+- White passed all checks.
+- Brown failed DC offset (`0.0001604`) and spectral tilt (`-0.017 dB/oct`).
+- Green failed the bell check (`0.056 dB` measured) and had a DC offset of
+  `0.0000863` (within threshold).
+- Pink high, low-mid, mid drift, mid still, and breathing variants failed
+  the requested spectral-tilt check; their measured slopes were `0.002`,
+  `-0.207`, `-0.090`, `-0.033`, and `-0.022 dB/oct`, respectively.
+- Green's measured spectral tilt was `-0.705 dB/oct`, while brown measured
+  `-0.017 dB/oct`. The white and pink outputs were likewise near-flat,
+  rather than showing distinct expected color slopes. This is a real pilot
+  finding about the filter stage, not a QA threshold adjustment.
+
+The loop-seam negative control is covered by a test that replaces one cell
+with an uncorrelated, substantially discontinuous noise splice; the seam
+check fails (`8.652x second-difference median`) while the legitimate
+repeated-cell result remains at the near-zero discontinuity value.

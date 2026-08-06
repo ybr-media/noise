@@ -11,9 +11,11 @@ from Audacity's semi-self-describing project blobs.
 from __future__ import annotations
 
 import argparse
+import html
 import sqlite3
 import struct
 import xml.etree.ElementTree as ET
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -80,8 +82,8 @@ class _BinaryXML:
         if isinstance(value, bool):
             return "true" if value else "false"
         if isinstance(value, float):
-            return repr(value)
-        return str(value)
+            value = repr(value)
+        return html.escape(str(value), quote=True)
 
     def decode(self) -> str:
         output: list[str] = []
@@ -163,7 +165,7 @@ def decode_project_xml(project_path: Path, table: str = "project") -> str:
     """Decode Audacity's project/document blobs into readable XML."""
     if table not in {"project", "autosave"}:
         raise Aup3Error(f"unsupported project table: {table}")
-    with sqlite3.connect(project_path) as db:
+    with closing(sqlite3.connect(project_path)) as db:
         row = db.execute(f"SELECT dict, doc FROM {table} WHERE id = 1").fetchone()
     if row is None:
         raise Aup3Error(f"{table} table has no project row")
@@ -359,7 +361,7 @@ def extract_track(project_path: Path, project_xml: str, track_index: int = 0) ->
         sequence_indexes = (0, 0)
     else:
         raise Aup3Error("unsupported final track sequence layout")
-    with sqlite3.connect(project_path) as db:
+    with closing(sqlite3.connect(project_path)) as db:
         clips = []
         for left_clip, right_clip in zip(channel_tracks[0].clips, channel_tracks[1].clips):
             if (left_clip.offset, left_clip.trim_left, left_clip.trim_right) != (

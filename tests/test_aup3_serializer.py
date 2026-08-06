@@ -18,6 +18,27 @@ def test_binary_xml_decoder_resolves_dictionary_names() -> None:
     assert _BinaryXML(dictionary, document).decode() == "<root></root>"
 
 
+def test_binary_xml_decoder_escapes_attribute_values() -> None:
+    dictionary = (
+        b"\x00\x04"
+        + b"\x0f\x00\x00\x10\x00"
+        + "root".encode("utf-32-le")
+        + b"\x0f\x01\x00\x14\x00"
+        + "title".encode("utf-32-le")
+    )
+    value = "a&\"<".encode("utf-32-le")
+    document = (
+        b"\x01\x00\x00"
+        + b"\x03\x01\x00"
+        + len(value).to_bytes(4, "little")
+        + value
+        + b"\x02\x00\x00"
+    )
+    assert _BinaryXML(dictionary, document).decode() == (
+        '<root title="a&amp;&quot;&lt;"></root>'
+    )
+
+
 def _project(tmp_path: Path, xml: str, rows: list[tuple[int, np.ndarray]]) -> Path:
     path = tmp_path / "project.aup3"
     with sqlite3.connect(path) as db:

@@ -354,7 +354,7 @@ def render_batch(
                         plan,
                         row,
                         output_row,
-                        plan.commands,
+                        commands if not dry_run else plan.commands,
                         responses,
                         duration,
                         exit_state,
