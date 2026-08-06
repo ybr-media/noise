@@ -188,6 +188,14 @@ both orderings and line endings, the existing 3.7-compatible client was left
 unchanged and no 3.4.2 export result was claimed. A Tone-to-WAV or FLAC
 export cannot be tested honestly without a working command response.
 
+## Nyquist selected-audio binding
+
+Audacity's current Nyquist Prompt documentation uses `*track*` for the
+selected audio. The older `s` binding is documented as obsolete after Nyquist
+version 4; a bare `track` is neither binding. The crossfade expression
+therefore uses `*track*`, which also preserves the selected stereo sound as a
+single Nyquist value without manually splitting channels.
+
 ## Export preferences
 
 `Export2:` selects the container from the filename extension, but its
