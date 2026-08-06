@@ -75,6 +75,9 @@ def test_order_duration_and_documented_command_names() -> None:
 
     repeat_count = int(re.search(r"Count=(\d+)", commands[repeat_index]).group(1))
     assert plan.output.cell_seconds * (repeat_count + 1) == plan.output.cell_seconds * plan.output.repeats == 240
+    assert commands.count("Silence: Duration=1") == 3
+    assert commands.count("Trim:") == 1
+    assert commands.index("Trim:") < repeat_index
 
 
 def test_gains_select_each_track_first() -> None:
@@ -105,6 +108,16 @@ def test_seeded_noise_and_distinct_channels() -> None:
             assert plan.variant.seed(stem, "l") != plan.variant.seed(stem, "r")
         assert all("Noise:" not in command for command in plan.commands)
         assert all("(seed-random " not in command for command in plan.commands)
+
+
+def test_motion_modulator_matches_stem_duration() -> None:
+    plan = _plan()
+    motion = next(
+        command
+        for command in plan.commands
+        if "(force-srate *sound-srate* (lfo " in command
+    )
+    assert "(stretch-abs 62" in motion
 
 
 def test_spectrum_curves_and_motion_variants() -> None:
@@ -178,6 +191,8 @@ def test_band_edges_and_nyquist_expression() -> None:
         " (multichan-expand #'cue"
         " (multichan-expand #'extract-abs xf cell src))))"
     ) in crossfade
+    assert "(multichan-expand #'mult head (pwlv 1 xf 0))" in crossfade
+    assert "(multichan-expand #'mult tail (pwlv 0 xf 1))" in crossfade
     assert "(multichan-expand #'sim seam body)" in crossfade
     assert " (extract-abs 0 (+ cell xf) *track*)" not in crossfade
     assert " (extract-abs 0 xf src)" not in crossfade
@@ -191,6 +206,11 @@ def test_project_rate_export_and_order() -> None:
     assert export.startswith("Export2:")
     assert 'Filename="/tmp/wn_white_mid_drift_balanced_s340383017.flac"' in export
     assert export.endswith("NumChannels=2")
+    assert all(
+        command.endswith("NumChannels=2")
+        for command in plan.commands
+        if command.startswith("Export2:")
+    )
     assert export.split("Filename=", 1)[1].split('"', 2)[1].endswith(".flac")
     # Export2 has no bit-depth parameter; 24-bit is represented by the
     # sidecar and Audacity's persisted export preferences, not this stream.

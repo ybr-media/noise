@@ -287,7 +287,8 @@ def _modulated_noise(seed: int, duration: float, depth: float, rate_hz: float) -
     offset = _nyquist_number(1.0 - depth)
     modulator = (
         f"(sum {offset} (mult {_nyquist_number(depth)} "
-        f"(force-srate *sound-srate* (lfo {_nyquist_number(rate_hz)}))))"
+        f"(stretch-abs {_nyquist_number(duration)} "
+        f"(force-srate *sound-srate* (lfo {_nyquist_number(rate_hz)})))))"
     )
     return f"(mult {source} {modulator})"
 
@@ -347,16 +348,18 @@ def bell_points(spectrum: Spectrum) -> list[tuple[float, float]]:
 
 
 def _new_stereo_track(track_index: int, duration: float) -> list[str]:
-    """Create a silent stereo track of ``duration`` seconds and select it."""
+    """Create a one-second Nyquist target track and select its placeholder."""
+    del duration
+    placeholder = "1"
     return [
         "NewStereoTrack:",
         (
-            f"Select: Start=0 End={_seconds(duration)} "
+            f"Select: Start=0 End={placeholder} "
             f"Track={track_index} TrackCount=1 Mode=Set RelativeTo=ProjectStart"
         ),
-        f"Silence: Duration={_seconds(duration)}",
+        f"Silence: Duration={placeholder}",
         (
-            f"Select: Start=0 End={_seconds(duration)} "
+            f"Select: Start=0 End={placeholder} "
             f"Track={track_index} TrackCount=1 Mode=Set RelativeTo=ProjectStart"
         ),
     ]
@@ -442,8 +445,8 @@ def _crossfade_expression(cell_seconds: float, crossfade_seconds: float) -> str:
         " (tail (multichan-expand #'cue"
         " (multichan-expand #'extract-abs cell (+ cell xf) src)))"
         " (seam (multichan-expand #'sim"
-        " (multichan-expand #'mult head (pwlv 0 xf 1))"
-        " (multichan-expand #'mult tail (pwlv 1 xf 0))))"
+        " (multichan-expand #'mult head (pwlv 1 xf 0))"
+        " (multichan-expand #'mult tail (pwlv 0 xf 1))))"
         " (body (at-abs xf"
         " (multichan-expand #'cue"
         " (multichan-expand #'extract-abs xf cell src)))))"
@@ -519,6 +522,7 @@ def build_plan(
             f"Select: Start=0 End={_seconds(output.cell_seconds)} "
             "Track=0 TrackCount=1 Mode=Set RelativeTo=ProjectStart"
         ),
+        "Trim:",
     ]
 
     # `Repeat: Count=N` appends N further copies of the selection, so the

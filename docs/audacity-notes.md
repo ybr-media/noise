@@ -512,20 +512,14 @@ crossfade succeeded, but `LoudnessNormalization` failed with both
 `StereoIndependent=0` and `StereoIndependent=1`, with and without
 `RMSLevel`.
 
-The failure is not caused solely by timeline length: a short generated
-sequence fails, while a built-in Tone sequence succeeds at both short and
-60-second durations. `GetInfo` showed that the generated/mixed pilot track
-had an unexpected end time (`49` seconds for a nominal 7-second reduced
-cell), although its saved PCM contained no NaN or infinite values. Changing
-the selection to the reported full end time did not make loudness
-normalization succeed.
-
-Consequently, no render-plan parameter change is claimed yet. The live
-evidence points to an incompatibility between Audacity's
-`LoudnessNormalization` command and the current Nyquist-generated/mixed
-track state, rather than a missing parameter or track-selection omission.
-The command remains the active live blocker and requires further diagnosis
-before changing the plan.
+The first run of this probe also exposed a malformed timeline: the generated
+track reported `49` seconds for a nominal 7-second reduced cell. That issue
+has since been fixed by the length changes documented below. On the corrected
+timeline, whose track and selection both report 20 seconds, the LUFS command
+still fails. A built-in Tone sequence succeeds at both short and 60-second
+durations, while an isolated corrected Nyquist noise track succeeds only with
+`StereoIndependent=1`. The complete generated/mixed sequence fails with both
+values, so the command remains the active live blocker.
 
 ### Fade and final-selection probes
 
@@ -545,3 +539,102 @@ the first and last samples were zero with a ramp at each edge, and
 `GetInfo: Type=Selection Format=JSON` reported `{ "Start":0, "End":5 }`.
 These commands are live-verified on tone but have not yet been reached in
 the real generated plan because loudness normalization fails first.
+
+## Timeline-length bisection
+
+The earlier 49-second-for-7-second observation was a real timeline error, but
+it was caused by the Nyquist effect's replacement-selection behavior rather
+than by missing sampleblock accounting. A short real plan was instrumented
+with `GetInfo: Type=Tracks Format=JSON` and
+`GetInfo: Type=Selection Format=JSON` after every plan command.
+
+For a reduced plan with `cell_seconds=5`, `crossfade_seconds=2`, and one
+cell, the measured extents were:
+
+| Step | Expected | Measured |
+| --- | ---: | ---: |
+| `Silence` placeholder for each stem | 1 s | 1 s |
+| Bed Nyquist generation | 7 s | 49 s |
+| Texture Nyquist generation | 7 s | 49 s |
+| Motion Nyquist generation | 7 s | 7 s |
+| After `MixAndRender:` | 7 s | 49 s |
+| After corrected stem generation | 7 s | 7 s |
+| After `MixAndRender:` with corrected stems | 7 s | 7 s |
+| Crossfade selection before trim | 5 s | 5 s |
+| Crossfade track before trim | 5 s | 7 s |
+| `Trim:` to the selected cell | 5 s | 5 s |
+| `Repeat: Count=3` with 5-second cell | 20 s | 20 s |
+
+The isolated Nyquist measurements showed that Audacity's Nyquist effect
+replaces the selected interval using a duration multiplier: selecting `D`
+seconds and returning `(noise N)` produced an extent of `D*N` seconds. The
+old plan selected the full 7-second stem while returning a 7-second sound,
+creating 49 seconds. Motion additionally had a one-second LFO modulator, so
+the `mult` result was only one second.
+
+The plan now:
+
+- Uses a one-second silent placeholder selection for each Nyquist-generated
+  stem, allowing the returned `cell + crossfade` sound to establish the
+  intended 7-second extent.
+- Stretches the motion LFO to the stem duration with `stretch-abs`.
+- Selects the 5-second loop body and applies Audacity's `Trim:` before
+  repeating, because the Nyquist effect leaves the original 7-second track
+  extent even though its returned crossfade body is 5 seconds.
+
+With these changes, every measured extent through `Repeat:` matches the
+expected timeline. The current LUFS command still fails on the corrected
+20-second generated/mixed timeline, so the minimal remaining reproducer is no
+longer a malformed-length case:
+
+```text
+SetProject: Rate=48000
+<three 7-second Nyquist-generated stereo stems using 1-second placeholders>
+MixAndRender:
+<stereo-safe crossfade over 7 seconds>
+Select: Start=0 End=5 Track=0 TrackCount=1 Mode=Set RelativeTo=ProjectStart
+Trim:
+Repeat: Count=3
+Select: Start=0 End=20 Mode=Set RelativeTo=ProjectStart
+LoudnessNormalization: LUFSLevel=-20 NormalizeTo=0 StereoIndependent=0 DualMono=0
+```
+
+The track and selection both report 20 seconds immediately before
+normalization. The command still returns `BatchCommand finished: Failed!`.
+Changing only `StereoIndependent` to `1` also fails on this full generated
+sequence, although it succeeds on an isolated corrected Nyquist noise track.
+
+## Export-registry evidence correction
+
+The generic `Could not export to <format> format!` response is emitted by
+both the registry-miss and exporter-failed branches in Audacity 3.7.8.
+Therefore the earlier multi-format probe, including `.zzz`, does **not**
+prove that the registry is empty. The notes now treat that result as
+inconclusive rather than as Branch A confirmation.
+
+The requested `strace -f -e trace=openat` probe did not reach a usable pipe
+response under tracing, so it produced no target-path `openat` evidence.
+Likewise, `Import2:` of a known WAV timed out in the current headless
+profile. No export registration conclusion is claimed from those attempts.
+The AppImage's `mod-pcm.so` depends on the bundled Audacity shared libraries;
+plain `ldd` reports them as unresolved unless the AppImage library directory
+is supplied through `LD_LIBRARY_PATH`.
+
+`Export2:` has a default `NumChannels=1`; the render plan and smoke test
+explicitly pass `NumChannels=2`, and regression tests require that parameter
+on every generated export command.
+
+## Crossfade direction and Nyquist binding
+
+The seam crossfade now uses the conventional direction:
+
+```text
+head × (1 → 0) + tail × (0 → 1)
+```
+
+The prior expression had these envelopes reversed. The live stereo-safe
+implementation continues to use `*track*` plus `multichan-expand` for
+single-sound operations. In Audacity 3.7.8's version-4 Nyquist environment,
+`s` is the dummy float `0.25`, not selected audio; `*track*` is a sound for
+mono and an array of sounds for stereo. Direct `extract-abs` on the stereo
+array type-errors, which is why the per-channel expansion is required.
