@@ -152,3 +152,38 @@ headless container required `--no-documents-portal`; even then it did not
 create usable script-pipe FIFOs under the isolated run, so it did not provide
 an independent export result. The AppImage 3.7.7 and 3.7.8 failures therefore
 remain the only complete cross-build export results.
+
+## 3.4.2 script-pipe compatibility probe
+
+One final probe targeted only the older script-pipe protocol. The 3.4.2
+bundle's module was enabled with status `1`, its module timestamp matched the
+actual `.so` mtime, and `ShowWelcomeDialog=0`/`FirstRun=0` were present in the
+temporary config. Both FIFOs were created.
+
+The probe tested both non-deadlocking client open orders:
+
+* open `.to` for writing, then `.from` for nonblocking reading;
+* open `.from` for nonblocking reading, then `.to` for writing.
+
+For each order it sent all of the following, with explicit flushing through
+direct `os.write()` and both newline styles:
+
+```text
+Help: Command=Help\n
+Help: Command=Help\r\n
+Help: Command=Help Format=Brief\n
+NewStereoTrack:\n
+```
+
+Every combination produced exactly one raw response byte sequence:
+
+```text
+b"\n"
+```
+
+There was no command response, error, or alternate completion sentinel.
+The Audacity process remained alive, so this was not a FIFO-open deadlock or
+process crash. Since no 3.4.2 command response could be obtained after trying
+both orderings and line endings, the existing 3.7-compatible client was left
+unchanged and no 3.4.2 export result was claimed. A Tone-to-WAV or FLAC
+export cannot be tested honestly without a working command response.
