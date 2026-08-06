@@ -292,8 +292,8 @@ def _modulated_noise(seed: int, duration: float, depth: float, rate_hz: float) -
     offset = _nyquist_number(1.0 - depth)
     modulator = (
         f"(sum {offset} (mult {_nyquist_number(depth)} "
-        f"(stretch-abs {_nyquist_number(duration)} "
-        f"(force-srate *sound-srate* (lfo {_nyquist_number(rate_hz)})))))"
+        f"(abs-env (stretch-abs {_nyquist_number(duration)} "
+        f"(force-srate *sound-srate* (lfo {_nyquist_number(rate_hz)}))))))"
     )
     return f"(mult {source} {modulator})"
 
@@ -480,7 +480,7 @@ def _crossfade_expression(cell_seconds: float, crossfade_seconds: float) -> str:
     cell = _nyquist_number(cell_seconds)
     fade = _nyquist_number(crossfade_seconds)
     return (
-        f"(let* ((cell {cell}) (xf {fade}) "
+        f"(abs-env (let* ((cell {cell}) (xf {fade}) "
         "(src (multichan-expand #'extract-abs 0 (+ cell xf) *track*))"
         " (head (multichan-expand #'extract-abs 0 xf src))"
         " (tail (multichan-expand #'cue"
@@ -491,7 +491,7 @@ def _crossfade_expression(cell_seconds: float, crossfade_seconds: float) -> str:
         " (body (at-abs xf"
         " (multichan-expand #'cue"
         " (multichan-expand #'extract-abs xf cell src)))))"
-        " (multichan-expand #'sim seam body))"
+        " (multichan-expand #'sim seam body)))"
     )
 
 

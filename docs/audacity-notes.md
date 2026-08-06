@@ -965,6 +965,46 @@ The corrected pilot's failures are:
 
 The full 144-track matrix remains intentionally unstarted.
 
+### Nyquist warp audit: crossfade and motion LFO
+
+Audacity's process-type Nyquist effects set `*warp*` to the selection
+duration. The prior crossfade expression emitted `pwlv` directly, so its
+2-second envelope was evaluated on the 62-second selection and did not
+produce the intended local fade. A deterministic white-noise probe measured
+the first two seconds of the old expression at nearly constant RMS:
+
+```text
+old expression: 0.5772, 0.5762, 0.5749, 0.5747, 0.5739, 0.5708, 0.5707, 0.5697
+```
+
+The corrected expression wraps the complete crossfade in `abs-env`. Its
+first two seconds show the expected head-down/tail-up envelope:
+
+```text
+corrected: 0.5436, 0.4828, 0.4391, 0.4130, 0.4139, 0.4376, 0.4814, 0.5437
+```
+
+The prior pilot audio was therefore defective: its crossfade was effectively
+a no-op over the intended 2-second region, despite passing duration and seam
+continuity checks. The corrected pilot's first-cell envelope visibly ramps
+from near silence into the body:
+
+```text
+0.00218, 0.00522, 0.00785, 0.01047, 0.01353, 0.01758, 0.02300, 0.02990
+```
+
+The motion expression is now also explicitly warp-safe:
+
+```text
+(abs-env (stretch-abs 62
+  (force-srate *sound-srate* (lfo 0.02))))
+```
+
+An extracted standalone motion stem was measured with a fine-grid sinusoidal
+fit to its 0.25-second RMS envelope. The realized modulation rate was
+`0.01995 Hz`, period `50.13 s`, matching the configured `0.02 Hz` rate
+(50-second period). The stem duration remained 62 seconds.
+
 ### Realized versus intended green bell
 
 The green bell was measured independently on a flat Audacity-generated

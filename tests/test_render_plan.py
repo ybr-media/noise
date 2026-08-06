@@ -121,6 +121,7 @@ def test_motion_modulator_matches_stem_duration() -> None:
         if "(force-srate *sound-srate* (lfo " in command
     )
     assert "(stretch-abs 62" in motion
+    assert "(abs-env (stretch-abs 62 (force-srate *sound-srate* (lfo 0.02))))" in motion
 
 
 def test_spectrum_curves_and_motion_variants() -> None:
@@ -210,6 +211,7 @@ def test_band_edges_and_nyquist_expression() -> None:
     ) in crossfade
     assert "(multichan-expand #'mult head (pwlv 1 xf 0))" in crossfade
     assert "(multichan-expand #'mult tail (pwlv 0 xf 1))" in crossfade
+    assert crossfade.startswith('NyquistPrompt: Command="(abs-env (let*')
     assert "(multichan-expand #'sim seam body)" in crossfade
     assert " (extract-abs 0 (+ cell xf) *track*)" not in crossfade
     assert " (extract-abs 0 xf src)" not in crossfade
