@@ -1,6 +1,6 @@
 # Audacity noise generator — Phase 1
 
-This directory contains only the Audacity setup and smoke test for PRD §4.
+This repository contains the Audacity setup and smoke test for PRD §4.
 The pinned engine is **Audacity 3.7.8**, downloaded as the official Linux
 `x64-22.04.AppImage` and unpacked with `--appimage-extract` (FUSE is not
 required).
@@ -10,7 +10,7 @@ required).
 From the repository root:
 
 ```sh
-tools/noisegen/setup.sh
+./setup.sh
 ```
 
 The script creates the ignored `.audacity/`, `.audacity-config/`, `.asoundrc`,
@@ -20,7 +20,7 @@ It does not download or modify the supplied reference audio.
 ## Smoke test
 
 ```sh
-tools/noisegen/.venv/bin/python tools/noisegen/smoke_test.py
+.venv/bin/python smoke_test.py
 ```
 
 The test starts one fresh Audacity process under `xvfb-run -a`, verifies both
