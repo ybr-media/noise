@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --page: #f2f2f7;
+  --card: #ffffff;
+  --label: #1c1c1e;
+  --secondary: #8e8e93;
+  --separator: #d8d8dc;
+  --track: #e9e9eb;
+  --accent: #ff3b30;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--page); }
+body { margin: 0; background: var(--page); color: var(--label); }
+button, input { font: inherit; }
+button:disabled { cursor: not-allowed; }
