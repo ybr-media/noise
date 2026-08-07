@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { enqueue, listJobs } from "@/lib/queue";
-import { findVariant, loadPilotVariants } from "@/lib/config";
+import { RENDERING_AVAILABLE, findVariant, loadPilotVariants } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +9,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  if (!RENDERING_AVAILABLE) {
+    return NextResponse.json({ error: "Rendering needs the local Audacity worker; this deployment is browse-only" }, { status: 503 });
+  }
   const body = (await request.json()) as { variantIds?: unknown[]; pilot?: boolean };
   const variantIds = body.pilot
     ? loadPilotVariants().map((variant) => variant.variantId)

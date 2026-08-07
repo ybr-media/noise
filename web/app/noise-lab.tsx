@@ -282,7 +282,11 @@ export default function NoiseLab() {
 
   async function queue(ids: string[], label: string) {
     const response = await fetch("/api/queue", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(label === "pilot" ? { pilot: true } : { variantIds: ids }) });
-    if (!response.ok) { setToast({ message: "Queue request failed.", error: true }); return; }
+    if (!response.ok) {
+      const reason = (await response.json().catch(() => ({}))) as { error?: string };
+      setToast({ message: reason.error ?? "Queue request failed.", error: true });
+      return;
+    }
     setToast({ message: label === "pilot" ? "Pilot set added to the worker queue." : "Variant added to the worker queue." });
     await refresh();
   }

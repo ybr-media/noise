@@ -13,7 +13,12 @@ NOISE_RENDER_DIR="$HOME/noisegen-out" npm run dev
 
 Configuration:
 
-- `NOISE_VARIANTS_FILE` points to `../config/variants.yaml`.
+- `NOISE_VARIANTS_FILE` points to `../config/variants.yaml`. When the app is
+  deployed on its own, a copy of the engine's `config/` beside `app/` is used
+  instead.
+- `NOISE_RENDERING_AVAILABLE` (`0`/`1`) overrides whether the Render buttons
+  can queue work. It defaults off on Vercel, where no worker can drain the
+  queue, so a hosted deployment is browse-only.
 - `NOISE_RENDER_DIR` points to the durable render output directory. It defaults
   to `$HOME/noisegen-out`.
 - `NOISE_QUEUE_FILE` controls the JSONL queue path.
