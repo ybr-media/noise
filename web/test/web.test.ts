@@ -75,7 +75,7 @@ test("resolves matrix indexes, pilot labels, and total durations from config", a
 
 test("assembles rendered and missing library tracks with QA evidence", async () => {
   const [, { libraryTracks }] = await modulesPromise;
-  const tracks = libraryTracks();
+  const tracks = await libraryTracks();
   assert.equal(tracks.length, 2);
   assert.equal(tracks[0].exists, true);
   assert.equal(tracks[0].durationSeconds, 245);

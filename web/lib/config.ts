@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { parse } from "yaml";
+import { DISPATCH_CONFIGURED } from "./dispatch";
 import type { Band, Balance, Color, Motion, Variant } from "./types";
 
 // The console runs from the app directory, so the engine's config lives one
@@ -16,11 +17,20 @@ export const CONFIG_PATH = process.env.NOISE_VARIANTS_FILE ?? configPath("varian
 export const PILOT_CONFIG_PATH = process.env.NOISE_PILOT_VARIANTS_FILE ?? configPath("variants_pilot.yaml");
 export const RENDER_DIR = process.env.NOISE_RENDER_DIR ?? path.join(os.homedir(), "noisegen-out");
 
-// Queueing only means something where the Python worker and Audacity can
-// reach the same render directory, which a hosted deployment cannot.
-export const RENDERING_AVAILABLE = process.env.NOISE_RENDERING_AVAILABLE
-  ? process.env.NOISE_RENDERING_AVAILABLE === "1"
-  : !process.env.VERCEL;
+// The local queue only means something where the Python worker and Audacity can
+// reach the same render directory, which a hosted deployment cannot. Hosted
+// deployments instead hand the render to a GitHub Actions runner.
+export type RenderMode = "local" | "dispatch" | "unavailable";
+
+function renderMode(): RenderMode {
+  if (process.env.NOISE_RENDERING_AVAILABLE === "1") return "local";
+  if (process.env.NOISE_RENDERING_AVAILABLE === "0") return "unavailable";
+  if (process.env.VERCEL) return DISPATCH_CONFIGURED ? "dispatch" : "unavailable";
+  return "local";
+}
+
+export const RENDER_MODE = renderMode();
+export const RENDERING_AVAILABLE = RENDER_MODE !== "unavailable";
 
 const COLORS: Color[] = ["white", "green", "pink", "brown"];
 const BANDS: Band[] = ["low-mid", "mid", "high", "broad"];

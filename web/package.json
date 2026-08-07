@@ -9,7 +9,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "worker": "tsx worker/queue-worker.ts",
-    "test": "tsx --test test/web.test.ts"
+    "test": "tsx --test test/web.test.ts test/remote.test.ts"
   },
   "dependencies": {
     "lucide-react": "0.468.0",
