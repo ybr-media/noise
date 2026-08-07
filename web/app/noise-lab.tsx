@@ -261,6 +261,7 @@ export default function NoiseLab() {
   const [variants, setVariants] = useState<Variant[]>([]);
   const [tracks, setTracks] = useState<LibraryTrack[]>([]);
   const [jobs, setJobs] = useState<QueueJob[]>([]);
+  const [renderMode, setRenderMode] = useState<"local" | "dispatch" | "unavailable">("local");
   const [tab, setTab] = useState<"design" | "library" | "queue">("design");
   const [selection, setSelection] = useState({ color: "white", band: "mid", motion: "drift", balance: "balanced" });
   const [toast, setToast] = useState<{ message: string; error?: boolean } | null>(null);
@@ -274,7 +275,9 @@ export default function NoiseLab() {
       const [variantResponse, libraryResponse, queueResponse] = await Promise.all([fetch("/api/variants"), fetch("/api/library"), fetch("/api/queue")]);
       setVariants((await variantResponse.json()).variants);
       setTracks((await libraryResponse.json()).tracks);
-      setJobs((await queueResponse.json()).jobs);
+      const queuePayload = (await queueResponse.json()) as { jobs: QueueJob[]; mode?: "local" | "dispatch" | "unavailable" };
+      setJobs(queuePayload.jobs);
+      if (queuePayload.mode) setRenderMode(queuePayload.mode);
     } catch { setToast({ message: "Could not load engine data.", error: true }); }
     finally { setLoading(false); }
   }, []);
@@ -282,8 +285,13 @@ export default function NoiseLab() {
 
   async function queue(ids: string[], label: string) {
     const response = await fetch("/api/queue", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(label === "pilot" ? { pilot: true } : { variantIds: ids }) });
-    if (!response.ok) { setToast({ message: "Queue request failed.", error: true }); return; }
-    setToast({ message: label === "pilot" ? "Pilot set added to the worker queue." : "Variant added to the worker queue." });
+    if (!response.ok) {
+      const reason = (await response.json().catch(() => ({}))) as { error?: string };
+      setToast({ message: reason.error ?? "Queue request failed.", error: true });
+      return;
+    }
+    const target = renderMode === "dispatch" ? "GitHub Actions renderer" : "worker queue";
+    setToast({ message: `${label === "pilot" ? "Pilot set" : "Variant"} sent to the ${target}.` });
     await refresh();
   }
 
@@ -336,7 +344,7 @@ export default function NoiseLab() {
         )}
 
         {tab === "library" && <Library tracks={tracks} loading={loading} onRefresh={() => void refresh()} onToast={setToast} />}
-        {tab === "queue" && <Queue jobs={jobs} onRefresh={() => void refresh()} />}
+        {tab === "queue" && <Queue jobs={jobs} mode={renderMode} onRefresh={() => void refresh()} />}
       </div>
       {toast && <Toast message={toast.message} error={toast.error} onClose={() => setToast(null)} />}
     </main>
@@ -397,6 +405,12 @@ function TrackCard({ track, onToast }: { track: LibraryTrack; onToast: (toast: {
   );
 }
 
-function Queue({ jobs, onRefresh }: { jobs: QueueJob[]; onRefresh: () => void }) {
-  return <section className="mt-5"><div className="mb-3 flex items-center justify-between px-1"><div><h2 className="text-[20px] font-bold">Render queue</h2><p className="text-xs text-[#8e8e93]">Honest worker-backed status</p></div><button type="button" onClick={onRefresh} className="rounded-full bg-[#e9e9eb] p-2" aria-label="Refresh queue"><RefreshCw size={14} /></button></div><div className="overflow-hidden rounded-2xl bg-white shadow-sm">{jobs.length === 0 ? <div className="p-8 text-center text-sm text-[#8e8e93]">No jobs queued.</div> : jobs.map((job, index) => <div key={job.id} className={`flex items-center justify-between gap-3 px-4 py-3 ${index ? "border-t border-[#d8d8dc]" : ""}`}><div className="min-w-0"><div className="truncate font-mono text-[11px]">{job.variantId}</div><div className="mt-0.5 text-[11px] text-[#8e8e93]">{new Date(job.queuedAt).toLocaleString()}</div></div><span className="rounded-full bg-[#f2f2f7] px-2 py-1 font-mono text-[10px]">{job.status}</span></div>)}</div><p className="mt-3 px-1 text-xs leading-5 text-[#8e8e93]">Queueing writes a JSONL job for the separate Python worker. This console does not pretend that Audacity renders complete inside an HTTP request.</p></section>;
+const QUEUE_NOTES: Record<string, string> = {
+  local: "Queueing writes a JSONL job for the separate Python worker. This console does not pretend that Audacity renders complete inside an HTTP request.",
+  dispatch: "Queueing dispatches a GitHub Actions run that installs Audacity, renders, runs QA, and publishes the master to object storage. Status here mirrors the workflow run.",
+  unavailable: "This deployment has no renderer configured, so it browses published masters only.",
+};
+
+function Queue({ jobs, mode, onRefresh }: { jobs: QueueJob[]; mode: "local" | "dispatch" | "unavailable"; onRefresh: () => void }) {
+  return <section className="mt-5"><div className="mb-3 flex items-center justify-between px-1"><div><h2 className="text-[20px] font-bold">Render queue</h2><p className="text-xs text-[#8e8e93]">{mode === "dispatch" ? "GitHub Actions run status" : "Honest worker-backed status"}</p></div><button type="button" onClick={onRefresh} className="rounded-full bg-[#e9e9eb] p-2" aria-label="Refresh queue"><RefreshCw size={14} /></button></div><div className="overflow-hidden rounded-2xl bg-white shadow-sm">{jobs.length === 0 ? <div className="p-8 text-center text-sm text-[#8e8e93]">No jobs queued.</div> : jobs.map((job, index) => <div key={job.id} className={`flex items-center justify-between gap-3 px-4 py-3 ${index ? "border-t border-[#d8d8dc]" : ""}`}><div className="min-w-0"><div className="truncate font-mono text-[11px]">{job.variantId}</div><div className="mt-0.5 text-[11px] text-[#8e8e93]">{new Date(job.queuedAt).toLocaleString()}</div></div><span className="rounded-full bg-[#f2f2f7] px-2 py-1 font-mono text-[10px]">{job.status}</span></div>)}</div><p className="mt-3 px-1 text-xs leading-5 text-[#8e8e93]">{QUEUE_NOTES[mode]}</p></section>;
 }

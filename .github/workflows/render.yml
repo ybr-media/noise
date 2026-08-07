@@ -1,0 +1,80 @@
+name: Render
+
+run-name: Render ${{ inputs.variants }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      variants:
+        description: 'Comma-separated variant ids, "pilot" for the pilot set, or "full" for the whole matrix'
+        required: true
+        default: pilot
+      prefix:
+        description: Optional key prefix inside the artifact bucket
+        required: false
+        default: ''
+
+concurrency:
+  group: render
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb libfuse2 libasound2 libgtk-3-0 libnotify4 libsecret-1-0 libsndfile1
+
+      - name: Install Audacity and the engine
+        run: |
+          bash setup.sh
+          .venv/bin/pip install --disable-pip-version-check -r requirements-publish.txt
+
+      - name: Select variants
+        id: select
+        env:
+          VARIANTS: ${{ inputs.variants }}
+        run: |
+          .venv/bin/python scripts/select_variants.py "$VARIANTS" --out /tmp/render-variants.yaml >> "$GITHUB_OUTPUT"
+
+      - name: Render
+        run: |
+          .venv/bin/python orchestrator.py \
+            --variants-file /tmp/render-variants.yaml \
+            --output-dir out \
+            --aup3-serializer \
+            --force
+
+      - name: QA
+        # A failing check is evidence to publish, not a reason to withhold the master.
+        continue-on-error: true
+        run: PYTHONPATH=qa .venv/bin/python qa/qa_harness.py out --report out/qa.html --json out/qa_results.json
+
+      - name: Publish to R2
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ vars.R2_BUCKET || 'noise-labs' }}
+          R2_PREFIX: ${{ inputs.prefix }}
+        run: .venv/bin/python scripts/publish_artifacts.py out
+
+      - name: Upload QA report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-report
+          path: |
+            out/qa.html
+            out/qa_results.json
+            out/render_log.jsonl
+          if-no-files-found: ignore

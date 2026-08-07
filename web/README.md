@@ -13,14 +13,36 @@ NOISE_RENDER_DIR="$HOME/noisegen-out" npm run dev
 
 Configuration:
 
-- `NOISE_VARIANTS_FILE` points to `../config/variants.yaml`.
+- `NOISE_VARIANTS_FILE` points to `../config/variants.yaml`. When the app is
+  deployed on its own, a copy of the engine's `config/` beside `app/` is used
+  instead.
+- `NOISE_RENDERING_AVAILABLE` (`0`/`1`) forces the local worker on or rendering
+  off, overriding the mode detection below.
 - `NOISE_RENDER_DIR` points to the durable render output directory. It defaults
   to `$HOME/noisegen-out`.
 - `NOISE_QUEUE_FILE` controls the JSONL queue path.
+- `NOISE_ARTIFACTS_BASE_URL` points at published artifacts in object storage.
+  When set, the Library reads `manifest.json` from that base instead of the
+  local disk and audio requests redirect straight to storage.
+- `NOISE_MANIFEST_TTL_MS` caches that manifest (default 30s).
+- `NOISE_DISPATCH_REPO`, `NOISE_DISPATCH_TOKEN`, `NOISE_DISPATCH_WORKFLOW`
+  (default `render.yml`), and `NOISE_DISPATCH_REF` (default `main`) let a hosted
+  console trigger the GitHub Actions renderer.
 
 The Library reads sidecars, `qa_results.json`, and `render_log.jsonl`, streams
-WAVs through a range-aware API route, and never loads a master into the client
-bundle.
+local WAVs through a range-aware API route, and never loads a master into the
+client bundle.
+
+## Render modes
+
+The console reports one of three modes and never accepts work it cannot run:
+
+- `local` — beside the Python tree, so Render appends to the JSONL queue that
+  the worker below drains.
+- `dispatch` — hosted with `NOISE_DISPATCH_*` configured, so Render triggers a
+  GitHub Actions run and the queue tab mirrors that run's status.
+- `unavailable` — hosted with no renderer configured; Render returns 503 and
+  the console browses published masters only.
 
 ## Queue worker
 
