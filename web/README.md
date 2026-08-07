@@ -13,7 +13,7 @@ NOISE_RENDER_DIR="$HOME/noisegen-out" npm run dev
 
 Configuration:
 
-- `NOISE_VARIANTS_FILE` points to `tools/noisegen/config/variants.yaml`.
+- `NOISE_VARIANTS_FILE` points to `../config/variants.yaml`.
 - `NOISE_RENDER_DIR` points to the durable render output directory. It defaults
   to `$HOME/noisegen-out`.
 - `NOISE_QUEUE_FILE` controls the JSONL queue path.

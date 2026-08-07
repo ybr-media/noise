@@ -771,7 +771,7 @@ BatchCommand finished: Failed!
 ## AUP3 WAV serializer
 
 The approved export fallback is implemented in
-`tools/noisegen/aup3_serializer.py`. It performs no DSP: Audacity remains
+`aup3_serializer.py`. It performs no DSP: Audacity remains
 responsible for generation, filtering, gain staging, mixing, loudness
 normalization, and fades. The serializer only follows final-track references,
 reads the referenced little-endian float32 blocks, and writes 48 kHz,
@@ -800,7 +800,7 @@ them. The module exposes `extract_track`, `write_wav`, and
 `extract_to_wav`, plus a CLI:
 
 ```text
-python tools/noisegen/aup3_serializer.py project.aup3 project.xml output.wav
+python aup3_serializer.py project.aup3 project.xml output.wav
 ```
 
 The orchestrator keeps `Export2:` as the default. The explicit opt-in

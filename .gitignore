@@ -1,0 +1,11 @@
+/.audacity/
+/.audacity-config/
+/.asoundrc
+/.venv/
+/audacity.env
+__pycache__/
+*.pyc
+node_modules/
+/refs/
+/out/
+/render_log.jsonl
