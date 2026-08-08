@@ -15,6 +15,15 @@ import pyloudnorm as pyln
 import soundfile as sf
 
 
+#: Half-width, in octaves, of the region around a bell center excluded from the
+#: tilt fit. The bell's skirts reach well past one octave, so a narrower window
+#: leaves them in the fit and lifts the baseline the bell is measured against.
+BELL_EXCLUSION_OCTAVES: float = 2.0
+
+#: Width, in octaves, of the band the bell's realized gain is averaged over.
+BELL_MEASURE_WIDTH_OCTAVES: float = 1 / 6
+
+
 class SidecarError(ValueError):
     """Raised when a sidecar does not satisfy the input contract."""
 
@@ -329,8 +338,8 @@ def _fit_tilt(
     high = min(10000.0, sidecar.band_high_hz) if high_override is None else high_override
     mask = (spectrum.frequencies >= low) & (spectrum.frequencies <= high) & (spectrum.psd > 0)
     if sidecar.bell is not None:
-        exclusion_low = max(low, sidecar.bell.center_hz / 2)
-        exclusion_high = min(high, sidecar.bell.center_hz * 2)
+        exclusion_low = max(low, sidecar.bell.center_hz * 2**-BELL_EXCLUSION_OCTAVES)
+        exclusion_high = min(high, sidecar.bell.center_hz * 2**BELL_EXCLUSION_OCTAVES)
         mask &= ~((spectrum.frequencies >= exclusion_low) & (spectrum.frequencies <= exclusion_high))
     selected_frequencies = spectrum.frequencies[mask]
     selected_psd = spectrum.psd[mask]
@@ -354,30 +363,35 @@ def _fit_tilt(
 
 
 def green_bell(spectrum: Spectrum, sidecar: Sidecar) -> CheckResult:
+    """Measure the bell's realized gain at its center against the fitted tilt.
+
+    The acceptance range brackets the bell's specified peak gain, so the
+    measurement is taken at the center over a narrow band rather than averaged
+    across the 400-630 Hz third octaves, whose skirts sit well below the peak.
+    """
     if sidecar.bell is None:
         return _result("Green bell", "not applicable", "not applicable", True)
-    near = float(np.mean([spectrum.third_octave[x] for x in (400, 500, 630)]))
+    center = sidecar.bell.center_hz
     slope, intercept = _fit_tilt(spectrum, sidecar, low_override=100.0, high_override=10000.0)
-    expected = float(
-        np.mean(
-            [
-                intercept + slope * math.log2(frequency)
-                for frequency in (400, 500, 630)
-            ]
-        )
+    half_width = 2 ** (BELL_MEASURE_WIDTH_OCTAVES / 2)
+    band = (
+        (spectrum.frequencies >= center / half_width)
+        & (spectrum.frequencies < center * half_width)
     )
+    near = float(10 * np.log10(max(np.mean(spectrum.psd[band]), 1e-30))) if np.any(band) else -300.0
+    expected = intercept + slope * math.log2(center)
     excess = near - expected
     far = float(np.mean([spectrum.third_octave[x] for x in (2000, 2500, 3150, 4000)]))
     return _result(
         "Green bell",
         f"{excess:.3f} dB",
-        "3 to 8 dB",
-        3 <= excess <= 8,
+        "4 to 8 dB",
+        4 <= excess <= 8,
         {
-            "metric": "excess-over-fitted-tilt",
+            "metric": "center-excess-over-fitted-tilt",
             "fitted_slope_db_per_oct": slope,
             "raw_near_level_db": near,
-            "raw_ratio_db": near - far,
+            "raw_ratio_db": float(np.mean([spectrum.third_octave[x] for x in (400, 500, 630)])) - far,
             "expected_near_level_db": expected,
             "third_octave_db": dict(spectrum.third_octave),
         },

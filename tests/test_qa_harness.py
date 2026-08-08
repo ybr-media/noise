@@ -51,6 +51,34 @@ def sidecar(**changes: object) -> dict[str, object]:
     return result
 
 
+BELL_GAIN_DB = 6.0
+BELL_CENTER_HZ = 500.0
+BELL_Q = 1.0
+
+
+def _peaking_response(frequencies: np.ndarray) -> np.ndarray:
+    """Amplitude response of the peaking EQ the green sidecar specifies."""
+    amplitude = 10 ** (BELL_GAIN_DB / 40.0)
+    response = np.ones_like(frequencies)
+    valid = frequencies > 0
+    ratio = frequencies[valid] / BELL_CENTER_HZ
+    detune = ratio - 1.0 / ratio
+    numerator = detune**2 + (amplitude / BELL_Q) ** 2
+    denominator = detune**2 + 1.0 / (amplitude * BELL_Q) ** 2
+    response[valid] = np.sqrt(numerator / denominator)
+    return response
+
+
+def _belled(audio: np.ndarray) -> np.ndarray:
+    frequencies = np.fft.rfftfreq(audio.shape[0], 1 / SAMPLE_RATE)
+    response = _peaking_response(frequencies)
+    shaped = np.empty_like(audio)
+    for channel in range(audio.shape[1]):
+        transformed = np.fft.rfft(audio[:, channel])
+        shaped[:, channel] = np.fft.irfft(transformed * response, audio.shape[0])
+    return shaped
+
+
 def _tilted_cell(rng: np.random.Generator, slope: float = 0) -> np.ndarray:
     cell = rng.normal(0, 0.08, (CELL_FRAMES, 2))
     if slope:
@@ -77,8 +105,7 @@ def make_track(
     cell = _tilted_cell(rng, slope)
     audio = np.tile(cell, (REPEATS, 1))
     if bell:
-        time = np.arange(audio.shape[0]) / SAMPLE_RATE
-        audio += 0.035 * np.sin(2 * np.pi * 500 * time)[:, None]
+        audio = _belled(audio)
     fade_frames = round(FADE_SECONDS * SAMPLE_RATE)
     fade = np.ones(audio.shape[0])
     fade[:fade_frames] = np.linspace(0, 1, fade_frames)
@@ -92,7 +119,7 @@ def make_track(
     metadata = sidecar(tilt_db_per_oct=slope)
     if bell:
         metadata["color"] = "green"
-        metadata["bell"] = {"gain_db": 6, "center_hz": 500, "q": 1}
+        metadata["bell"] = {"gain_db": BELL_GAIN_DB, "center_hz": BELL_CENTER_HZ, "q": BELL_Q}
     path.with_suffix(".json").write_text(json.dumps(metadata), encoding="utf-8")
     return path
 
