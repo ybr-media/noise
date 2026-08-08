@@ -44,6 +44,19 @@ The console reports one of three modes and never accepts work it cannot run:
 - `unavailable` — hosted with no renderer configured; Render returns 503 and
   the console browses published masters only.
 
+## Hosting on Vercel
+
+The repository root is the Python engine, so the Vercel project's **Root
+Directory** must be `web` and its framework preset **Next.js**; otherwise the
+build looks for a Python entrypoint and fails. `prebuild` stages
+`../config/*.yaml` into `web/config` so the deployment carries the variant
+matrix.
+
+A hosted console needs `NOISE_ARTIFACTS_BASE_URL` to browse anything and the
+`NOISE_DISPATCH_*` variables to render; the renderer's own credentials
+(`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`) live in GitHub
+Actions secrets, not in Vercel.
+
 ## Queue worker
 
 The API only appends jobs to JSONL. It does not block an HTTP request on
