@@ -72,16 +72,31 @@ def default_transport(timeout: float) -> Transport:
     return PipeTransport(timeout)
 
 
-def _wait_for_pipes(timeout: float = 20.0) -> None:
+def _pipe_timeout() -> float:
+    """Launch budget; a cold, shared CI runner needs far longer than a dev box."""
+    return float(os.environ.get("NOISEGEN_PIPE_TIMEOUT", "20"))
+
+
+def _wait_for_pipes(
+    timeout: float | None = None,
+    process: subprocess.Popen[bytes] | None = None,
+) -> None:
     uid = os.getuid()
     paths = [
         Path(f"/tmp/audacity_script_pipe.{direction}.{uid}")
         for direction in ("to", "from")
     ]
-    deadline = time.monotonic() + timeout
+    deadline = time.monotonic() + (_pipe_timeout() if timeout is None else timeout)
     while time.monotonic() < deadline:
         if all(path.exists() for path in paths):
             return
+        # A dead process will never open them, and its status says far more
+        # than a timeout does.
+        if process is not None and process.poll() is not None:
+            raise AudacityPipeError(
+                f"Audacity exited with status {process.returncode} "
+                "before opening its script pipes"
+            )
         time.sleep(0.05)
     raise AudacityPipeError(
         f"Timed out waiting for Audacity pipes: {', '.join(map(str, paths))}"
@@ -123,6 +138,7 @@ def _launch(binary: str) -> ProcessHandle:
         config_dir = home / ".config" / "audacity"
         config_dir.mkdir(parents=True)
         shutil.copy2(ROOT / ".audacity-config/audacity.cfg", config_dir / "audacity.cfg")
+        log_path = os.environ.get("NOISEGEN_AUDACITY_LOG")
         env = os.environ.copy()
         env.update(
             HOME=str(home),
@@ -132,7 +148,7 @@ def _launch(binary: str) -> ProcessHandle:
                 f"{ROOT / '.audacity/squashfs-root/fallback/libportaudio.so'}:"
                 + os.environ.get("LD_LIBRARY_PATH", "")
             ),
-            AUDACITY_LOG_LEVEL="WARN",
+            AUDACITY_LOG_LEVEL="INFO" if log_path else "WARN",
         )
         command = [
             "xvfb-run",
@@ -144,7 +160,6 @@ def _launch(binary: str) -> ProcessHandle:
         # these streams, so piping them would eventually block the process.
         # A file sink is the exception: it never fills, and it is the only way
         # to see why a launch failed on a machine with no display to watch.
-        log_path = os.environ.get("NOISEGEN_AUDACITY_LOG")
         sink = subprocess.DEVNULL
         if log_path:
             destination = Path(log_path)
@@ -163,7 +178,7 @@ def _launch(binary: str) -> ProcessHandle:
             if sink is not subprocess.DEVNULL:
                 sink.close()
         try:
-            _wait_for_pipes()
+            _wait_for_pipes(process=process)
         except (OSError, TimeoutError, AudacityPipeError):
             if process.poll() is None:
                 os.killpg(process.pid, signal.SIGTERM)
