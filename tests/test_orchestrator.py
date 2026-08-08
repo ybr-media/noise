@@ -13,6 +13,8 @@ sys.path.insert(0, str(ROOT / "qa"))
 sys.path.insert(0, str(ROOT))
 
 from checks import Sidecar
+
+import orchestrator
 from orchestrator import render_batch
 from render_plan import build_plan
 
@@ -54,6 +56,33 @@ def _matrix(tmp_path: Path, count: int = 2) -> Path:
     path = tmp_path / "variants.yaml"
     path.write_text(yaml.safe_dump(source), encoding="utf-8")
     return path
+
+
+def test_launch_ignores_an_inherited_xdg_config_home(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    """XDG_CONFIG_HOME outranks HOME, so a host that sets one must not be obeyed."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", "/somewhere/else")
+    captured: dict[str, str] = {}
+
+    class Recorder:
+        pid = 1
+        returncode = 0
+
+        def __init__(self, command, env, **kwargs):  # type: ignore[no-untyped-def]
+            del command, kwargs
+            captured.update(env)
+
+        def poll(self) -> None:
+            return None
+
+    monkeypatch.setattr(orchestrator.subprocess, "Popen", Recorder)
+    monkeypatch.setattr(orchestrator, "_wait_for_pipes", lambda **kwargs: None)
+
+    handle = orchestrator._launch("audacity")
+    home = Path(captured["HOME"])
+    assert captured["XDG_CONFIG_HOME"] == str(home / ".config")
+    assert (home / ".config/audacity/audacity.cfg").exists()
+    monkeypatch.setattr(orchestrator.os, "killpg", lambda pid, signal: None)
+    handle.kill()
 
 
 def test_sidecar_and_log_contract(tmp_path: Path) -> None:
