@@ -271,6 +271,7 @@ export default function NoiseLab() {
   const queueCount = jobs.filter((job) => job.status !== "Done" && job.status !== "Failed").length;
   const libraryCount = tracks.filter((track) => track.exists).length;
   const selected = useMemo(() => variants.find((variant) => variant.color === selection.color && variant.band === selection.band && variant.motion === selection.motion && variant.balance === selection.balance), [selection, variants]);
+  const pilotCount = variants.filter((variant) => variant.pilot !== null).length;
   const preview = useApproxPreview(selected);
 
   const refresh = useCallback(async () => {
@@ -358,15 +359,14 @@ export default function NoiseLab() {
               <div className="variant-meta"><span>Duration {formatDuration(selected.durationSeconds)}</span><span>Seed {selected.seeds.bed_l}</span></div>
               {selected.pilot && <div className="pilot-badge">Pilot {selected.pilot}</div>}
               <div className="queue-actions">
-                <button type="button" onClick={() => void queue([selected.variantId], "one")} className="queue-primary"><Layers size={16} /> Queue this render</button>
-                <button type="button" onClick={() => void queue([], "pilot")} className="queue-secondary"><Layers size={16} /> Queue pilot set</button>
+                <button type="button" onClick={() => void queue([selected.variantId], "one")} className="queue-primary" title="Queues only the currently selected variant." aria-label="Queue only the currently selected variant"><Layers size={16} /> Queue this render</button>
               </div>
             </section>
           </>
           )}
         </div>
         <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} onRefresh={() => void refresh()} onToast={setToast} /></div>
-        <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} mode={renderMode} onRefresh={() => void refresh()} /></div>
+        <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} mode={renderMode} onRefresh={() => void refresh()} onQueuePilot={() => void queue([], "pilot")} pilotCount={pilotCount} /></div>
       </div>
       <div className="dock"><nav ref={dockRef} className="glassbar" role="tablist" aria-label="Primary">
         <div ref={lensRef} className="tab-lens" aria-hidden="true" />
@@ -441,9 +441,13 @@ const QUEUE_NOTES: Record<string, string> = {
   unavailable: "This deployment has no renderer configured, so it browses published masters only.",
 };
 
-function Queue({ jobs, mode, onRefresh }: { jobs: QueueJob[]; mode: "local" | "dispatch" | "unavailable"; onRefresh: () => void }) {
+function Queue({ jobs, mode, onRefresh, onQueuePilot, pilotCount }: { jobs: QueueJob[]; mode: "local" | "dispatch" | "unavailable"; onRefresh: () => void; onQueuePilot: () => void; pilotCount: number }) {
   const activeJobs = jobs.filter((job) => job.status === "Queued" || job.status === "Rendering");
   const completedJobs = jobs.filter((job) => job.status === "Done" || job.status === "Failed");
+  const pilotActionLabel = `Queue pilot set (${pilotCount})`;
+  const pilotActionTitle = mode === "unavailable"
+    ? "Rendering isn't available on this deployment."
+    : `Queues the whole curated pilot set from config/variants_pilot.yaml — every pilot variant, regardless of what's selected on the Design tab. (${pilotCount} variants)`;
   const group = (title: string, entries: QueueJob[]) => <><div className="section-title">{title}</div><div className="soft-card queue-card">{entries.length === 0 ? <div className="empty-state">No jobs in this section.</div> : entries.map((job) => <div key={job.id} className="queue-item"><span className={`status-dot ${job.status.toLowerCase()}`} /><div className="queue-body"><div className="queue-name">{job.variantId}</div><div className="queue-sub">{job.status === "Done" ? "Master ready" : job.status === "Failed" ? job.error ?? "Render failed" : job.status}</div></div><time className="queue-time">{new Date(job.queuedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time></div>)}</div></>;
-  return <section className="panel-section"><div className="panel-heading"><div><h2>Render queue</h2><p>{mode === "dispatch" ? "GitHub Actions run status" : "Honest worker-backed status"}</p></div><button type="button" onClick={onRefresh} className="round-action" aria-label="Refresh queue"><RefreshCw size={14} /></button></div>{group("Rendering", activeJobs)}{group("Completed today", completedJobs)}<p className="queue-note">{QUEUE_NOTES[mode]}</p></section>;
+  return <section className="panel-section"><div className="panel-heading"><div><h2>Render queue</h2><p>{mode === "dispatch" ? "GitHub Actions run status" : "Honest worker-backed status"}</p></div><div className="panel-heading-actions"><button type="button" onClick={onQueuePilot} disabled={mode === "unavailable"} className="queue-secondary" title={pilotActionTitle} aria-label={pilotActionTitle}><Layers size={14} /> {pilotActionLabel}</button><button type="button" onClick={onRefresh} className="round-action" aria-label="Refresh queue"><RefreshCw size={14} /></button></div></div>{group("Rendering", activeJobs)}{group("Completed today", completedJobs)}<p className="queue-note">{QUEUE_NOTES[mode]}</p></section>;
 }
