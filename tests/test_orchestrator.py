@@ -58,8 +58,10 @@ def _matrix(tmp_path: Path, count: int = 2) -> Path:
     return path
 
 
-def test_launch_ignores_an_inherited_xdg_config_home(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+def test_launch_ignores_an_inherited_xdg_config_home(monkeypatch, tmp_path: Path) -> None:  # type: ignore[no-untyped-def]
     """XDG_CONFIG_HOME outranks HOME, so a host that sets one must not be obeyed."""
+    (tmp_path / "audacity.cfg").write_text("PrefsVersion=1.1.1r1\n", encoding="utf-8")
+    monkeypatch.setenv("AUDACITY_CONFIG_DIR", str(tmp_path))
     monkeypatch.setenv("XDG_CONFIG_HOME", "/somewhere/else")
     captured: dict[str, str] = {}
 
