@@ -57,10 +57,14 @@ jobs:
           echo "--- unresolved libraries ---"
           LD_LIBRARY_PATH=.audacity/squashfs-root/lib \
             ldd .audacity/squashfs-root/usr/bin/audacity 2>&1 | grep -i 'not found' || echo none
-          echo "--- launch ---"
+          echo "--- launch under the orchestrator's own environment ---"
           NOISEGEN_AUDACITY_LOG=out/probe.log NOISEGEN_PIPE_TIMEOUT=120 \
-            .venv/bin/python -c 'import time, orchestrator as o; t=time.monotonic(); p=o._launch(o._default_binary()); print("pipes opened in", round(time.monotonic()-t, 2), "s"); p.kill(); p.wait()'
+            .venv/bin/python -c 'import time, orchestrator as o; t=time.monotonic(); p=o._launch(o._default_binary()); print("pipes opened in", round(time.monotonic()-t, 2), "s"); p.kill(); p.wait()' \
+            || true
           cat out/probe.log
+          echo "--- launch under a clean environment, with backtraces ---"
+          sudo apt-get install -y --no-install-recommends gdb x11-apps imagemagick
+          bash scripts/probe_audacity_launch.sh out || true
 
       - name: Render
         env:
@@ -108,4 +112,6 @@ jobs:
             out/render_log.jsonl
             out/audacity.log
             out/probe.log
+            out/probe-audacity.log
+            out/screen.png
           if-no-files-found: ignore
