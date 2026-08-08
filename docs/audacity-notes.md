@@ -1255,3 +1255,63 @@ offset at `0.0002195`. Green's DC offset now passes (`0.0000211`), and its
 tilt is within the existing tolerance, but its bell remains outside the
 4–8 dB acceptance range at `11.387 dB`. No QA threshold or bell gain was
 changed.
+### Pilot close-out: bell measurement and brown DC
+
+The two sections above are out of chronological order. "Rolloff and green-bell
+follow-up" records the state at `eb9bafe`, where the bell was applied to the bed
+stem alone and the rolloff corner was 20 Hz; "Final green/brown pilot follow-up"
+records the later `20312b8`, which put the bell back on all three colored stems
+and raised the corner to 30 Hz. The `11.387 dB` bell and the `0.0002195` brown
+DC offset quoted in the last section are therefore both superseded.
+
+An eight-track pilot was re-rendered through the serializer path at the current
+tree, in `/tmp/pilot-run/`:
+
+```text
+/tmp/pilot-run/qa_report.html
+/tmp/pilot-run/qa_results.json
+/tmp/pilot-run/render_log.jsonl
+```
+
+Brown DC is closed. The 30 Hz corner already fixed it at the generation stage,
+where the wander originated, rather than at the output:
+
+```text
+brown  per-channel mean  0.0000094 / -0.0000155,  0.1–20 Hz PSD -15.40 dB
+green  per-channel mean -0.0000005 /  0.0000053
+white  per-channel mean  0.0000500 / -0.0000113
+```
+
+All three are inside the `1e-4` per-channel limit.
+
+The green bell was a measurement problem, not a curve-emission problem. The
+earlier FilterCurve probe had already shown the emitted curve realizing the
+specified `+6 dB / Q 0.7` response to within `0.3 dB`. The check was then fed a
+synthetically shaped stereo noise whose spectrum is an exact `-3 dB/oct` tilt
+times the analytic peaking response, so the correct answer is known:
+
+| Input | Old metric | New metric |
+|---|---:|---:|
+| exact +6 dB / Q 0.7 bell | 4.305 dB | 5.457 dB |
+| exact +7 dB / Q 0.7 bell | 5.003 dB | — |
+| exact +8 dB / Q 0.7 bell | 5.692 dB | — |
+| pink with a green sidecar | -0.009 dB | 0.047 dB |
+
+The old metric under-read a mathematically perfect bell by `1.7 dB`, leaving it
+`0.3 dB` inside a range written against the bell's `6 dB` peak gain. Two biases
+compound: the 400/500/630 Hz third-octave average includes skirts about
+`0.6 dB` below the peak, and excluding only one octave around the center leaves
+the rest of the skirts in the tilt fit, which lifts the baseline the excess is
+measured against. The check now measures a `1/6`-octave band at the bell center
+against a fit that excludes two octaves either side. Green's fitted tilt also
+tightened from `-3.214` to `-3.103 dB/oct` for the same reason.
+
+Separately, `a363def` had widened the acceptance range from `4–8 dB` to
+`3–8 dB` with no measurement behind it, which silently converted the failing
+bell into a pass. That widening is reverted; the range is `4–8 dB` again.
+
+Final pilot QA at the current tree: eight of eight variants pass. Green
+measures `-3.103 dB/oct` tilt and `5.047 dB` bell excess against the restored
+`4–8 dB` range, and the metric reads `5.457 dB` on an exact bell, so the
+remaining `0.4 dB` is the realized curve sitting just under the analytic one. No
+gain and no threshold was raised to reach this.
