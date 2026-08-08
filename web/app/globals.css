@@ -41,15 +41,15 @@ button:disabled { cursor: not-allowed; }
 .play-button:active { transform: scale(.94); }
 .matrix-label { margin-top: 16px; color: #aeaeb2; font-size: 15px; letter-spacing: .02em; }
 .controls-card { overflow: hidden; padding: 0 24px; }
-.design-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; }
+.design-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 360px); align-items: center; gap: 16px; padding: 18px 0; }
 .design-row + .design-row { border-top: 1px solid rgba(0,0,0,.06); }
 .design-row:first-child { padding-top: 22px; }
 .design-row:last-child { padding-bottom: 22px; }
 .design-row > div:first-child { min-width: 0; }
 .design-label { color: #1c1c1e; font-size: 16px; font-weight: 600; }
 .design-hint { margin-top: 3px; color: #aeaeb2; font-size: 13px; }
-.mini-segmented { display: flex; flex-shrink: 0; gap: 2px; padding: 3px; border-radius: 12px; background: #ededf1; }
-.mini-segment { padding: 7px 13px; border: 0; border-radius: 9px; color: #6e6e73; background: transparent; font-size: 13.5px; white-space: nowrap; }
+.mini-segmented { display: flex; width: 100%; gap: 2px; padding: 3px; border-radius: 12px; background: #ededf1; }
+.mini-segment { flex: 1 1 0; min-width: 0; padding: 7px 4px; border: 0; border-radius: 9px; color: #6e6e73; background: transparent; font-size: 13.5px; text-align: center; white-space: nowrap; }
 .mini-segment.is-selected { color: #1c1c1e; background: #fff; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 .variant-card { position: relative; padding: 22px 24px; }
 .variant-id { margin-bottom: 12px; color: #1c1c1e; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; overflow-wrap: anywhere; }
@@ -99,11 +99,10 @@ button:disabled { cursor: not-allowed; }
   .noise-subtitle { max-width: 260px; font-size: 15px; }
   .spectrum-card, .track-card, .variant-card { padding-right: 16px; padding-left: 16px; }
   .controls-card { padding-right: 16px; padding-left: 16px; }
-  .design-row { gap: 8px; }
+  .design-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
   .design-label { font-size: 14px; }
   .design-hint { font-size: 11px; }
-  .mini-segmented { max-width: calc(100vw - 142px); overflow-x: auto; }
-  .mini-segment { padding-right: 9px; padding-left: 9px; font-size: 11px; }
+  .mini-segment { padding-right: 2px; padding-left: 2px; font-size: 10px; }
   .queue-actions { flex-direction: column; }
   .queue-primary, .queue-secondary { width: 100%; }
   .dock { right: 10px; left: 10px; transform: none; }
