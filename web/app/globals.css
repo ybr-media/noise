@@ -55,12 +55,14 @@ button:disabled { cursor: not-allowed; }
 .variant-id { margin-bottom: 12px; color: #1c1c1e; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; overflow-wrap: anywhere; }
 .variant-meta { display: flex; justify-content: space-between; color: #aeaeb2; font-size: 13.5px; }
 .pilot-badge { display: inline-block; margin-top: 12px; padding: 4px 9px; border-radius: 999px; color: #e5483c; background: #fff0ee; font-size: 11px; font-weight: 700; }
-.queue-actions { display: flex; gap: 8px; margin-top: 20px; }
+.queue-actions { margin-top: 20px; }
 .queue-primary, .queue-secondary { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; border: 0; border-radius: 999px; padding: 0 16px; font-size: 13px; font-weight: 600; }
 .queue-primary { color: #fff; background: #e5483c; box-shadow: 0 6px 14px rgba(229,72,60,.2); }
 .queue-secondary { color: #1c1c1e; background: #f0f0f4; font-weight: 500; }
+.queue-secondary:disabled { color: #aeaeb2; }
 .panel-section { margin-top: 5px; }
 .panel-heading { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
+.panel-heading-actions { display: flex; align-items: center; gap: 8px; }
 .panel-heading h2 { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
 .panel-heading p { margin-top: 4px; color: #6e6e73; font-size: 13px; }
 .round-action { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 50%; color: #1c1c1e; background: rgba(255,255,255,.5); }
@@ -105,8 +107,7 @@ button:disabled { cursor: not-allowed; }
   .design-label { font-size: 14px; }
   .design-hint { font-size: 11px; }
   .mini-segment { padding-right: 2px; padding-left: 2px; font-size: 10px; }
-  .queue-actions { flex-direction: column; }
-  .queue-primary, .queue-secondary { width: 100%; }
+  .queue-actions .queue-primary { width: 100%; }
   .dock { right: 10px; left: 10px; transform: none; }
   .glassbar { justify-content: space-between; width: 100%; }
   .dock-tab { flex: 1; justify-content: center; padding-right: 10px; padding-left: 10px; font-size: 14px; }
