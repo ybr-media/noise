@@ -127,6 +127,12 @@ def _default_binary() -> str:
     return os.environ.get("AUDACITY_BIN", str(ROOT / ".audacity/squashfs-root/AppRun"))
 
 
+def _config_source() -> Path:
+    """The audacity.cfg setup.sh generated, whose directory it records in audacity.env."""
+    directory = os.environ.get("AUDACITY_CONFIG_DIR", str(ROOT / ".audacity-config"))
+    return Path(directory) / "audacity.cfg"
+
+
 def _launch(binary: str) -> ProcessHandle:
     uid = os.getuid()
     for path in (
@@ -138,7 +144,7 @@ def _launch(binary: str) -> ProcessHandle:
     try:
         config_dir = home / ".config" / "audacity"
         config_dir.mkdir(parents=True)
-        shutil.copy2(ROOT / ".audacity-config/audacity.cfg", config_dir / "audacity.cfg")
+        shutil.copy2(_config_source(), config_dir / "audacity.cfg")
         log_path = os.environ.get("NOISEGEN_AUDACITY_LOG")
         env = os.environ.copy()
         # An inherited XDG_CONFIG_HOME outranks HOME, so a host that sets one
