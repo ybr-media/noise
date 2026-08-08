@@ -345,7 +345,7 @@ export default function NoiseLab() {
                 {preview.playing ? <Pause size={27} fill="white" strokeWidth={0} /> : <Play size={27} fill="white" strokeWidth={0} className="ml-1" />}
               </button>
               <div className="matrix-label">
-                <span>Matrix {selected.matrixIndex} of 144</span>
+                <span>Matrix {selected.matrixIndex} of {variants.length}</span>
               </div>
             </div>
             <section className="soft-card controls-card">
