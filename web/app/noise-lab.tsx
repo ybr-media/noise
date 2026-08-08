@@ -49,10 +49,10 @@ function Segmented({ options, value, onChange, label }: {
   label: string;
 }) {
   return (
-    <div className="grid gap-1 rounded-lg bg-[#e9e9eb] p-0.5" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }} role="radiogroup" aria-label={label}>
+    <div className="mini-segmented" role="radiogroup" aria-label={label}>
       {options.map(([id, name]) => (
         <button key={id} type="button" onClick={() => onChange(id)} aria-checked={value === id} role="radio"
-          className={`rounded-md px-1.5 py-1.5 text-[11px] font-medium transition ${value === id ? "bg-white text-[#1c1c1e] shadow-sm" : "text-[#8e8e93]"}`}>
+          className={`mini-segment ${value === id ? "is-selected" : ""}`}>
           {name}
         </button>
       ))}
@@ -62,10 +62,10 @@ function Segmented({ options, value, onChange, label }: {
 
 function Row({ label, hint, children }: { label: string; hint: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[92px_1fr] items-center gap-3 border-t border-[#d8d8dc] px-4 py-3.5 first:border-t-0">
+    <div className="design-row">
       <div>
-        <div className="text-[13px] font-medium">{label}</div>
-        <div className="mt-0.5 text-[10px] text-[#8e8e93]">{hint}</div>
+        <div className="design-label">{label}</div>
+        <div className="design-hint">{hint}</div>
       </div>
       {children}
     </div>
@@ -94,14 +94,14 @@ function Spectrum({ analyser, playing }: { analyser: AnalyserNode | null; playin
     if (!canvas) return;
     const ratio = window.devicePixelRatio || 1;
     canvas.width = canvas.clientWidth * ratio;
-    canvas.height = 120 * ratio;
+    canvas.height = 150 * ratio;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.scale(ratio, ratio);
     const width = canvas.clientWidth;
     ctx.strokeStyle = "#e9e9eb";
     ctx.lineWidth = 1;
-    for (let y = 20; y < 110; y += 24) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
+    for (let y = 22; y < 140; y += 28) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
     if (!analyser || !playing) return;
     const bins = new Uint8Array(analyser.frequencyBinCount);
     const gradient = ctx.createLinearGradient(0, 0, width, 0);
@@ -111,16 +111,16 @@ function Spectrum({ analyser, playing }: { analyser: AnalyserNode | null; playin
     let frame = 0;
     const draw = () => {
       analyser.getByteFrequencyData(bins);
-      ctx.clearRect(0, 0, width, 120);
+      ctx.clearRect(0, 0, width, 150);
       ctx.strokeStyle = "#e9e9eb";
-      for (let y = 20; y < 110; y += 24) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
+      for (let y = 22; y < 140; y += 28) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
       ctx.strokeStyle = gradient;
       ctx.lineWidth = 2;
       ctx.beginPath();
       const maxBin = Math.min(bins.length, 512);
       for (let x = 0; x < width; x += 2) {
         const bin = Math.min(maxBin - 1, Math.floor((x / width) * maxBin));
-        const y = 108 - (bins[bin] / 255) * 94;
+        const y = 138 - (bins[bin] / 255) * 112;
         if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
       ctx.stroke();
@@ -129,7 +129,7 @@ function Spectrum({ analyser, playing }: { analyser: AnalyserNode | null; playin
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
   }, [analyser, playing]);
-  return <canvas ref={ref} className="block h-[120px] w-full" aria-label="Approximate preview spectrum" />;
+  return <canvas ref={ref} className="block h-[150px] w-full" aria-label="Approximate preview spectrum" />;
 }
 
 function mulberry32(seed: number) {
@@ -266,6 +266,10 @@ export default function NoiseLab() {
   const [selection, setSelection] = useState({ color: "white", band: "mid", motion: "drift", balance: "balanced" });
   const [toast, setToast] = useState<{ message: string; error?: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
+  const dockRef = useRef<HTMLElement>(null);
+  const lensRef = useRef<HTMLDivElement>(null);
+  const queueCount = jobs.filter((job) => job.status !== "Done" && job.status !== "Failed").length;
+  const libraryCount = tracks.filter((track) => track.exists).length;
   const selected = useMemo(() => variants.find((variant) => variant.color === selection.color && variant.band === selection.band && variant.motion === selection.motion && variant.balance === selection.balance), [selection, variants]);
   const preview = useApproxPreview(selected);
 
@@ -282,6 +286,24 @@ export default function NoiseLab() {
     finally { setLoading(false); }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    const dock = dockRef.current;
+    const moveLens = () => {
+      const lens = lensRef.current;
+      const active = dock?.querySelector<HTMLElement>(`[data-tab="${tab}"]`);
+      if (!dock || !lens || !active) return;
+      lens.style.left = `${active.offsetLeft}px`;
+      lens.style.width = `${active.offsetWidth}px`;
+    };
+    moveLens();
+    const observer = dock ? new ResizeObserver(moveLens) : null;
+    if (dock && observer) observer.observe(dock);
+    window.addEventListener("resize", moveLens);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", moveLens);
+    };
+  }, [tab]);
 
   async function queue(ids: string[], label: string) {
     const response = await fetch("/api/queue", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(label === "pilot" ? { pilot: true } : { variantIds: ids }) });
@@ -296,56 +318,63 @@ export default function NoiseLab() {
   }
 
   return (
-    <main className="min-h-screen w-full" style={{ background: C.page, fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif' }}>
-      <div className="mx-auto w-full max-w-lg px-4 pb-16 pt-8">
-        <header className="flex items-start justify-between">
+    <main className="noise-shell min-h-screen w-full" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif' }}>
+      <div className="ambient-field ambient-field-a" />
+      <div className="ambient-field ambient-field-b" />
+      <div className="ambient-field ambient-field-c" />
+      <div className="noise-page">
+        <header className="noise-header">
           <div>
-            <h1 className="text-[32px] font-bold tracking-[-0.024em]">Noise Lab</h1>
-            <p className="mt-0.5 text-sm tracking-[-0.01em] text-[#8e8e93]">Design a variant, review masters, queue the worker.</p>
+            <h1 className="noise-title">Noise Lab</h1>
+            <p className="noise-subtitle">Design a variant, review masters, queue the worker.</p>
           </div>
-          <button type="button" onClick={() => void refresh()} aria-label="Refresh" className="rounded-full p-2 text-[#8e8e93] hover:bg-white"><RefreshCw size={19} /></button>
+          <button type="button" onClick={() => void refresh()} aria-label="Refresh" className="refresh-button"><RefreshCw size={21} /></button>
         </header>
 
-        <div className="mt-5 grid grid-cols-3 rounded-xl bg-[#e9e9eb] p-0.5">
-          {(["design", "library", "queue"] as const).map((item) => (
-            <button key={item} type="button" onClick={() => setTab(item)} className={`rounded-[10px] py-2 text-[13px] font-medium capitalize ${tab === item ? "bg-white text-[#1c1c1e] shadow-sm" : "text-[#8e8e93]"}`}>{item}</button>
-          ))}
-        </div>
-
-        {tab === "design" && selected && (
+        <div id="panel-design" role="tabpanel" aria-labelledby="tab-design" className={`panel ${tab === "design" ? "panel-show" : ""}`} hidden={tab !== "design"}>
+          {selected && (
           <>
-            <section className="mt-5 rounded-2xl bg-white px-4 pb-3 pt-5 shadow-sm">
-              <Spectrum analyser={preview.analyser} playing={preview.playing} />
-              <div className="mt-2 flex justify-between font-mono text-[10px] text-[#8e8e93]"><span>30 Hz</span><span>500</span><span>2k</span><span>16k</span></div>
-              <div className="mt-3 rounded-lg bg-[#f2f2f7] px-3 py-2 text-[11px] text-[#8e8e93]"><strong className="text-[#1c1c1e]">Approximate preview</strong> · WebAudio audition only; the Audacity-rendered master is the source of truth.</div>
+            <section className="soft-card spectrum-card">
+              <div className="spectrum-frame"><Spectrum analyser={preview.analyser} playing={preview.playing} /></div>
+              <div className="spectrum-ticks"><span>30 Hz</span><span>500</span><span>2k</span><span>16k</span></div>
+              <div className="preview-note"><strong>Approximate preview</strong> · WebAudio audition only; the Audacity-rendered master is the source of truth.</div>
             </section>
-            <div className="mt-6 flex flex-col items-center">
-              <button type="button" onClick={preview.toggle} aria-label={preview.playing ? "Stop approximate preview" : "Play approximate preview"} className="flex h-[68px] w-[68px] items-center justify-center rounded-full bg-[#ff3b30] text-white shadow-lg transition active:scale-95">
+            <div className="play-wrap">
+              <button type="button" onClick={preview.toggle} aria-label={preview.playing ? "Stop approximate preview" : "Play approximate preview"} className="play-button">
                 {preview.playing ? <Pause size={27} fill="white" strokeWidth={0} /> : <Play size={27} fill="white" strokeWidth={0} className="ml-1" />}
               </button>
-              <div className="mt-3.5 flex items-center gap-2 font-mono text-xs text-[#8e8e93]">
+              <div className="matrix-label">
                 <span>Matrix {selected.matrixIndex} of 144</span>
-                {selected.pilot && <span className="rounded-full bg-red-50 px-2 py-0.5 font-semibold text-[#ff3b30]">Pilot {selected.pilot}</span>}
               </div>
             </div>
-            <section className="mt-6 overflow-hidden rounded-2xl bg-white shadow-sm">
+            <section className="soft-card controls-card">
               <Row label="Color" hint={selected.spectrum.bell ? "+6 dB bell @ 500 Hz" : `${selected.spectrum.tiltDbPerOct} dB/oct`}><Segmented options={OPTIONS.color} value={selection.color} onChange={(value) => setSelection((old) => ({ ...old, color: value }))} label="Color" /></Row>
               <Row label="Band" hint={`${selected.band} texture`}><Segmented options={OPTIONS.band} value={selection.band} onChange={(value) => setSelection((old) => ({ ...old, band: value }))} label="Band" /></Row>
               <Row label="Motion" hint={`${selected.motion} modulation`}><Segmented options={OPTIONS.motion} value={selection.motion} onChange={(value) => setSelection((old) => ({ ...old, motion: value }))} label="Motion" /></Row>
               <Row label="Balance" hint={`${selected.balance} mix`}><Segmented options={OPTIONS.balance} value={selection.balance} onChange={(value) => setSelection((old) => ({ ...old, balance: value }))} label="Balance" /></Row>
             </section>
-            <section className="mt-5 rounded-2xl bg-white px-4 py-4 shadow-sm">
-              <div className="break-all font-mono text-xs leading-5">{selected.variantId}</div>
-              <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-[#8e8e93]"><span>Duration <strong className="text-[#1c1c1e]">{formatDuration(selected.durationSeconds)}</strong></span><span>Seed <strong className="font-mono text-[#1c1c1e]">{selected.seeds.bed_l}</strong></span></div>
-              <button type="button" onClick={() => void queue([selected.variantId], "one")} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-[#ff3b30] py-3 text-[15px] font-semibold text-white"><Layers size={17} /> Queue this render</button>
-              <button type="button" onClick={() => void queue([], "pilot")} className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-[#e9e9eb] py-3 text-[15px] font-medium"><Layers size={17} /> Queue pilot set</button>
+            <section className="soft-card variant-card">
+              <div className="variant-id">{selected.variantId}</div>
+              <div className="variant-meta"><span>Duration {formatDuration(selected.durationSeconds)}</span><span>Seed {selected.seeds.bed_l}</span></div>
+              {selected.pilot && <div className="pilot-badge">Pilot {selected.pilot}</div>}
+              <div className="queue-actions">
+                <button type="button" onClick={() => void queue([selected.variantId], "one")} className="queue-primary"><Layers size={16} /> Queue this render</button>
+                <button type="button" onClick={() => void queue([], "pilot")} className="queue-secondary"><Layers size={16} /> Queue pilot set</button>
+              </div>
             </section>
           </>
-        )}
-
-        {tab === "library" && <Library tracks={tracks} loading={loading} onRefresh={() => void refresh()} onToast={setToast} />}
-        {tab === "queue" && <Queue jobs={jobs} mode={renderMode} onRefresh={() => void refresh()} />}
+          )}
+        </div>
+        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} onRefresh={() => void refresh()} onToast={setToast} /></div>
+        <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} mode={renderMode} onRefresh={() => void refresh()} /></div>
       </div>
+      <div className="dock"><nav ref={dockRef} className="glassbar" role="tablist" aria-label="Primary">
+        <div ref={lensRef} className="tab-lens" aria-hidden="true" />
+        {(["design", "queue", "library"] as const).map((item) => {
+          const count = item === "queue" ? queueCount : libraryCount;
+          return <button key={item} id={`tab-${item}`} type="button" data-tab={item} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${item[0].toUpperCase()}${item.slice(1)}${count ? `, ${count}` : ""}`} onClick={() => { setTab(item); window.scrollTo({ top: 0, behavior: "smooth" }); }} className={`dock-tab ${tab === item ? "is-active" : ""}`}>{item[0].toUpperCase() + item.slice(1)}{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</button>;
+        })}
+      </nav></div>
       {toast && <Toast message={toast.message} error={toast.error} onClose={() => setToast(null)} />}
     </main>
   );
@@ -353,12 +382,13 @@ export default function NoiseLab() {
 
 function Library({ tracks, loading, onRefresh, onToast }: { tracks: LibraryTrack[]; loading: boolean; onRefresh: () => void; onToast: (toast: { message: string; error?: boolean }) => void }) {
   return (
-    <section className="mt-5">
-      <div className="mb-3 flex items-center justify-between px-1"><div><h2 className="text-[20px] font-bold">Library</h2><p className="text-xs text-[#8e8e93]">Rendered masters and QA evidence</p></div><button type="button" onClick={onRefresh} className="rounded-full bg-[#e9e9eb] p-2 text-[#1c1c1e]" aria-label="Refresh library"><RefreshCw size={14} /></button></div>
-      <div className="mb-3 rounded-xl bg-white px-4 py-3 text-xs shadow-sm"><div className="font-medium">{tracks.filter((track) => track.exists).length} of {tracks.length} variants rendered</div><div className="mt-1 break-all font-mono text-[10px] text-[#8e8e93]">Reading {tracks[0]?.path.replace(/\/[^/]+$/, "") ?? "configured render directory"}</div></div>
-      <div className="space-y-3">
-        {loading && <div className="rounded-2xl bg-white p-6 text-center text-sm text-[#8e8e93]">Loading render directory…</div>}
-        {!loading && tracks.filter((track) => track.exists).length === 0 && <div className="rounded-2xl bg-white p-6 text-center text-sm text-[#8e8e93]">No rendered files found in the directory above.</div>}
+    <section className="panel-section">
+      <div className="panel-heading"><div><h2>Library</h2><p>Rendered masters and QA evidence</p></div><button type="button" onClick={onRefresh} className="round-action" aria-label="Refresh library"><RefreshCw size={14} /></button></div>
+      <div className="section-title">Masters · {tracks.filter((track) => track.exists).length}</div>
+      <div className="soft-card library-summary"><div className="font-medium">{tracks.filter((track) => track.exists).length} of {tracks.length} variants rendered</div><div className="mt-1 break-all font-mono text-[10px] text-[#8e8e93]">Reading {tracks[0]?.path.replace(/\/[^/]+$/, "") ?? "configured render directory"}</div></div>
+      <div className="library-list">
+        {loading && <div className="soft-card empty-state">Loading render directory…</div>}
+        {!loading && tracks.filter((track) => track.exists).length === 0 && <div className="soft-card empty-state">No rendered files found in the directory above.</div>}
         {tracks.filter((track) => track.exists).map((track) => <TrackCard key={track.variantId} track={track} onToast={onToast} />)}
       </div>
     </section>
@@ -392,8 +422,8 @@ function TrackCard({ track, onToast }: { track: LibraryTrack; onToast: (toast: {
     onToast(response.ok ? { message: "Name approved in sidecar metadata." } : { message: "Could not approve name.", error: true });
   }
   return (
-    <article className="overflow-hidden rounded-2xl bg-white shadow-sm">
-      <div className="px-4 pb-3 pt-4">
+    <article className="soft-card track-card">
+      <div>
         <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-mono text-[11px]">{track.variantId}</div>{track.title && <div className="mt-1 truncate text-sm font-semibold">{track.title}{track.titleApproved && <span className="ml-1 text-[10px] font-normal text-[#34c759]">approved</span>}</div>}<div className="mt-1 text-[12px] text-[#8e8e93]">Matrix {track.matrixIndex} · {formatDuration(track.durationSeconds)} · {track.color} / {track.band} / {track.motion}</div></div><span className={`rounded-full px-2 py-1 font-mono text-[10px] font-semibold ${track.qaVerdict === "PASS" ? "bg-green-50 text-[#34c759]" : track.qaVerdict === "FAIL" ? "bg-red-50 text-[#ff3b30]" : "bg-gray-100 text-[#8e8e93]"}`}>{track.qaVerdict}</span></div>
         <audio className="mt-3 w-full" controls preload="none" src={track.audioUrl} />
         <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-[#f2f2f7] p-3 text-xs"><div><span className="text-[#8e8e93]">LUFS</span><div className="mt-0.5 font-mono font-semibold">{track.measuredLufs ?? "—"}</div></div><div><span className="text-[#8e8e93]">True peak</span><div className="mt-0.5 font-mono font-semibold">{track.measuredTruePeak ?? "—"}</div></div></div>
@@ -412,5 +442,8 @@ const QUEUE_NOTES: Record<string, string> = {
 };
 
 function Queue({ jobs, mode, onRefresh }: { jobs: QueueJob[]; mode: "local" | "dispatch" | "unavailable"; onRefresh: () => void }) {
-  return <section className="mt-5"><div className="mb-3 flex items-center justify-between px-1"><div><h2 className="text-[20px] font-bold">Render queue</h2><p className="text-xs text-[#8e8e93]">{mode === "dispatch" ? "GitHub Actions run status" : "Honest worker-backed status"}</p></div><button type="button" onClick={onRefresh} className="rounded-full bg-[#e9e9eb] p-2" aria-label="Refresh queue"><RefreshCw size={14} /></button></div><div className="overflow-hidden rounded-2xl bg-white shadow-sm">{jobs.length === 0 ? <div className="p-8 text-center text-sm text-[#8e8e93]">No jobs queued.</div> : jobs.map((job, index) => <div key={job.id} className={`flex items-center justify-between gap-3 px-4 py-3 ${index ? "border-t border-[#d8d8dc]" : ""}`}><div className="min-w-0"><div className="truncate font-mono text-[11px]">{job.variantId}</div><div className="mt-0.5 text-[11px] text-[#8e8e93]">{new Date(job.queuedAt).toLocaleString()}</div></div><span className="rounded-full bg-[#f2f2f7] px-2 py-1 font-mono text-[10px]">{job.status}</span></div>)}</div><p className="mt-3 px-1 text-xs leading-5 text-[#8e8e93]">{QUEUE_NOTES[mode]}</p></section>;
+  const activeJobs = jobs.filter((job) => job.status === "Queued" || job.status === "Rendering");
+  const completedJobs = jobs.filter((job) => job.status === "Done" || job.status === "Failed");
+  const group = (title: string, entries: QueueJob[]) => <><div className="section-title">{title}</div><div className="soft-card queue-card">{entries.length === 0 ? <div className="empty-state">No jobs in this section.</div> : entries.map((job) => <div key={job.id} className="queue-item"><span className={`status-dot ${job.status.toLowerCase()}`} /><div className="queue-body"><div className="queue-name">{job.variantId}</div><div className="queue-sub">{job.status === "Done" ? "Master ready" : job.status === "Failed" ? job.error ?? "Render failed" : job.status}</div></div><time className="queue-time">{new Date(job.queuedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time></div>)}</div></>;
+  return <section className="panel-section"><div className="panel-heading"><div><h2>Render queue</h2><p>{mode === "dispatch" ? "GitHub Actions run status" : "Honest worker-backed status"}</p></div><button type="button" onClick={onRefresh} className="round-action" aria-label="Refresh queue"><RefreshCw size={14} /></button></div>{group("Rendering", activeJobs)}{group("Completed today", completedJobs)}<p className="queue-note">{QUEUE_NOTES[mode]}</p></section>;
 }
