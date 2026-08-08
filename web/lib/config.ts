@@ -15,6 +15,7 @@ function configPath(name: string): string {
 
 export const CONFIG_PATH = process.env.NOISE_VARIANTS_FILE ?? configPath("variants.yaml");
 export const PILOT_CONFIG_PATH = process.env.NOISE_PILOT_VARIANTS_FILE ?? configPath("variants_pilot.yaml");
+export const DIMENSIONS_PATH = process.env.NOISE_DIMENSIONS_FILE ?? configPath("dimensions.yaml");
 export const RENDER_DIR = process.env.NOISE_RENDER_DIR ?? path.join(os.homedir(), "noisegen-out");
 
 // The local queue only means something where the Python worker and Audacity can
@@ -32,12 +33,53 @@ function renderMode(): RenderMode {
 export const RENDER_MODE = renderMode();
 export const RENDERING_AVAILABLE = RENDER_MODE !== "unavailable";
 
-const COLORS: Color[] = ["white", "green", "pink", "brown"];
-const BANDS: Band[] = ["low-mid", "mid", "high", "broad"];
-const MOTIONS: Motion[] = ["still", "drift", "breathing"];
-const BALANCES: Balance[] = ["bed-forward", "balanced", "texture-forward"];
-
 type RawVariant = Record<string, unknown>;
+
+// The matrix numbering belongs to dimensions.yaml: `dimension_order` gives the
+// cross-product order the generator emits, and each dimension's declared values
+// give its size. Restating either here would silently renumber every track the
+// first time someone edits the YAML.
+type Matrix = { order: string[]; values: Map<string, string[]>; strides: Map<string, number> };
+
+let matrixCache: Matrix | null = null;
+
+function matrix(): Matrix {
+  if (matrixCache) return matrixCache;
+  const parsed = parse(fs.readFileSync(DIMENSIONS_PATH, "utf8")) as {
+    dimensions?: Record<string, Record<string, unknown>>;
+    dimension_order?: string[];
+  };
+  const order = parsed.dimension_order ?? [];
+  if (order.length === 0) throw new Error(`${DIMENSIONS_PATH} declares no dimension_order`);
+  const values = new Map<string, string[]>();
+  for (const name of order) {
+    const declared = Object.keys(parsed.dimensions?.[name] ?? {});
+    if (declared.length === 0) throw new Error(`${DIMENSIONS_PATH} declares no values for dimension ${name}`);
+    values.set(name, declared);
+  }
+  const strides = new Map<string, number>();
+  let stride = 1;
+  for (const name of [...order].reverse()) {
+    strides.set(name, stride);
+    stride *= values.get(name)!.length;
+  }
+  matrixCache = { order, values, strides };
+  return matrixCache;
+}
+
+function matrixIndex(row: RawVariant): number {
+  const { order, values, strides } = matrix();
+  let index = 1;
+  for (const name of order) {
+    const value = string(row[name]);
+    const position = values.get(name)!.indexOf(value);
+    if (position < 0) {
+      throw new Error(`variant ${string(row.variant_id)} has ${name}=${value || "(missing)"}, which ${DIMENSIONS_PATH} does not declare`);
+    }
+    index += position * strides.get(name)!;
+  }
+  return index;
+}
 
 function number(value: unknown, fallback = 0): number {
   return typeof value === "number" ? value : fallback;
@@ -45,14 +87,6 @@ function number(value: unknown, fallback = 0): number {
 
 function string(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
-}
-
-function matrixIndex(color: string, band: string, motion: string, balance: string): number {
-  const c = COLORS.indexOf(color as Color);
-  const b = BANDS.indexOf(band as Band);
-  const m = MOTIONS.indexOf(motion as Motion);
-  const bal = BALANCES.indexOf(balance as Balance);
-  return c * 36 + b * 9 + m * 3 + bal + 1;
 }
 
 // The pilot label is the variant's position in the curated pilot manifest, so it
@@ -80,7 +114,7 @@ export function loadVariants(configPath = CONFIG_PATH): Variant[] {
     return {
       variantId,
       filename: string(row.filename),
-      matrixIndex: matrixIndex(color, band, motion, balance),
+      matrixIndex: matrixIndex(row),
       color,
       band,
       motion,
