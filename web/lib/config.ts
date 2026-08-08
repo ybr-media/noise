@@ -89,14 +89,19 @@ function string(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+// The pilot label is the variant's position in the curated pilot manifest, so it
+// is read from that manifest in one place rather than recomputed per caller.
+function pilotLabels(): Map<string, string> {
+  if (!fs.existsSync(PILOT_CONFIG_PATH)) return new Map();
+  const rows = (parse(fs.readFileSync(PILOT_CONFIG_PATH, "utf8")) as { variants?: RawVariant[] }).variants ?? [];
+  return new Map(rows.map((row, index) => [string(row.variant_id), `P${index + 1}`]));
+}
+
 export function loadVariants(configPath = CONFIG_PATH): Variant[] {
   const source = fs.readFileSync(configPath, "utf8");
   const parsed = parse(source) as { output?: RawVariant; variants?: RawVariant[] };
   const output = parsed.output ?? {};
-  const pilotIds = configPath === CONFIG_PATH && fs.existsSync(PILOT_CONFIG_PATH)
-    ? new Set(((parse(fs.readFileSync(PILOT_CONFIG_PATH, "utf8")) as { variants?: RawVariant[] }).variants ?? [])
-        .map((row) => string(row.variant_id)))
-    : new Set<string>();
+  const pilots = pilotLabels();
   return (parsed.variants ?? []).map((row) => {
     const spectrum = (row.spectrum as RawVariant | undefined) ?? {};
     const bell = spectrum.bell as RawVariant | undefined;
@@ -128,7 +133,7 @@ export function loadVariants(configPath = CONFIG_PATH): Variant[] {
       sampleRate: number(row.sample_rate, number(output.sample_rate, 48000)),
       targetLufs: number(row.target_lufs, number(output.target_lufs, -20)),
       truePeakMaxDbtp: number(row.true_peak_max_dbtp, number(output.true_peak_max_dbtp, -3)),
-      pilot: pilotIds.has(variantId) ? `P${[...pilotIds].indexOf(variantId) + 1}` : null,
+      pilot: pilots.get(variantId) ?? null,
       spectrum: {
         tiltDbPerOct: number(spectrum.tilt_db_per_oct),
         bell: bell

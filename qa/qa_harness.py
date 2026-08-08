@@ -50,7 +50,7 @@ def compare_dirs(original: Path, rerender: Path) -> ComparisonResult:
         except (OSError, RuntimeError, ValueError) as exc:
             variants.append(VariantComparison(name, False, reason=str(exc)))
     if not variants:
-        variants.append(VariantComparison("<directory>", False, reason="no FLAC variants found in comparison"))
+        variants.append(VariantComparison("<directory>", False, reason="no WAV variants found in comparison"))
     return ComparisonResult(all(variant.passed for variant in variants), tuple(variants))
 
 
