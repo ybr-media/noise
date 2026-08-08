@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 MANIFEST_NAME = "manifest.json"
-EVIDENCE_NAMES = ("qa_results.json", "qa.json", "render_log.jsonl")
+EVIDENCE_NAMES = ("qa_results.json", "render_log.jsonl")
 
 
 def render_statuses(output_dir: Path) -> dict[str, str]:
@@ -38,17 +38,15 @@ def render_statuses(output_dir: Path) -> dict[str, str]:
 
 
 def qa_checks(output_dir: Path) -> dict[str, list[dict[str, object]]]:
-    for name in ("qa_results.json", "qa.json"):
-        path = output_dir / name
-        if not path.exists():
-            continue
-        report = json.loads(path.read_text(encoding="utf-8"))
-        return {
-            entry["filename"]: entry.get("checks", [])
-            for entry in report.get("files", [])
-            if entry.get("filename")
-        }
-    return {}
+    path = output_dir / "qa_results.json"
+    if not path.exists():
+        return {}
+    report = json.loads(path.read_text(encoding="utf-8"))
+    return {
+        entry["filename"]: entry.get("checks", [])
+        for entry in report.get("files", [])
+        if entry.get("filename")
+    }
 
 
 def build_manifest(output_dir: Path) -> dict[str, object]:

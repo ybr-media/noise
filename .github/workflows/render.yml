@@ -90,7 +90,7 @@ jobs:
       - name: QA
         # A failing check is evidence to publish, not a reason to withhold the master.
         continue-on-error: true
-        run: PYTHONPATH=qa .venv/bin/python qa/qa_harness.py out --report out/qa.html --json out/qa_results.json
+        run: PYTHONPATH=qa .venv/bin/python qa/qa_harness.py out --report out/qa_report.html --json out/qa_results.json
 
       - name: Publish to R2
         env:
@@ -107,7 +107,7 @@ jobs:
         with:
           name: qa-report
           path: |
-            out/qa.html
+            out/qa_report.html
             out/qa_results.json
             out/render_log.jsonl
             out/audacity.log
