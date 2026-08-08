@@ -5,3 +5,4 @@ pyloudnorm==0.1.1
 matplotlib==3.10.3
 pytest==8.3.5
 PyYAML>=6.0
+typing_extensions>=4.12
