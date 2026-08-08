@@ -105,6 +105,65 @@ def test_sidecar_and_log_contract(tmp_path: Path) -> None:
     assert transports[0].closed and processes[0].killed and processes[0].waited
 
 
+def test_launch_failure_is_logged(tmp_path: Path) -> None:
+    """A process that never starts must be reported as the render failure it is."""
+    matrix = _matrix(tmp_path, 1)
+    output = tmp_path / "out"
+
+    def factory(timeout: float) -> FakeTransport:
+        del timeout
+        raise AssertionError("transport must not be created when launching fails")
+
+    def process_factory(binary: str) -> FakeProcess:
+        del binary
+        raise RuntimeError("audacity did not open its pipes")
+
+    assert render_batch(
+        matrix,
+        output,
+        "audacity",
+        3,
+        transport_factory=factory,
+        process_factory=process_factory,
+    ) == 1
+    record = json.loads((output / "render_log.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    assert record["exit_state"] == "failure: audacity did not open its pipes"
+    row = yaml.safe_load(matrix.read_text())["variants"][0]
+    source = yaml.safe_load(matrix.read_text())
+    plan = build_plan(row, source["output"], str(output / row["filename"]))
+    assert record["commands"] == list(plan.commands)
+    assert record["responses"] == []
+
+
+def test_aup3_serializer_logs_the_commands_it_sent(tmp_path: Path) -> None:
+    matrix = _matrix(tmp_path, 1)
+    output = tmp_path / "out"
+    created: list[FakeTransport] = []
+
+    def factory(timeout: float) -> FakeTransport:
+        del timeout
+        transport = FakeTransport(["OK"] * 100, fail_at=0)
+        created.append(transport)
+        return transport
+
+    def process_factory(binary: str) -> FakeProcess:
+        del binary
+        return FakeProcess()
+
+    assert render_batch(
+        matrix,
+        output,
+        "audacity",
+        3,
+        aup3_serializer=True,
+        transport_factory=factory,
+        process_factory=process_factory,
+    ) == 1
+    record = json.loads((output / "render_log.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    assert record["commands"][-1].startswith("SaveProject2:")
+    assert not any(command.startswith("Export2:") for command in record["commands"])
+
+
 def test_resume_and_force(tmp_path: Path) -> None:
     matrix = _matrix(tmp_path, 2)
     output = tmp_path / "out"
