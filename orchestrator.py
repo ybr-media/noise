@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Protocol
 
 import yaml
+
 from audacity_pipe import AudacityPipe, AudacityPipeError
 from aup3_serializer import extract_to_wav
 from render_plan import RenderPlan, build_plan
@@ -140,8 +141,15 @@ def _launch(binary: str) -> ProcessHandle:
         shutil.copy2(ROOT / ".audacity-config/audacity.cfg", config_dir / "audacity.cfg")
         log_path = os.environ.get("NOISEGEN_AUDACITY_LOG")
         env = os.environ.copy()
+        # An inherited XDG_CONFIG_HOME outranks HOME, so a host that sets one
+        # (GitHub's runners do) sends Audacity looking for its settings
+        # somewhere we never wrote them, and it starts without mod-script-pipe.
         env.update(
             HOME=str(home),
+            XDG_CONFIG_HOME=str(home / ".config"),
+            XDG_DATA_HOME=str(home / ".local/share"),
+            XDG_CACHE_HOME=str(home / ".cache"),
+            XDG_STATE_HOME=str(home / ".local/state"),
             ALSA_CONFIG_PATH=str(ROOT / ".asoundrc"),
             LD_LIBRARY_PATH=(
                 f"{ROOT / '.audacity/squashfs-root/lib'}:"
