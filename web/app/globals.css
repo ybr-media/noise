@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  --card-gap: 22px;
   --page: #eef0f6;
   --card: #ffffff;
   --label: #1c1c1e;
@@ -31,25 +32,24 @@ button:disabled { cursor: not-allowed; }
 .refresh-button:hover, .round-action:hover { background: rgba(255,255,255,.7); }
 .panel-show { animation: rise .32s cubic-bezier(.2,.8,.25,1); }
 .soft-card { background: #fff; border-radius: 26px; box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px rgba(20,20,50,.06); }
-.spectrum-card { padding: 22px 24px; margin-bottom: 22px; }
+.design-stack { display: grid; gap: var(--card-gap); }
+.spectrum-card { padding: 22px 24px; }
 .spectrum-frame { height: 150px; overflow: hidden; border-radius: 16px; background: #fff repeating-linear-gradient(90deg, transparent 0 12px, rgba(0,0,0,.045) 12px 13px); background-blend-mode: multiply; }
 .spectrum-ticks { display: flex; justify-content: space-between; margin: 10px 0 16px; color: #aeaeb2; font-size: 13px; }
 .preview-note { padding: 13px 16px; border-radius: 14px; background: #f4f4f7; color: #6e6e73; font-size: 14px; line-height: 1.45; }
 .preview-note strong { color: #1c1c1e; font-weight: 600; }
-.play-wrap { display: flex; flex-direction: column; align-items: center; padding: 12px 0 26px; }
+.play-wrap { display: flex; flex-direction: column; align-items: center; padding: 0; }
 .play-button { width: 88px; height: 88px; display: grid; place-items: center; border: 0; border-radius: 50%; color: #fff; background: radial-gradient(circle at 32% 28%, #ff6a5e, #e5483c 62%, #d23a2f); box-shadow: 0 14px 30px rgba(229,72,60,.38), inset 0 2px 3px rgba(255,255,255,.45), inset 0 -3px 6px rgba(0,0,0,.12); transition: transform .15s ease; }
 .play-button:active { transform: scale(.94); }
 .matrix-label { margin-top: 16px; color: #aeaeb2; font-size: 15px; letter-spacing: .02em; }
-.controls-card { overflow: hidden; padding: 0 24px; }
-.design-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; }
+.controls-card { overflow: hidden; padding: 4px 24px; }
+.design-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 360px); align-items: center; gap: 16px; padding: 18px 0; }
 .design-row + .design-row { border-top: 1px solid rgba(0,0,0,.06); }
-.design-row:first-child { padding-top: 22px; }
-.design-row:last-child { padding-bottom: 22px; }
 .design-row > div:first-child { min-width: 0; }
 .design-label { color: #1c1c1e; font-size: 16px; font-weight: 600; }
 .design-hint { margin-top: 3px; color: #aeaeb2; font-size: 13px; }
-.mini-segmented { display: flex; flex-shrink: 0; gap: 2px; padding: 3px; border-radius: 12px; background: #ededf1; }
-.mini-segment { padding: 7px 13px; border: 0; border-radius: 9px; color: #6e6e73; background: transparent; font-size: 13.5px; white-space: nowrap; }
+.mini-segmented { display: flex; width: 100%; gap: 2px; padding: 3px; border-radius: 12px; background: #ededf1; }
+.mini-segment { flex: 1 1 0; min-width: 0; padding: 7px 4px; border: 0; border-radius: 9px; color: #6e6e73; background: transparent; font-size: 13.5px; text-align: center; white-space: nowrap; }
 .mini-segment.is-selected { color: #1c1c1e; background: #fff; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 .variant-card { position: relative; padding: 22px 24px; }
 .variant-id { margin-bottom: 12px; color: #1c1c1e; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; overflow-wrap: anywhere; }
@@ -67,11 +67,13 @@ button:disabled { cursor: not-allowed; }
 .panel-heading p { margin-top: 4px; color: #6e6e73; font-size: 13px; }
 .round-action { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 50%; color: #1c1c1e; background: rgba(255,255,255,.5); }
 .section-title { margin: 26px 6px 10px; color: #aeaeb2; font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
-.library-summary { padding: 16px 20px; margin-bottom: 14px; font-size: 13px; }
-.library-list { display: grid; gap: 14px; }
+.library-summary { padding: 16px 20px; margin-bottom: var(--card-gap); font-size: 13px; }
+.library-list { display: grid; gap: var(--card-gap); }
 .empty-state { padding: 32px 20px; color: #8e8e93; text-align: center; font-size: 14px; }
 .track-card { padding: 22px 24px; }
 .queue-card { padding: 0 24px; }
+.queue-groups { display: grid; gap: var(--card-gap); }
+.queue-group .section-title { margin-top: 0; }
 .queue-item { display: flex; align-items: center; gap: 14px; padding: 16px 0; }
 .queue-item + .queue-item { border-top: 1px solid rgba(0,0,0,.06); }
 .status-dot { width: 10px; height: 10px; flex-shrink: 0; border-radius: 50%; background: #c7c7cc; }
@@ -101,11 +103,10 @@ button:disabled { cursor: not-allowed; }
   .noise-subtitle { max-width: 260px; font-size: 15px; }
   .spectrum-card, .track-card, .variant-card { padding-right: 16px; padding-left: 16px; }
   .controls-card { padding-right: 16px; padding-left: 16px; }
-  .design-row { gap: 8px; }
+  .design-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
   .design-label { font-size: 14px; }
   .design-hint { font-size: 11px; }
-  .mini-segmented { max-width: calc(100vw - 142px); overflow-x: auto; }
-  .mini-segment { padding-right: 9px; padding-left: 9px; font-size: 11px; }
+  .mini-segment { padding-right: 2px; padding-left: 2px; font-size: 10px; }
   .queue-actions .queue-primary { width: 100%; }
   .dock { right: 10px; left: 10px; transform: none; }
   .glassbar { justify-content: space-between; width: 100%; }

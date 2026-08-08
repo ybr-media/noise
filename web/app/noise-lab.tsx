@@ -334,7 +334,7 @@ export default function NoiseLab() {
 
         <div id="panel-design" role="tabpanel" aria-labelledby="tab-design" className={`panel ${tab === "design" ? "panel-show" : ""}`} hidden={tab !== "design"}>
           {selected && (
-          <>
+          <div className="design-stack">
             <section className="soft-card spectrum-card">
               <div className="spectrum-frame"><Spectrum analyser={preview.analyser} playing={preview.playing} /></div>
               <div className="spectrum-ticks"><span>30 Hz</span><span>500</span><span>2k</span><span>16k</span></div>
@@ -362,7 +362,7 @@ export default function NoiseLab() {
                 <button type="button" onClick={() => void queue([selected.variantId], "one")} className="queue-primary" title="Queues only the currently selected variant." aria-label="Queue only the currently selected variant"><Layers size={16} /> Queue this render</button>
               </div>
             </section>
-          </>
+          </div>
           )}
         </div>
         <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} onRefresh={() => void refresh()} onToast={setToast} /></div>
@@ -371,7 +371,7 @@ export default function NoiseLab() {
       <div className="dock"><nav ref={dockRef} className="glassbar" role="tablist" aria-label="Primary">
         <div ref={lensRef} className="tab-lens" aria-hidden="true" />
         {(["design", "queue", "library"] as const).map((item) => {
-          const count = item === "queue" ? queueCount : libraryCount;
+          const count = item === "queue" ? queueCount : item === "library" ? libraryCount : 0;
           return <button key={item} id={`tab-${item}`} type="button" data-tab={item} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${item[0].toUpperCase()}${item.slice(1)}${count ? `, ${count}` : ""}`} onClick={() => { setTab(item); window.scrollTo({ top: 0, behavior: "smooth" }); }} className={`dock-tab ${tab === item ? "is-active" : ""}`}>{item[0].toUpperCase() + item.slice(1)}{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</button>;
         })}
       </nav></div>
@@ -448,6 +448,6 @@ function Queue({ jobs, mode, onRefresh, onQueuePilot, pilotCount }: { jobs: Queu
   const pilotActionTitle = mode === "unavailable"
     ? "Rendering isn't available on this deployment."
     : `Queues the whole curated pilot set from config/variants_pilot.yaml — every pilot variant, regardless of what's selected on the Design tab. (${pilotCount} variants)`;
-  const group = (title: string, entries: QueueJob[]) => <><div className="section-title">{title}</div><div className="soft-card queue-card">{entries.length === 0 ? <div className="empty-state">No jobs in this section.</div> : entries.map((job) => <div key={job.id} className="queue-item"><span className={`status-dot ${job.status.toLowerCase()}`} /><div className="queue-body"><div className="queue-name">{job.variantId}</div><div className="queue-sub">{job.status === "Done" ? "Master ready" : job.status === "Failed" ? job.error ?? "Render failed" : job.status}</div></div><time className="queue-time">{new Date(job.queuedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time></div>)}</div></>;
-  return <section className="panel-section"><div className="panel-heading"><div><h2>Render queue</h2><p>{mode === "dispatch" ? "GitHub Actions run status" : "Honest worker-backed status"}</p></div><div className="panel-heading-actions"><button type="button" onClick={onQueuePilot} disabled={mode === "unavailable"} className="queue-secondary" title={pilotActionTitle} aria-label={pilotActionTitle}><Layers size={14} /> {pilotActionLabel}</button><button type="button" onClick={onRefresh} className="round-action" aria-label="Refresh queue"><RefreshCw size={14} /></button></div></div>{group("Rendering", activeJobs)}{group("Completed today", completedJobs)}<p className="queue-note">{QUEUE_NOTES[mode]}</p></section>;
+  const group = (title: string, entries: QueueJob[]) => <section className="queue-group"><div className="section-title">{title}</div><div className="soft-card queue-card">{entries.length === 0 ? <div className="empty-state">No jobs in this section.</div> : entries.map((job) => <div key={job.id} className="queue-item"><span className={`status-dot ${job.status.toLowerCase()}`} /><div className="queue-body"><div className="queue-name">{job.variantId}</div><div className="queue-sub">{job.status === "Done" ? "Master ready" : job.status === "Failed" ? job.error ?? "Render failed" : job.status}</div></div><time className="queue-time">{new Date(job.queuedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time></div>)}</div></section>;
+  return <section className="panel-section"><div className="panel-heading"><div><h2>Render queue</h2><p>{mode === "dispatch" ? "GitHub Actions run status" : "Honest worker-backed status"}</p></div><div className="panel-heading-actions"><button type="button" onClick={onQueuePilot} disabled={mode === "unavailable"} className="queue-secondary" title={pilotActionTitle} aria-label={pilotActionTitle}><Layers size={14} /> {pilotActionLabel}</button><button type="button" onClick={onRefresh} className="round-action" aria-label="Refresh queue"><RefreshCw size={14} /></button></div></div><div className="queue-groups">{group("Rendering", activeJobs)}{group("Completed today", completedJobs)}</div><p className="queue-note">{QUEUE_NOTES[mode]}</p></section>;
 }
