@@ -371,8 +371,8 @@ def green_bell(spectrum: Spectrum, sidecar: Sidecar) -> CheckResult:
     return _result(
         "Green bell",
         f"{excess:.3f} dB",
-        "3 to 8 dB",
-        3 <= excess <= 8,
+        "4 to 8 dB",
+        4 <= excess <= 8,
         {
             "metric": "excess-over-fitted-tilt",
             "fitted_slope_db_per_oct": slope,
