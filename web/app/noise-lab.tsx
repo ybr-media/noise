@@ -371,7 +371,7 @@ export default function NoiseLab() {
       <div className="dock"><nav ref={dockRef} className="glassbar" role="tablist" aria-label="Primary">
         <div ref={lensRef} className="tab-lens" aria-hidden="true" />
         {(["design", "queue", "library"] as const).map((item) => {
-          const count = item === "queue" ? queueCount : libraryCount;
+          const count = item === "queue" ? queueCount : item === "library" ? libraryCount : 0;
           return <button key={item} id={`tab-${item}`} type="button" data-tab={item} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${item[0].toUpperCase()}${item.slice(1)}${count ? `, ${count}` : ""}`} onClick={() => { setTab(item); window.scrollTo({ top: 0, behavior: "smooth" }); }} className={`dock-tab ${tab === item ? "is-active" : ""}`}>{item[0].toUpperCase() + item.slice(1)}{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</button>;
         })}
       </nav></div>
