@@ -142,14 +142,26 @@ def _launch(binary: str) -> ProcessHandle:
         ]
         # Audacity is chatty for the whole life of a render; nothing reads
         # these streams, so piping them would eventually block the process.
-        process = subprocess.Popen(
-            command,
-            env=env,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
+        # A file sink is the exception: it never fills, and it is the only way
+        # to see why a launch failed on a machine with no display to watch.
+        log_path = os.environ.get("NOISEGEN_AUDACITY_LOG")
+        sink = subprocess.DEVNULL
+        if log_path:
+            destination = Path(log_path)
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            sink = destination.open("ab")
+        try:
+            process = subprocess.Popen(
+                command,
+                env=env,
+                stdin=subprocess.DEVNULL,
+                stdout=sink,
+                stderr=subprocess.STDOUT if log_path else sink,
+                start_new_session=True,
+            )
+        finally:
+            if sink is not subprocess.DEVNULL:
+                sink.close()
         try:
             _wait_for_pipes()
         except (OSError, TimeoutError, AudacityPipeError):
@@ -304,6 +316,7 @@ def render_batch(
             export_path = output_dir / filename
             plan = build_plan(row, output_row, str(export_path))
             started = time.monotonic()
+            commands = plan.commands
             responses: list[str] = []
             exit_state = "dry-run" if dry_run else "success"
             process: ProcessHandle | None = None

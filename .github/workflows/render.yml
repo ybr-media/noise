@@ -47,12 +47,22 @@ jobs:
           .venv/bin/python scripts/select_variants.py "$VARIANTS" --out /tmp/render-variants.yaml >> "$GITHUB_OUTPUT"
 
       - name: Render
+        env:
+          NOISEGEN_AUDACITY_LOG: out/audacity.log
         run: |
           .venv/bin/python orchestrator.py \
             --variants-file /tmp/render-variants.yaml \
             --output-dir out \
             --aup3-serializer \
             --force
+
+      - name: Diagnose a failed render
+        if: failure()
+        run: |
+          echo '--- render_log.jsonl ---'
+          cat out/render_log.jsonl || true
+          echo '--- audacity.log ---'
+          cat out/audacity.log || true
 
       - name: QA
         # A failing check is evidence to publish, not a reason to withhold the master.
@@ -77,4 +87,5 @@ jobs:
             out/qa.html
             out/qa_results.json
             out/render_log.jsonl
+            out/audacity.log
           if-no-files-found: ignore
