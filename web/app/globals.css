@@ -46,8 +46,8 @@ button:disabled { cursor: not-allowed; }
 .design-row:first-child { padding-top: 22px; }
 .design-row:last-child { padding-bottom: 22px; }
 .design-row > div:first-child { min-width: 0; }
-.design-row > div:first-child > div:first-child { font-size: 16px; font-weight: 600; }
-.design-row > div:first-child > div:last-child { margin-top: 3px; color: #aeaeb2; font-size: 13px; }
+.design-label { color: #1c1c1e; font-size: 16px; font-weight: 600; }
+.design-hint { margin-top: 3px; color: #aeaeb2; font-size: 13px; }
 .mini-segmented { display: flex; flex-shrink: 0; gap: 2px; padding: 3px; border-radius: 12px; background: #ededf1; }
 .mini-segment { padding: 7px 13px; border: 0; border-radius: 9px; color: #6e6e73; background: transparent; font-size: 13.5px; white-space: nowrap; }
 .mini-segment.is-selected { color: #1c1c1e; background: #fff; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
@@ -100,8 +100,8 @@ button:disabled { cursor: not-allowed; }
   .spectrum-card, .track-card, .variant-card { padding-right: 16px; padding-left: 16px; }
   .controls-card { padding-right: 16px; padding-left: 16px; }
   .design-row { gap: 8px; }
-  .design-row > div:first-child > div:first-child { font-size: 14px; }
-  .design-row > div:first-child > div:last-child { font-size: 11px; }
+  .design-label { font-size: 14px; }
+  .design-hint { font-size: 11px; }
   .mini-segmented { max-width: calc(100vw - 142px); overflow-x: auto; }
   .mini-segment { padding-right: 9px; padding-left: 9px; font-size: 11px; }
   .queue-actions { flex-direction: column; }

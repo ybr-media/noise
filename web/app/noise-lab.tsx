@@ -64,8 +64,8 @@ function Row({ label, hint, children }: { label: string; hint: string; children:
   return (
     <div className="design-row">
       <div>
-        <div className="text-[13px] font-medium">{label}</div>
-        <div className="mt-0.5 text-[10px] text-[#8e8e93]">{hint}</div>
+        <div className="design-label">{label}</div>
+        <div className="design-hint">{hint}</div>
       </div>
       {children}
     </div>
@@ -268,6 +268,8 @@ export default function NoiseLab() {
   const [loading, setLoading] = useState(true);
   const dockRef = useRef<HTMLElement>(null);
   const lensRef = useRef<HTMLDivElement>(null);
+  const queueCount = jobs.filter((job) => job.status !== "Done" && job.status !== "Failed").length;
+  const libraryCount = tracks.filter((track) => track.exists).length;
   const selected = useMemo(() => variants.find((variant) => variant.color === selection.color && variant.band === selection.band && variant.motion === selection.motion && variant.balance === selection.balance), [selection, variants]);
   const preview = useApproxPreview(selected);
 
@@ -285,8 +287,8 @@ export default function NoiseLab() {
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
+    const dock = dockRef.current;
     const moveLens = () => {
-      const dock = dockRef.current;
       const lens = lensRef.current;
       const active = dock?.querySelector<HTMLElement>(`[data-tab="${tab}"]`);
       if (!dock || !lens || !active) return;
@@ -294,9 +296,14 @@ export default function NoiseLab() {
       lens.style.width = `${active.offsetWidth}px`;
     };
     moveLens();
+    const observer = dock ? new ResizeObserver(moveLens) : null;
+    if (dock && observer) observer.observe(dock);
     window.addEventListener("resize", moveLens);
-    return () => window.removeEventListener("resize", moveLens);
-  }, [tab, loading]);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", moveLens);
+    };
+  }, [tab]);
 
   async function queue(ids: string[], label: string) {
     const response = await fetch("/api/queue", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(label === "pilot" ? { pilot: true } : { variantIds: ids }) });
@@ -324,7 +331,7 @@ export default function NoiseLab() {
           <button type="button" onClick={() => void refresh()} aria-label="Refresh" className="refresh-button"><RefreshCw size={21} /></button>
         </header>
 
-        <div className={`panel ${tab === "design" ? "panel-show" : ""}`} hidden={tab !== "design"}>
+        <div id="panel-design" role="tabpanel" aria-labelledby="tab-design" className={`panel ${tab === "design" ? "panel-show" : ""}`} hidden={tab !== "design"}>
           {selected && (
           <>
             <section className="soft-card spectrum-card">
@@ -358,14 +365,14 @@ export default function NoiseLab() {
           </>
           )}
         </div>
-        <div className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} onRefresh={() => void refresh()} onToast={setToast} /></div>
-        <div className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} mode={renderMode} onRefresh={() => void refresh()} /></div>
+        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} onRefresh={() => void refresh()} onToast={setToast} /></div>
+        <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} mode={renderMode} onRefresh={() => void refresh()} /></div>
       </div>
-      <div className="dock"><nav ref={dockRef} className="glassbar" aria-label="Primary">
+      <div className="dock"><nav ref={dockRef} className="glassbar" role="tablist" aria-label="Primary">
         <div ref={lensRef} className="tab-lens" aria-hidden="true" />
         {(["design", "queue", "library"] as const).map((item) => {
-          const count = item === "queue" ? jobs.filter((job) => job.status !== "Done" && job.status !== "Failed").length : tracks.filter((track) => track.exists).length;
-          return <button key={item} type="button" data-tab={item} role="tab" aria-selected={tab === item} aria-label={`${item[0].toUpperCase()}${item.slice(1)}${count ? `, ${count}` : ""}`} onClick={() => { setTab(item); window.scrollTo({ top: 0, behavior: "smooth" }); }} className={`dock-tab ${tab === item ? "is-active" : ""}`}>{item[0].toUpperCase() + item.slice(1)}{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</button>;
+          const count = item === "queue" ? queueCount : libraryCount;
+          return <button key={item} id={`tab-${item}`} type="button" data-tab={item} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${item[0].toUpperCase()}${item.slice(1)}${count ? `, ${count}` : ""}`} onClick={() => { setTab(item); window.scrollTo({ top: 0, behavior: "smooth" }); }} className={`dock-tab ${tab === item ? "is-active" : ""}`}>{item[0].toUpperCase() + item.slice(1)}{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</button>;
         })}
       </nav></div>
       {toast && <Toast message={toast.message} error={toast.error} onClose={() => setToast(null)} />}
