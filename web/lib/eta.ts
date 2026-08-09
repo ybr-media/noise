@@ -15,7 +15,7 @@ export function formatMinutes(seconds: number): string {
 
 export function renderEstimate(medianSeconds: number | null, sampleSize: number, elapsedSeconds?: number): string {
   if (!sampleSize || medianSeconds === null) return `First render — typically ${DEFAULT_RENDER_ESTIMATE_RANGE}`;
-  return `${formatMinutes(Math.max(60, medianSeconds - (elapsedSeconds ?? 0)))} left`;
+  return formatMinutes(Math.max(60, medianSeconds - (elapsedSeconds ?? 0)));
 }
 
 export function relativeTime(iso: string, now = Date.now()): string {

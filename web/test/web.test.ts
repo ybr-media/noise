@@ -85,7 +85,10 @@ test("formats queue estimates and relative times", () => {
   assert.equal(median([]), null);
   assert.equal(formatMinutes(1), "~1 min");
   assert.equal(renderEstimate(null, 0), "First render — typically 5–10 min");
-  assert.equal(renderEstimate(180, 1, 200), "~1 min left");
+  assert.equal(renderEstimate(180, 1, 200), "~1 min");
+  assert.equal(`${renderEstimate(180, 1, 0)} left`, "~3 min left");
+  assert.equal(`Typically ${renderEstimate(180, 1)} once started`, "Typically ~3 min once started");
+  assert.equal(`${renderEstimate(180, 1, 0)} remaining`, "~3 min remaining");
   assert.equal(relativeTime(new Date(Date.now() - 4 * 60 * 1000).toISOString()), "4m ago");
 });
 

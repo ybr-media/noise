@@ -273,9 +273,8 @@ export default function NoiseLab() {
   const [queueing, setQueueing] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [documentVisible, setDocumentVisible] = useState(true);
+  const [, setLibraryReturnTab] = useState<"design" | "queue" | null>(null);
   const retryInFlight = useRef(false);
-  const libraryHashActive = useRef(false);
-  const requestedTab = useRef<"design" | "queue" | null>(null);
   const dockRef = useRef<HTMLElement>(null);
   const lensRef = useRef<HTMLDivElement>(null);
   const queueCount = jobs.filter((job) => job.status !== "Done" && job.status !== "Failed").length;
@@ -326,44 +325,48 @@ export default function NoiseLab() {
     return () => window.clearInterval(timer);
   }, [documentVisible, jobs, refreshQueue, tab]);
   const openLibrary = useCallback((variantId?: string) => {
+    setLibraryReturnTab(tab === "library" ? "queue" : tab);
     window.location.hash = variantId ? `library/${variantId}` : "library";
-  }, []);
-  useEffect(() => {
-    const handleHash = () => {
-      const match = window.location.hash.match(/^#library\/(.+)$/);
-      if (!match && window.location.hash !== "#library") {
-        if (requestedTab.current) {
-          setTab(requestedTab.current);
-          requestedTab.current = null;
-          libraryHashActive.current = false;
-          return;
+  }, [tab]);
+  const loadLibraryFromHash = useCallback(() => {
+    const match = window.location.hash.match(/^#library\/(.+)$/);
+    if (!match && window.location.hash !== "#library") return;
+    setTab("library");
+    void refresh().then(() => {
+      const variantId = match ? decodeURIComponent(match[1]) : undefined;
+      window.requestAnimationFrame(() => {
+        const target = variantId ? document.getElementById(`track-${variantId}`) : null;
+        (target ?? document.getElementById("panel-library"))?.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (target) {
+          target.classList.remove("track-highlight");
+          void target.offsetWidth;
+          target.classList.add("track-highlight");
         }
-        if (libraryHashActive.current) {
-          libraryHashActive.current = false;
-          setTab(requestedTab.current ?? "queue");
-          requestedTab.current = null;
-        }
-        return;
-      }
-      libraryHashActive.current = true;
-      setTab("library");
-      void refresh().then(() => {
-        const variantId = match ? decodeURIComponent(match[1]) : undefined;
-        window.requestAnimationFrame(() => {
-          const target = variantId ? document.getElementById(`track-${variantId}`) : null;
-          (target ?? document.getElementById("panel-library"))?.scrollIntoView({ behavior: "smooth", block: "start" });
-          if (target) {
-            target.classList.remove("track-highlight");
-            void target.offsetWidth;
-            target.classList.add("track-highlight");
-          }
-        });
       });
-    };
-    handleHash();
-    window.addEventListener("hashchange", handleHash);
-    return () => window.removeEventListener("hashchange", handleHash);
+    });
   }, [refresh]);
+  const handleHashChange = useCallback(() => {
+    const isLibraryHash = window.location.hash === "#library" || window.location.hash.startsWith("#library/");
+    if (!isLibraryHash) {
+      setLibraryReturnTab((returnTab) => {
+        if (returnTab) setTab(returnTab);
+        return null;
+      });
+      return;
+    }
+    setLibraryReturnTab((returnTab) => returnTab ?? (tab === "library" ? "queue" : tab));
+    loadLibraryFromHash();
+  }, [loadLibraryFromHash, tab]);
+  useEffect(() => {
+    if (window.location.hash === "#library" || window.location.hash.startsWith("#library/")) {
+      setLibraryReturnTab("design");
+      loadLibraryFromHash();
+    }
+  }, [loadLibraryFromHash]);
+  useEffect(() => {
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, [handleHashChange]);
   useEffect(() => {
     const dock = dockRef.current;
     const moveLens = () => {
@@ -478,11 +481,18 @@ export default function NoiseLab() {
         {(["design", "queue", "library"] as const).map((item) => {
           const count = item === "queue" ? queueCount : item === "library" ? libraryCount : 0;
           return <button key={item} id={`tab-${item}`} type="button" data-tab={item} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${item[0].toUpperCase()}${item.slice(1)}${count ? `, ${count}` : ""}`} onClick={() => {
-            if (item === "library") window.location.hash = "library";
+            if (item === "library") {
+              setLibraryReturnTab(tab === "library" ? "queue" : tab);
+              window.location.hash = "library";
+            }
             else {
-              requestedTab.current = item;
-              if (window.location.hash) window.location.hash = "";
-              else setTab(item);
+              if (window.location.hash === "#library" || window.location.hash.startsWith("#library/")) {
+                setLibraryReturnTab(item);
+                window.location.hash = "";
+              } else {
+                setLibraryReturnTab(null);
+                setTab(item);
+              }
             }
             window.scrollTo({ top: 0, behavior: "smooth" });
           }} className={`dock-tab ${tab === item ? "is-active" : ""}`}>{item[0].toUpperCase() + item.slice(1)}{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</button>;
@@ -581,8 +591,8 @@ function Queue({ jobs, mode, stats, variants, onRefresh, onQueuePilot, onQueueFu
       return job.status === "Queued" ? queueAheadLabel(queuedJobsAhead(job.id, jobs)) : "Worker is rendering";
     }
     return job.status === "Rendering"
-      ? renderEstimate(stats.medianRenderSeconds, stats.sampleSize, elapsed(job))
-      : stats.sampleSize ? `Typically ${renderEstimate(stats.medianRenderSeconds, stats.sampleSize).replace(" left", "")} once started` : renderEstimate(null, 0);
+      ? `${renderEstimate(stats.medianRenderSeconds, stats.sampleSize, elapsed(job))} left`
+      : stats.sampleSize ? `Typically ${renderEstimate(stats.medianRenderSeconds, stats.sampleSize)} once started` : renderEstimate(null, 0);
   };
   const renderingCount = activeJobs.filter((job) => job.status === "Rendering").length;
   const queuedCount = activeJobs.filter((job) => job.status === "Queued").length;
@@ -590,7 +600,7 @@ function Queue({ jobs, mode, stats, variants, onRefresh, onQueuePilot, onQueueFu
     ? [
       renderingCount ? `${renderingCount} rendering` : "",
       queuedCount ? `${queuedCount} queued` : "",
-      mode === "dispatch" ? renderEstimate(stats.medianRenderSeconds, stats.sampleSize, Math.max(...activeJobs.map(elapsed), 0)).replace(" left", " remaining") : "",
+      mode === "dispatch" ? `${renderEstimate(stats.medianRenderSeconds, stats.sampleSize, Math.max(...activeJobs.map(elapsed), 0))} remaining` : "",
     ].filter(Boolean).join(" · ")
     : "Queue idle";
   const row = (job: QueueJob) => {
