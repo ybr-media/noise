@@ -5,6 +5,7 @@ import {
   Check,
   Download,
   Grid3x3,
+  Info,
   Layers,
   Pause,
   Play,
@@ -268,6 +269,7 @@ export default function NoiseLab() {
   const [toast, setToast] = useState<{ message: string; error?: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
   const [queueing, setQueueing] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const dockRef = useRef<HTMLElement>(null);
   const lensRef = useRef<HTMLDivElement>(null);
   const queueCount = jobs.filter((job) => job.status !== "Done" && job.status !== "Failed").length;
@@ -339,9 +341,10 @@ export default function NoiseLab() {
       <div className="ambient-field ambient-field-c" />
       <div className="noise-page">
         <header className="noise-header">
-          <div>
+          <div className="noise-heading">
             <h1 className="noise-title">Noise Lab</h1>
-            <p className="noise-subtitle">Design a variant, review masters, queue the worker.</p>
+            <button type="button" onClick={() => setAboutOpen((open) => !open)} aria-label="About Noise Lab" aria-expanded={aboutOpen} className="info-button"><Info size={20} /></button>
+            {aboutOpen && <p role="note" className="noise-about">Design a variant, review masters, queue the worker.</p>}
           </div>
           <button type="button" onClick={() => void refresh()} aria-label="Refresh" className="refresh-button"><RefreshCw size={21} /></button>
         </header>
