@@ -19,6 +19,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LibraryTrack, QueueJob, Release, ReleaseTrack, Variant } from "@/lib/types";
 import type { DerivedRelease } from "@/lib/releases";
+import { toReleaseDocument } from "@/lib/release-document";
 import { mulberry32, renderCoverArt, type CoverArtDimensions } from "@/lib/cover-art";
 import { lintNames } from "@/lib/name-lint";
 import { knownVariantId, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
@@ -674,7 +675,7 @@ function ReleaseDetail({ release, savedArtist, variants, tracks, mode, onRefresh
     }
     setBusy(true);
     try {
-      const response = await fetch("/api/releases", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(next) });
+      const response = await fetch("/api/releases", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(toReleaseDocument(next)) });
       if (!response.ok) {
         const payload = (await response.json().catch(() => ({}))) as { error?: string };
         onToast({ message: payload.error ?? "Could not save release.", error: true });
