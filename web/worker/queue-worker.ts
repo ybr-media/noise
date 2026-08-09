@@ -4,19 +4,19 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { parse, stringify } from "yaml";
 import { CONFIG_PATH, RENDER_DIR } from "../lib/config";
+import { QUEUE_PATH } from "../lib/queue";
 import type { QueueJob } from "../lib/types";
 
-const queuePath = process.env.NOISE_QUEUE_FILE ?? path.join("/tmp", "noise-lab-queue.jsonl");
 const intervalMs = Number(process.env.NOISE_WORKER_INTERVAL_MS ?? 2500);
 
 function readJobs(): QueueJob[] {
   try {
-    return fs.readFileSync(queuePath, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as QueueJob);
+    return fs.readFileSync(QUEUE_PATH, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as QueueJob);
   } catch { return []; }
 }
 
 function writeJobs(jobs: QueueJob[]) {
-  fs.writeFileSync(queuePath, jobs.map((job) => `${JSON.stringify(job)}\n`).join(""));
+  fs.writeFileSync(QUEUE_PATH, jobs.map((job) => `${JSON.stringify(job)}\n`).join(""));
 }
 
 async function render(job: QueueJob): Promise<void> {
@@ -55,6 +55,6 @@ async function drain() {
   writeJobs(jobs);
 }
 
-console.log(`Noise Lab worker watching ${queuePath}`);
+console.log(`Noise Lab worker watching ${QUEUE_PATH}`);
 setInterval(() => void drain(), intervalMs);
 void drain();
