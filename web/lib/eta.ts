@@ -28,6 +28,48 @@ export function relativeTime(iso: string, now = Date.now()): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+export function absoluteTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  const [datePart, timePart] = date.toISOString().split("T");
+  return `${datePart} ${timePart.slice(0, 8)} UTC`;
+}
+
+export function hasRepeatedVariant(job: QueueJob, jobs: QueueJob[]): boolean {
+  return jobs.some((candidate) => candidate.id !== job.id && candidate.variantId === job.variantId);
+}
+
+export function attemptNumber(job: QueueJob, jobs: QueueJob[]): number {
+  return jobs
+    .filter((candidate) => candidate.variantId === job.variantId)
+    .sort((a, b) => {
+      const byTime = new Date(a.queuedAt).getTime() - new Date(b.queuedAt).getTime();
+      return byTime || a.id.localeCompare(b.id);
+    })
+    .findIndex((candidate) => candidate.id === job.id) + 1;
+}
+
+function isNewer(candidate: QueueJob, job: QueueJob): boolean {
+  const candidateTime = new Date(candidate.queuedAt).getTime();
+  const queuedAt = new Date(job.queuedAt).getTime();
+  return candidateTime > queuedAt || (candidateTime === queuedAt && candidate.id > job.id);
+}
+
+export function isSuperseded(job: QueueJob, jobs: QueueJob[], batchMembers?: string[]): boolean {
+  if (batchMembers) {
+    if (batchMembers.length === 0) return false;
+    return batchMembers.every((member) =>
+      jobs.some((candidate) => candidate.variantId === member && isNewer(candidate, job)),
+    );
+  }
+  return jobs.some(
+    (candidate) =>
+      candidate.variantId === job.variantId &&
+      candidate.id !== job.id &&
+      isNewer(candidate, job),
+  );
+}
+
 export function knownVariantId(variantId: string, variants: Variant[]): string | null {
   return variants.some((variant) => variant.variantId === variantId) ? variantId : null;
 }
