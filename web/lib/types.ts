@@ -35,11 +35,23 @@ export type QaCheck = {
   passed: boolean;
 };
 
+// One of the three source stems a master was mixed from, in stem_1..stem_3
+// order. Stems are downloadable assets, not library tracks of their own.
+export type TrackStem = {
+  filename: string;
+  number: number;
+  stem: string;
+  audioUrl: string;
+  downloadUrl: string;
+  exists: boolean;
+};
+
 export type LibraryTrack = Variant & {
   path: string;
   audioUrl: string;
   downloadUrl: string;
   exists: boolean;
+  stems: TrackStem[];
   qaVerdict: "PASS" | "FAIL" | "UNAVAILABLE";
   qaChecks: QaCheck[];
   measuredLufs: string | null;

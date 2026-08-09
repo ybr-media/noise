@@ -387,25 +387,46 @@ def _clip_channel_samples(
     return start, values[clip.trim_left:end]
 
 
-def extract_track(project_path: Path, project_xml: str, track_index: int = 0) -> tuple[np.ndarray, int]:
-    """Extract one final stereo track, returning samples and its sample rate."""
+def stereo_track_indexes(project_xml: str) -> tuple[int, ...]:
+    """Return the document index of each stereo track, in project order.
+
+    Audacity stores a stereo track either as one track holding two sequences
+    per clip or as a leader track followed by its ``channel="1"`` partner.
+    Only the leaders are returned, so the result indexes the tracks the user
+    sees -- and, for a render, the outputs one per track.
+    """
     tracks = parse_project_xml(project_xml)
-    try:
-        track = tracks[track_index]
-    except IndexError as exc:
-        raise Aup3Error(f"track index out of range: {track_index}") from exc
+    return tuple(
+        index
+        for index, track in enumerate(tracks)
+        if track.channel != 1
+    )
+
+
+def extract_track(project_path: Path, project_xml: str, track_index: int = 0) -> tuple[np.ndarray, int]:
+    """Extract one final stereo track, returning samples and its sample rate.
+
+    ``track_index`` is a document index, as returned by
+    :func:`stereo_track_indexes`.
+    """
+    tracks = parse_project_xml(project_xml)
+    if track_index < 0 or track_index >= len(tracks):
+        raise Aup3Error(f"track index out of range: {track_index}")
+    track = tracks[track_index]
     if track.rate <= 0:
         raise Aup3Error("track rate must be positive")
     if all(len(clip.sequences) == 2 for clip in track.clips):
         channel_tracks = (track, track)
         sequence_indexes = (0, 1)
     elif all(len(clip.sequences) == 1 for clip in track.clips):
+        # Split-mono layouts store the right channel in the very next track,
+        # so the partner is positional: a project with several stereo tracks
+        # would otherwise pair every leader with the first right channel.
         partner = next(
             (
                 candidate
-                for candidate in tracks
-                if candidate is not track
-                and candidate.rate == track.rate
+                for candidate in tracks[track_index + 1 : track_index + 2]
+                if candidate.rate == track.rate
                 and len(candidate.clips) == len(track.clips)
                 and all(len(clip.sequences) == 1 for clip in candidate.clips)
                 and candidate.channel == 1
@@ -464,19 +485,56 @@ def write_wav(samples: np.ndarray, rate: int, output_path: Path) -> None:
             raise Aup3Error("written WAV does not have required format")
 
 
+def _project_xml(project_path: Path, project_xml_path: Path | None) -> str:
+    return (
+        project_xml_path.read_text()
+        if project_xml_path is not None
+        else decode_project_xml(project_path)
+    )
+
+
 def extract_to_wav(
     project_path: Path,
     project_xml_path: Path | None,
     output_path: Path,
     track_index: int = 0,
 ) -> None:
-    project_xml = (
-        project_xml_path.read_text()
-        if project_xml_path is not None
-        else decode_project_xml(project_path)
-    )
+    project_xml = _project_xml(project_path, project_xml_path)
     samples, rate = extract_track(project_path, project_xml, track_index)
     write_wav(samples, rate, output_path)
+
+
+def read_stereo_track(
+    project_path: Path,
+    project_xml_path: Path | None,
+    index: int,
+) -> tuple[np.ndarray, int]:
+    """Extract one stereo track by its position in the project's track order."""
+    project_xml = _project_xml(project_path, project_xml_path)
+    indexes = stereo_track_indexes(project_xml)
+    try:
+        document_index = indexes[index]
+    except IndexError as exc:
+        raise Aup3Error(f"project has no stereo track {index}") from exc
+    return extract_track(project_path, project_xml, document_index)
+
+
+def extract_stereo_tracks_to_wavs(
+    project_path: Path,
+    project_xml_path: Path | None,
+    output_paths: tuple[Path, ...],
+) -> None:
+    """Write one WAV per stereo track, pairing tracks and paths in order."""
+    project_xml = _project_xml(project_path, project_xml_path)
+    indexes = stereo_track_indexes(project_xml)
+    if len(indexes) != len(output_paths):
+        raise Aup3Error(
+            f"project has {len(indexes)} stereo track(s), "
+            f"expected {len(output_paths)}"
+        )
+    for index, output_path in zip(indexes, output_paths):
+        samples, rate = extract_track(project_path, project_xml, index)
+        write_wav(samples, rate, output_path)
 
 
 def _main() -> int:

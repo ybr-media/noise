@@ -49,6 +49,14 @@ def qa_checks(output_dir: Path) -> dict[str, list[dict[str, object]]]:
     }
 
 
+def master_count(manifest: dict[str, object]) -> int:
+    """Count released tracks, which are masters; the stems ride along with them."""
+    artifacts: list[dict[str, object]] = manifest["artifacts"]  # type: ignore[assignment]
+    return sum(
+        1 for artifact in artifacts if (artifact["sidecar"] or {}).get("role") == "master"  # type: ignore[union-attr]
+    )
+
+
 def build_manifest(output_dir: Path) -> dict[str, object]:
     statuses = render_statuses(output_dir)
     checks = qa_checks(output_dir)
@@ -130,12 +138,13 @@ def main(argv: list[str] | None = None) -> int:
 
     manifest = build_manifest(output_dir)
     manifest_path = output_dir / MANIFEST_NAME
-    local_count = len(manifest["artifacts"])  # type: ignore[arg-type]
+    local_files = len(manifest["artifacts"])  # type: ignore[arg-type]
+    local_count = master_count(manifest)
     if args.dry_run:
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-        print(f"Manifest describes {local_count} master(s) -> {manifest_path}")
+        print(f"Manifest describes {local_count} master(s) in {local_files} file(s) -> {manifest_path}")
         return 0
-    if not local_count:
+    if not local_files:
         print("Nothing rendered to publish", file=sys.stderr)
         return 1
 
@@ -148,7 +157,10 @@ def main(argv: list[str] | None = None) -> int:
     s3 = client()
     payload = merged(manifest, published_manifest(s3, bucket, key_for(MANIFEST_NAME)))
     manifest_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    print(f"Publishing {local_count} master(s); manifest now lists {len(payload['artifacts'])}")  # type: ignore[arg-type]
+    print(
+        f"Publishing {local_count} master(s) and stems in {local_files} file(s); "
+        f"manifest now lists {len(payload['artifacts'])}"  # type: ignore[arg-type]
+    )
     for path, content_type in [*uploads(output_dir, manifest), (manifest_path, "application/json")]:
         s3.upload_file(str(path), bucket, key_for(path.name), ExtraArgs={"ContentType": content_type})
         print(f"uploaded {key_for(path.name)} ({path.stat().st_size} bytes)")

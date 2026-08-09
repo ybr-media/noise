@@ -1315,3 +1315,71 @@ measures `-3.103 dB/oct` tilt and `5.047 dB` bell excess against the restored
 `4–8 dB` range, and the metric reads `5.457 dB` on an exact bell, so the
 remaining `0.4 dB` is the realized curve sitting just under the analytic one. No
 gain and no threshold was raised to reach this.
+
+## Stem exports alongside the master
+
+Rendering the three stems as well as the master needed one command change and
+one measurement change; nothing else about generation or processing moved.
+
+`MixAndRender:` is destructive: it replaces its selected tracks with the mix, so
+the stems that fed it no longer exist by the time anything can be exported.
+`MixAndRenderToNewTrack:` appends the mix as a fourth track and leaves the three
+sources in place. Neither name is discoverable through the scripting help —
+`Help: Command=MixAndRenderToNewTrack` answers `Command not found` — but the
+command itself executes, and a live probe confirms four stereo tracks
+afterwards:
+
+```text
+Audio 1
+Audio 2
+Audio 3
+Mix 1
+```
+
+Loudness can therefore no longer be `LoudnessNormalization:`. Normalizing each
+track would give every file its own gain and break the sum, and normalizing the
+master alone would leave the stems at a different level. Instead the mix is
+measured once — `pyloudnorm` over the master track's samples, read back from the
+saved project — and `Amplify: Ratio=... AllowClipping=1` applies that one gain to
+all four tracks at once. `Amplify` writes samples, unlike `SetTrackAudio:
+Volume=`, which only moves a slider the serializer never sees.
+
+Exporting one track at a time on the `Export2:` route needs the other three
+muted, since `Export2:` writes a mixdown of what is audible. `MuteTracks` and
+`UnmuteTracks` are not registered commands in 3.7.8, but `Help: Command=SetTrack`
+lists a `Mute: bool` parameter, and `SetTrack: Mute=1` over a selection is
+accepted.
+
+A project's stereo tracks are also not simply its `wavetrack` elements. Audacity
+3.7.8 stores each stereo track as a leader plus a `channel="1"` partner, so a
+four-track project has eight elements:
+
+```text
+0 channel=0   1 channel=1   2 channel=0   3 channel=1
+4 channel=0   5 channel=1   6 channel=0   7 channel=1
+```
+
+The serializer now indexes the leaders and pairs each with the element that
+immediately follows it. Pairing a leader with the first right channel in the
+document — which a single-output extractor could not tell apart — mixed channels
+across tracks and produced a residual of `1.97` against the master before this
+was fixed.
+
+A full pilot variant rendered through the serializer route at the current tree
+(`/tmp/stems-run/`, `wn_white_mid_drift_balanced_s340383017`) gives four files of
+`10811124` frames at 48 kHz/24-bit and:
+
+```text
+master  -20.00 LUFS  peak -17.07 dBFS
+stem_1  -20.91 LUFS  peak -22.16 dBFS   bed
+stem_2  -36.85 LUFS  peak -27.81 dBFS   texture
+stem_3  -27.75 LUFS  peak -28.16 dBFS   motion
+
+max |sum(stems) - master|  2.384e-07  (-132.5 dBFS)
+```
+
+The master hits its `-20 LUFS` target exactly and passes all eleven
+finished-mix checks. The stems sit far below it, which is what the mix asked
+for and the reason they are not measured against master thresholds. The
+residual is the floor of writing four 24-bit files, and the `1e-5` tolerance in
+`qa/checks.py` is that with margin.

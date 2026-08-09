@@ -15,7 +15,7 @@ variants:
   cell_seconds: 60
   color: white
   fade_seconds: 3
-  filename: wn_white_mid_drift_balanced_s340383017.wav
+  filename: wn_white_mid_drift_balanced_s340383017_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -46,7 +46,7 @@ variants:
   cell_seconds: 60
   color: green
   fade_seconds: 3
-  filename: wn_green_mid_drift_balanced_s416515089.wav
+  filename: wn_green_mid_drift_balanced_s416515089_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -81,7 +81,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_mid_drift_balanced_s51869882.wav
+  filename: wn_pink_mid_drift_balanced_s51869882_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -112,7 +112,7 @@ variants:
   cell_seconds: 60
   color: brown
   fade_seconds: 3
-  filename: wn_brown_mid_drift_balanced_s1547690611.wav
+  filename: wn_brown_mid_drift_balanced_s1547690611_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -143,7 +143,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_low-mid_drift_balanced_s1430281675.wav
+  filename: wn_pink_low-mid_drift_balanced_s1430281675_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -174,7 +174,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_high_drift_balanced_s676663111.wav
+  filename: wn_pink_high_drift_balanced_s676663111_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -205,7 +205,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_mid_still_balanced_s335311483.wav
+  filename: wn_pink_mid_still_balanced_s335311483_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
   gain_texture_db: -9.0
@@ -236,7 +236,7 @@ variants:
   cell_seconds: 60
   color: pink
   fade_seconds: 3
-  filename: wn_pink_mid_breathing_texture-forward_s267388115.wav
+  filename: wn_pink_mid_breathing_texture-forward_s267388115_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
   gain_texture_db: -6.0

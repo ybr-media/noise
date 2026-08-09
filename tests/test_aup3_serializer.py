@@ -11,7 +11,15 @@ import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 
-from aup3_serializer import _BinaryXML, extract_track, write_wav
+from aup3_serializer import (
+    Aup3Error,
+    _BinaryXML,
+    extract_stereo_tracks_to_wavs,
+    extract_track,
+    read_stereo_track,
+    stereo_track_indexes,
+    write_wav,
+)
 
 
 def _dictionary(*names: str, char_size: int = 4) -> bytes:
@@ -190,3 +198,73 @@ def test_wav_format_is_verified(tmp_path: Path) -> None:
         assert info.samplerate == 48000
         assert info.channels == 2
         assert info.subtype == "PCM_24"
+
+
+def _split_mono_xml(count: int, frames: int, rate: int = 48000) -> str:
+    """Audacity's on-disk layout: one leader plus one channel="1" partner."""
+    tracks = "".join(
+        f"""<wavetrack rate="{rate}" channel="{index % 2}">
+          <waveclip offset="0" trimleft="0" trimright="0">
+            <sequence numsamples="{frames}" sampleformat="262159">
+              <waveblock start="0" blockid="{index + 1}"/>
+            </sequence>
+          </waveclip>
+        </wavetrack>"""
+        for index in range(2 * count)
+    )
+    return f"<audacityproject>{tracks}</audacityproject>"
+
+
+def _four_track_project(tmp_path: Path) -> tuple[Path, np.ndarray, list[np.ndarray]]:
+    generator = np.random.default_rng(7)
+    frames = 256
+    stems = [generator.normal(0, 0.1, (frames, 2)).astype(np.float32) for _ in range(3)]
+    master = np.sum(stems, axis=0).astype(np.float32)
+    channels = [
+        track[:, channel]
+        for track in (*stems, master)
+        for channel in (0, 1)
+    ]
+    project = _project(
+        tmp_path,
+        _split_mono_xml(4, frames),
+        list(enumerate(channels, start=1)),
+    )
+    return project, master, stems
+
+
+def test_stereo_tracks_are_paired_with_the_adjacent_right_channel(tmp_path: Path) -> None:
+    project, master, stems = _four_track_project(tmp_path)
+    xml = tmp_path / "project.xml"
+    assert stereo_track_indexes(xml.read_text()) == (0, 2, 4, 6)
+    for index, expected in enumerate((*stems, master)):
+        samples, rate = read_stereo_track(project, xml, index)
+        np.testing.assert_array_equal(samples, expected)
+        assert rate == 48000
+    with pytest.raises(Aup3Error, match="no stereo track 4"):
+        read_stereo_track(project, xml, 4)
+
+
+def test_extracted_stems_sum_back_to_the_extracted_master(tmp_path: Path) -> None:
+    project, master, _ = _four_track_project(tmp_path)
+    xml = tmp_path / "project.xml"
+    outputs = tuple(
+        tmp_path / name
+        for name in ("stem_1.wav", "stem_2.wav", "stem_3.wav", "master.wav")
+    )
+    extract_stereo_tracks_to_wavs(project, xml, outputs)
+    written = [sf.read(path, dtype="float64", always_2d=True)[0] for path in outputs]
+    for path in outputs:
+        with sf.SoundFile(path) as info:
+            assert (info.samplerate, info.channels, info.subtype, info.frames) == (
+                48000,
+                2,
+                "PCM_24",
+                master.shape[0],
+            )
+    residual = np.max(np.abs(written[3] - sum(written[:3])))
+    # Only 24-bit quantization of four files stands between the sum and zero.
+    assert residual < 1e-6
+
+    with pytest.raises(Aup3Error, match="4 stereo track"):
+        extract_stereo_tracks_to_wavs(project, xml, outputs[:3])
