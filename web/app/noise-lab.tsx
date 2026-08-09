@@ -6,6 +6,7 @@ import {
   Clipboard,
   Download,
   Grid3x3,
+  Info,
   Layers,
   Pause,
   Play,
@@ -272,6 +273,8 @@ export default function NoiseLab() {
   const [loading, setLoading] = useState(true);
   const [queueing, setQueueing] = useState(false);
   const [introState, setIntroState] = useState<"visible" | "fading" | "hidden">("visible");
+  const [tabInfoOpen, setTabInfoOpen] = useState(false);
+  const [tabTitleVisible, setTabTitleVisible] = useState(true);
   const [documentVisible, setDocumentVisible] = useState(true);
   const libraryReturnTab = useRef<"design" | "queue" | "releases" | null>(null);
   const retryInFlight = useRef(false);
@@ -336,6 +339,27 @@ export default function NoiseLab() {
     document.addEventListener("visibilitychange", updateVisibility);
     return () => document.removeEventListener("visibilitychange", updateVisibility);
   }, []);
+  useEffect(() => {
+    const updateTitleVisibility = () => {
+      const visible = window.scrollY <= 24;
+      setTabTitleVisible(visible);
+      if (!visible) setTabInfoOpen(false);
+    };
+    updateTitleVisibility();
+    window.addEventListener("scroll", updateTitleVisibility, { passive: true });
+    return () => window.removeEventListener("scroll", updateTitleVisibility);
+  }, []);
+  useEffect(() => {
+    if (!tabInfoOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setTabInfoOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [tabInfoOpen]);
+  useEffect(() => {
+    setTabInfoOpen(false);
+  }, [tab]);
   useEffect(() => {
     if (tab !== "queue" || !documentVisible || !jobs.some((job) => job.status === "Queued" || job.status === "Rendering")) return;
     const timer = window.setInterval(() => void refreshQueue(), 30000);
@@ -502,7 +526,16 @@ export default function NoiseLab() {
         <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} mode={renderMode} stats={queueStats} variants={variants} onRefresh={() => void refreshQueue()} onQueuePilot={() => void queue([], "pilot")} onQueueFull={() => void queue([], "full")} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
         <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} onRefresh={() => void refresh()} onToast={setToast} /></div>
       </div>
-      <div className="current-tab-title" aria-hidden="true"><span key={tab}>{tab === "queue" ? "Render" : tab[0].toUpperCase() + tab.slice(1)}</span></div>
+      <div className={`current-tab-title ${tabTitleVisible ? "" : "is-hidden"}`} aria-hidden={tabTitleVisible ? undefined : true}>
+        <span key={tab}>{tab === "queue" ? "Render" : tab[0].toUpperCase() + tab.slice(1)}</span>
+        <button type="button" className="info-button current-tab-title-info" tabIndex={tabTitleVisible ? 0 : -1} aria-label={`How to use ${tab === "queue" ? "Render" : tab[0].toUpperCase() + tab.slice(1)}`} aria-expanded={tabInfoOpen} aria-controls="current-tab-tooltip" onClick={() => setTabInfoOpen((open) => !open)}><Info size={16} /></button>
+        {tabInfoOpen && <p id="current-tab-tooltip" role="note" className="current-tab-tooltip">{{
+          design: "Dial in a variant, audition it, and queue the render.",
+          queue: "Review queued and rendering jobs, retry failures, or open a finished master.",
+          library: "Browse rendered masters and their QA evidence.",
+          releases: "Assemble and ship releases from your rendered masters.",
+        }[tab]}</p>}
+      </div>
       <div className="dock"><nav ref={tabsRef} className="glassbar" role="tablist" aria-label="Primary">
         <div ref={lensRef} className="tab-lens" aria-hidden="true" />
         {(["design", "queue", "library", "releases"] as const).map((item) => {
