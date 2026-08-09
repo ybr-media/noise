@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import { formatMinutes, knownVariantId, median, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "../lib/eta";
 
 const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "noise-lab-web-test-"));
 const renderDir = path.join(fixtureDir, "renders");
@@ -77,6 +78,40 @@ const modulesPromise = Promise.all([
   import("../lib/naming"),
   import("../lib/range"),
 ]);
+
+test("formats queue estimates and relative times", () => {
+  assert.equal(median([10, 3, 7]), 7);
+  assert.equal(median([10, 2]), 6);
+  assert.equal(median([]), null);
+  assert.equal(formatMinutes(1), "~1 min");
+  assert.equal(renderEstimate(null, 0), "First render — typically 5–10 min");
+  assert.equal(renderEstimate(180, 1, 200), "~1 min");
+  assert.equal(`${renderEstimate(180, 1, 0)} left`, "~3 min left");
+  assert.equal(`Typically ${renderEstimate(180, 1)} once started`, "Typically ~3 min once started");
+  assert.equal(`${renderEstimate(180, 1, 0)} remaining`, "~3 min remaining");
+  assert.equal(relativeTime(new Date(Date.now() - 4 * 60 * 1000).toISOString()), "4m ago");
+});
+
+test("only exact known variants can become library anchors", async () => {
+  const [{ loadVariants }] = await modulesPromise;
+  const variants = loadVariants();
+  assert.equal(knownVariantId(variants[0].variantId, variants), variants[0].variantId);
+  assert.equal(knownVariantId("pilot", variants), null);
+  assert.equal(knownVariantId(`${variants[0].variantId},${variants[1].variantId}`, variants), null);
+});
+
+test("counts local queue positions in worker order", () => {
+  const jobs = [
+    { id: "newest", variantId: "a", status: "Queued" as const, queuedAt: "2026-08-09T12:02:00Z" },
+    { id: "middle", variantId: "b", status: "Queued" as const, queuedAt: "2026-08-09T12:01:00Z" },
+    { id: "oldest", variantId: "c", status: "Queued" as const, queuedAt: "2026-08-09T12:00:00Z" },
+  ];
+  assert.equal(queuedJobsAhead("oldest", jobs), 0);
+  assert.equal(queuedJobsAhead("middle", jobs), 1);
+  assert.equal(queuedJobsAhead("newest", jobs), 2);
+  assert.equal(queueAheadLabel(1), "1 job ahead");
+  assert.equal(queueAheadLabel(2), "2 jobs ahead");
+});
 
 test("resolves matrix indexes, pilot labels, and total durations from config", async () => {
   const [{ loadVariants }] = await modulesPromise;

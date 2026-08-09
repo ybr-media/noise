@@ -68,4 +68,8 @@ export type QueueJob = {
   status: "Queued" | "Rendering" | "Done" | "Failed";
   queuedAt: string;
   error?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  durationSeconds?: number;
+  logsUrl?: string;
 };
