@@ -73,3 +73,26 @@ export type QueueJob = {
   durationSeconds?: number;
   logsUrl?: string;
 };
+
+export type ReleaseType = "single" | "ep" | "album";
+
+export type ReleaseTrack = {
+  variantId: string;
+  title: string;
+  description: string;
+  approvedAt: string | null;
+};
+
+export type Release = {
+  id: string;
+  type: ReleaseType;
+  artist: string;
+  title: string;
+  genre: string;
+  secondaryGenre: string;
+  releaseDate: string;
+  artSeed: number | null;
+  songwriter: string;
+  tracks: ReleaseTrack[];
+  submitted: { at: string | null; storeUrl: string | null };
+};

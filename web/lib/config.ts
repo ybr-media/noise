@@ -67,6 +67,10 @@ function matrix(): Matrix {
   return matrixCache;
 }
 
+export function dimensionValues(name: string): string[] {
+  return [...(matrix().values.get(name) ?? [])];
+}
+
 function matrixIndex(row: RawVariant): number {
   const { order, values, strides } = matrix();
   let index = 1;

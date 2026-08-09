@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 MANIFEST_NAME = "manifest.json"
+RELEASES_NAME = "releases.json"
 EVIDENCE_NAMES = ("qa_results.json", "render_log.jsonl")
 
 
@@ -92,7 +93,17 @@ def uploads(output_dir: Path, manifest: dict[str, object]) -> list[tuple[Path, s
         path = output_dir / name
         if path.exists():
             files.append((path, "application/x-ndjson" if path.suffix == ".jsonl" else "application/json"))
+    releases = output_dir / RELEASES_NAME
+    if releases.exists():
+        files.append((releases, "application/json"))
     return files
+
+
+def merged_releases(local: dict[str, object], published: dict[str, object]) -> dict[str, object]:
+    """Keep releases that were published by earlier render runs."""
+    entries = {entry["id"]: entry for entry in published.get("releases", [])}  # type: ignore[union-attr]
+    entries.update({entry["id"]: entry for entry in local.get("releases", [])})  # type: ignore[union-attr]
+    return {**local, "releases": [entries[name] for name in sorted(entries)]}
 
 
 def merged(local: dict[str, object], published: dict[str, object]) -> dict[str, object]:
@@ -137,6 +148,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     manifest = build_manifest(output_dir)
+    releases_path = output_dir / RELEASES_NAME
+    releases = json.loads(releases_path.read_text(encoding="utf-8")) if releases_path.exists() else None
     manifest_path = output_dir / MANIFEST_NAME
     local_files = len(manifest["artifacts"])  # type: ignore[arg-type]
     local_count = master_count(manifest)
@@ -144,7 +157,7 @@ def main(argv: list[str] | None = None) -> int:
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         print(f"Manifest describes {local_count} master(s) in {local_files} file(s) -> {manifest_path}")
         return 0
-    if not local_files:
+    if not local_files and releases is None:
         print("Nothing rendered to publish", file=sys.stderr)
         return 1
 
@@ -157,6 +170,10 @@ def main(argv: list[str] | None = None) -> int:
     s3 = client()
     payload = merged(manifest, published_manifest(s3, bucket, key_for(MANIFEST_NAME)))
     manifest_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    if releases is not None:
+        published_releases = published_manifest(s3, bucket, key_for(RELEASES_NAME))
+        releases = merged_releases(releases, published_releases)
+        releases_path.write_text(json.dumps(releases, indent=2), encoding="utf-8")
     print(
         f"Publishing {local_count} master(s) and stems in {local_files} file(s); "
         f"manifest now lists {len(payload['artifacts'])}"  # type: ignore[arg-type]

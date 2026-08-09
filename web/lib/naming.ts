@@ -11,7 +11,7 @@ export type NameSuggestion = {
 };
 
 export interface SeoNameProvider {
-  generate(variant: Variant, candidate?: number): NameSuggestion;
+  generate(variant: Variant, candidate?: number, siblingTitles?: string[]): NameSuggestion;
 }
 
 const colorNames: Record<string, string> = {
@@ -21,17 +21,35 @@ const colorNames: Record<string, string> = {
   green: "Green Noise",
 };
 
+const motionNames: Record<string, string> = {
+  still: "Still",
+  drift: "Drifting",
+  breathing: "Breathing",
+};
+
+const balanceNames: Record<string, string> = {
+  "bed-forward": "Deep",
+  balanced: "Balanced",
+  "texture-forward": "Textured",
+};
+
 const localPrompt = (variant: Variant) =>
   `Create one natural Spotify title and one concise search-friendly description for a ${variant.color} noise track with ${variant.band} texture, ${variant.motion} modulation, and ${variant.balance} balance. Avoid keyword stuffing; preserve the internal ID ${variant.variantId}.`;
 
 export const localStubProvider: SeoNameProvider = {
-  generate(variant, candidate = 0) {
+  generate(variant, candidate = 0, siblingTitles = []) {
     const options = [
-      [`${colorNames[variant.color]} for ${variant.band} Focus`, "focus, sleep, meditation, and calm background listening"],
-      `${colorNames[variant.color]} · ${variant.band} Calm`,
-      `${colorNames[variant.color]} ${variant.motion} Study`,
+      [`${colorNames[variant.color]} · ${variant.band} ${motionNames[variant.motion]} ${balanceNames[variant.balance]}`, "focus, sleep, meditation, and calm background listening"],
+      `${colorNames[variant.color]} · ${variant.band} ${motionNames[variant.motion]} Calm`,
+      `${colorNames[variant.color]} ${motionNames[variant.motion]} ${balanceNames[variant.balance]}`,
     ];
-    const selected = options[candidate % options.length];
+    const normalized = new Set(siblingTitles.map((title) => title.trim().toLowerCase()));
+    let offset = candidate % options.length;
+    let selected = options[offset];
+    while (normalized.has((Array.isArray(selected) ? selected[0] : selected).toLowerCase()) && offset < candidate + options.length) {
+      offset += 1;
+      selected = options[offset % options.length];
+    }
     const title = Array.isArray(selected) ? selected[0] : selected;
     const keywords = Array.isArray(selected) ? selected[1] : "focus, sleep, meditation, and calm background listening";
     const description = `${colorNames[variant.color]} with a ${variant.band} frequency profile and ${variant.motion} motion, shaped for ${keywords}.`;
