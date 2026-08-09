@@ -38,9 +38,7 @@ button:disabled { cursor: not-allowed; }
 .design-stack { display: flex; flex-direction: column; gap: var(--card-gap); }
 .spectrum-card { padding: 22px 24px; }
 .spectrum-frame { height: 150px; overflow: hidden; border-radius: 16px; background: #fff repeating-linear-gradient(90deg, transparent 0 12px, rgba(0,0,0,.045) 12px 13px); background-blend-mode: multiply; }
-.spectrum-ticks { display: flex; justify-content: space-between; margin: 10px 0 16px; color: var(--secondary-text); font-size: 13px; }
-.preview-note { padding: 13px 16px; border-radius: 14px; background: #f4f4f7; color: #6e6e73; font-size: 14px; line-height: 1.45; }
-.preview-note strong { color: #1c1c1e; font-weight: 600; }
+.spectrum-ticks { display: flex; justify-content: space-between; margin: 10px 0 0; color: var(--secondary-text); font-size: 13px; }
 .action-row { display: flex; align-items: center; gap: 18px; }
 .action-row .play-button { flex-shrink: 0; }
 .action-row .queue-primary { flex: 1; min-width: 0; min-height: 52px; font-size: 15px; }
