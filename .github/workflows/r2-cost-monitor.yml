@@ -1,0 +1,36 @@
+name: R2 cost monitor
+
+on:
+  schedule:
+    - cron: '17 13 * * *' # daily; storage/ops figures only move meaningfully day to day
+  workflow_dispatch:
+    inputs:
+      force_alert:
+        description: Send the alert email even if no meter is over threshold (use to test delivery)
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  check-usage:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check R2 usage
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ vars.R2_BUCKET || 'noise-labs' }}
+          ALERT_THRESHOLD_PCT: ${{ vars.ALERT_THRESHOLD_PCT || '0.8' }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL_FROM: ${{ vars.ALERT_EMAIL_FROM }}
+          ALERT_EMAIL_TO: ${{ vars.ALERT_EMAIL_TO || 'austin@marlo.today' }}
+          ALERT_EMAIL_CC: ${{ vars.ALERT_EMAIL_CC }}
+        run: |
+          python scripts/check_r2_usage.py ${{ inputs.force_alert && '--force-alert' || '' }}
