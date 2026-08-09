@@ -82,10 +82,11 @@ Beyond the existing `R2_ACCOUNT_ID` and `R2_BUCKET`, it needs:
 
 - `CLOUDFLARE_API_TOKEN` (repository secret) — an API token scoped to
   **Account Analytics: Read** for the account that owns the bucket.
-- `RESEND_API_KEY` (repository secret) — a Resend API key.
+- `RESEND_API_KEY` (repository secret) — a Resend API key, from a Resend
+  account under `eric@ybellrecords.com`.
 - `ALERT_EMAIL_FROM` (repository variable) — sender address on a domain
-  verified in Resend, e.g. `"R2 Alerts <alerts@yourdomain.com>"`.
+  verified in that Resend account, e.g. `"R2 Alerts <alerts@ybellrecords.com>"`.
 - `ALERT_EMAIL_TO` (repository variable, optional) — defaults to
-  `austin@marlo.today`.
+  `eric@ybellrecords.com`.
 - `ALERT_EMAIL_CC` (repository variable, optional) — comma-separated
   addresses to cc.

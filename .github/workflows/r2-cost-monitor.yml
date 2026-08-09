@@ -30,7 +30,7 @@ jobs:
           ALERT_THRESHOLD_PCT: ${{ vars.ALERT_THRESHOLD_PCT || '0.8' }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           ALERT_EMAIL_FROM: ${{ vars.ALERT_EMAIL_FROM }}
-          ALERT_EMAIL_TO: ${{ vars.ALERT_EMAIL_TO || 'austin@marlo.today' }}
+          ALERT_EMAIL_TO: ${{ vars.ALERT_EMAIL_TO || 'eric@ybellrecords.com' }}
           ALERT_EMAIL_CC: ${{ vars.ALERT_EMAIL_CC }}
         run: |
           python scripts/check_r2_usage.py ${{ inputs.force_alert && '--force-alert' || '' }}
