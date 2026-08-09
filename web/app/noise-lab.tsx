@@ -6,7 +6,6 @@ import {
   Clipboard,
   Download,
   Grid3x3,
-  Info,
   Layers,
   Pause,
   Play,
@@ -273,11 +272,11 @@ export default function NoiseLab() {
   const [loading, setLoading] = useState(true);
   const [queueRefreshing, setQueueRefreshing] = useState(false);
   const [queueing, setQueueing] = useState(false);
-  const [aboutOpen, setAboutOpen] = useState(false);
+  const [introState, setIntroState] = useState<"visible" | "fading" | "hidden">("visible");
   const [documentVisible, setDocumentVisible] = useState(true);
   const libraryReturnTab = useRef<"design" | "queue" | "releases" | null>(null);
   const retryInFlight = useRef(false);
-  const dockRef = useRef<HTMLElement>(null);
+  const tabsRef = useRef<HTMLElement>(null);
   const lensRef = useRef<HTMLDivElement>(null);
   const queueCount = jobs.filter((job) => job.status !== "Done" && job.status !== "Failed").length;
   const libraryCount = tracks.filter((track) => track.exists).length;
@@ -321,6 +320,19 @@ export default function NoiseLab() {
     }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion) {
+      setIntroState("hidden");
+      return;
+    }
+    const fadeTimer = window.setTimeout(() => setIntroState("fading"), 1250);
+    const hideTimer = window.setTimeout(() => setIntroState("hidden"), 1650);
+    return () => {
+      window.clearTimeout(fadeTimer);
+      window.clearTimeout(hideTimer);
+    };
+  }, []);
   useEffect(() => {
     const updateVisibility = () => setDocumentVisible(document.visibilityState === "visible");
     updateVisibility();
@@ -390,7 +402,7 @@ export default function NoiseLab() {
     return () => window.removeEventListener("hashchange", handleHashChange);
   }, [handleHashChange]);
   useEffect(() => {
-    const dock = dockRef.current;
+    const dock = tabsRef.current;
     const moveLens = () => {
       const lens = lensRef.current;
       const active = dock?.querySelector<HTMLElement>(`[data-tab="${tab}"]`);
@@ -454,18 +466,12 @@ export default function NoiseLab() {
 
   return (
     <main className="noise-shell min-h-screen w-full" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif' }}>
+      {introState !== "hidden" && <div className={`intro-splash ${introState === "fading" ? "is-fading" : ""}`} aria-hidden="true"><BellMark /></div>}
       <div className="ambient-field ambient-field-a" />
       <div className="ambient-field ambient-field-b" />
       <div className="ambient-field ambient-field-c" />
       <div className="noise-page">
-        <header className="noise-header">
-          <div className="noise-heading">
-            <h1 className="noise-title"><span className="sr-only">Noise Lab</span><BellMark /></h1>
-            <button type="button" onClick={() => setAboutOpen((open) => !open)} aria-label="About Noise Lab" aria-expanded={aboutOpen} className="info-button"><Info size={20} /></button>
-            {aboutOpen && <p role="note" className="noise-about">Design a variant, review masters, queue the worker.</p>}
-          </div>
-          <button type="button" onClick={() => void refresh()} disabled={loading} aria-busy={loading} aria-label="Refresh" className={`refresh-button ${loading ? "is-refreshing" : ""}`}><RefreshCw size={21} /></button>
-        </header>
+        <h1 className="sr-only">Noise Lab</h1>
 
         <div id="panel-design" role="tabpanel" aria-labelledby="tab-design" className={`panel ${tab === "design" ? "panel-show" : ""}`} hidden={tab !== "design"}>
           {selected && (
@@ -499,11 +505,13 @@ export default function NoiseLab() {
         <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} mode={renderMode} stats={queueStats} variants={variants} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onQueuePilot={() => void queue([], "pilot")} onQueueFull={() => void queue([], "full")} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
         <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} loading={loading} onRefresh={() => void refresh()} onToast={setToast} /></div>
       </div>
-      <div className="dock"><nav ref={dockRef} className="glassbar" role="tablist" aria-label="Primary">
+      <div className="current-tab-title" aria-hidden="true"><span key={tab}>{tab === "queue" ? "Render" : tab[0].toUpperCase() + tab.slice(1)}</span></div>
+      <div className="dock"><nav ref={tabsRef} className="glassbar" role="tablist" aria-label="Primary">
         <div ref={lensRef} className="tab-lens" aria-hidden="true" />
         {(["design", "queue", "library", "releases"] as const).map((item) => {
           const count = item === "queue" ? queueCount : item === "library" ? libraryCount : item === "releases" ? releaseCount : 0;
-          return <button key={item} id={`tab-${item}`} type="button" data-tab={item} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${item[0].toUpperCase()}${item.slice(1)}${count ? `, ${count}` : ""}`} onClick={() => {
+          const label = item === "queue" ? "Render" : item[0].toUpperCase() + item.slice(1);
+          return <button key={item} id={`tab-${item}`} type="button" data-tab={item} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${label}${count ? `, ${count}` : ""}`} onClick={() => {
             if (item === "library") {
               libraryReturnTab.current = tab === "library" ? "queue" : tab;
               window.location.hash = "library";
@@ -518,7 +526,7 @@ export default function NoiseLab() {
               setTab(item);
             }
             window.scrollTo({ top: 0, behavior: "smooth" });
-          }} className={`dock-tab ${tab === item ? "is-active" : ""}`}>{item[0].toUpperCase() + item.slice(1)}{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</button>;
+          }} className={`dock-tab ${tab === item ? "is-active" : ""}`}>{label}{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</button>;
         })}
       </nav></div>
       {toast && <Toast message={toast.message} error={toast.error} onClose={() => setToast(null)} />}
