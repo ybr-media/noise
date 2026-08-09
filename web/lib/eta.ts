@@ -28,6 +28,31 @@ export function relativeTime(iso: string, now = Date.now()): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+export function absoluteTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return `${date.toISOString().replace("T", " ").replace(".000Z", " UTC").replace("Z", " UTC")}`;
+}
+
+export function attemptNumber(job: QueueJob, jobs: QueueJob[]): number {
+  return jobs
+    .filter((candidate) => candidate.variantId === job.variantId)
+    .sort((a, b) => {
+      const byTime = new Date(a.queuedAt).getTime() - new Date(b.queuedAt).getTime();
+      return byTime || a.id.localeCompare(b.id);
+    })
+    .findIndex((candidate) => candidate.id === job.id) + 1;
+}
+
+export function isSuperseded(job: QueueJob, jobs: QueueJob[]): boolean {
+  const queuedAt = new Date(job.queuedAt).getTime();
+  return jobs.some((candidate) => {
+    if (candidate.variantId !== job.variantId || candidate.id === job.id) return false;
+    const candidateTime = new Date(candidate.queuedAt).getTime();
+    return candidateTime > queuedAt || (candidateTime === queuedAt && candidate.id > job.id);
+  });
+}
+
 export function knownVariantId(variantId: string, variants: Variant[]): string | null {
   return variants.some((variant) => variant.variantId === variantId) ? variantId : null;
 }

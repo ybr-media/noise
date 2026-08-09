@@ -15,7 +15,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LibraryTrack, QueueJob, Variant } from "@/lib/types";
-import { knownVariantId, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
+import { attemptNumber, absoluteTime, isSuperseded, knownVariantId, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
+import { formatBatchLabel, formatVariantLabel, isBatchVariantId, OPTIONS } from "@/lib/variant-labels";
 import { BellMark } from "./bell-mark";
 
 const C = {
@@ -30,21 +31,6 @@ const C = {
   orange: "#FF9500",
   blue: "#007AFF",
 };
-
-const OPTIONS = {
-  color: [
-    ["white", "White"], ["green", "Green"], ["pink", "Pink"], ["brown", "Brown"],
-  ],
-  band: [
-    ["low-mid", "Low-mid"], ["mid", "Mid"], ["high", "High"], ["broad", "Broad"],
-  ],
-  motion: [
-    ["still", "Still"], ["drift", "Drift"], ["breathing", "Breathing"],
-  ],
-  balance: [
-    ["bed-forward", "Bed"], ["balanced", "Even"], ["texture-forward", "Texture"],
-  ],
-} as const;
 
 function Segmented({ options, value, onChange, label }: {
   options: readonly (readonly [string, string])[];
@@ -568,6 +554,7 @@ function Queue({ jobs, mode, stats, variants, onRefresh, onQueuePilot, onQueueFu
   const completedJobs = jobs.filter((job) => job.status === "Done");
   const [retried, setRetried] = useState<Set<string>>(new Set());
   const [confirmingFull, setConfirmingFull] = useState(false);
+  const [confirmingRetryId, setConfirmingRetryId] = useState<string | null>(null);
   const pilotActionLabel = `Queue pilot set (${pilotCount})`;
   const pilotActionTitle = mode === "unavailable"
     ? "Rendering isn't available on this deployment."
@@ -602,7 +589,34 @@ function Queue({ jobs, mode, stats, variants, onRefresh, onQueuePilot, onQueueFu
   const row = (job: QueueJob) => {
     const done = job.status === "Done";
     const variant = done ? knownVariantId(job.variantId, variants) : null;
-    const content = <><span className={`status-dot ${job.status.toLowerCase()}`} /><div className="queue-body"><div className="queue-name">{job.variantId}</div><div className="queue-sub" title={job.error}>{done ? variant ? "Master ready · Open in Library ›" : "Masters ready · Open Library ›" : job.status === "Failed" ? job.error ?? "Render failed" : activeCopy(job)}</div>{job.status === "Failed" && <div className="queue-actions">{job.logsUrl && <a href={job.logsUrl} target="_blank" rel="noopener" className="queue-link">View logs</a>}{mode !== "unavailable" && <button type="button" className="queue-link" disabled={queueing || retried.has(job.id)} onClick={async () => { if (await onRetry(job)) setRetried((old) => new Set(old).add(job.id)); }}>{retried.has(job.id) ? "Retried ✓" : "Retry"}</button>}</div>}</div><time className="queue-time">{relativeTime(job.queuedAt)}</time></>;
+    const batch = isBatchVariantId(job.variantId);
+    const name = batch ? formatBatchLabel(job.variantId, { pilot: pilotCount, full: matrixCount }) : formatVariantLabel(job.variantId, variants);
+    const superseded = isSuperseded(job, jobs);
+    const alreadyRetried = retried.has(job.id) || superseded;
+    const attempt = attemptNumber(job, jobs);
+    const failureCopy = batch
+      ? `${name} render failed — see logs for which variant(s)`
+      : job.error ?? "Render failed";
+    const retry = async () => {
+      if (await onRetry(job)) {
+        setRetried((old) => new Set(old).add(job.id));
+        setConfirmingRetryId(null);
+      }
+    };
+    const retryControl = mode !== "unavailable" && (
+      confirmingRetryId === job.id ? (
+        <>
+          <button type="button" className="queue-link" disabled={queueing} aria-label={`Confirm re-rendering the entire ${name}`} onClick={() => void retry()}>{batch ? `Re-render entire ${name}` : "Confirm retry"}</button>
+          <button type="button" className="queue-link" onClick={() => setConfirmingRetryId(null)}>Cancel</button>
+        </>
+      ) : (
+        <button type="button" className="queue-link" disabled={queueing || alreadyRetried} onClick={() => {
+          if (batch) setConfirmingRetryId(job.id);
+          else void retry();
+        }}>{alreadyRetried ? "Retried ✓" : "Retry"}</button>
+      )
+    );
+    const content = <><span className={`status-dot ${job.status.toLowerCase()}`} /><div className="queue-body"><div className="queue-name" title={job.variantId}>{name} · Attempt {attempt}</div><div className="queue-sub" title={job.error}>{done ? variant ? "Master ready · Open in Library ›" : "Masters ready · Open Library ›" : job.status === "Failed" ? failureCopy : activeCopy(job)}</div>{job.status === "Failed" && <div className="queue-actions">{job.logsUrl && <a href={job.logsUrl} target="_blank" rel="noopener" className="queue-link">View logs</a>}{retryControl}</div>}</div><time className="queue-time" title={absoluteTime(job.queuedAt)}>{relativeTime(job.queuedAt)}</time></>;
     return done ? <button type="button" key={job.id} className="queue-item queue-link-row" onClick={() => onDone(job)}>{content}</button> : <div key={job.id} className="queue-item">{content}</div>;
   };
   const group = (title: string, entries: QueueJob[], empty: string) => <section className="queue-group"><div className="section-title">{title}</div><div className="soft-card queue-card">{entries.length === 0 ? <div className="empty-state">{empty}</div> : entries.map(row)}</div></section>;
