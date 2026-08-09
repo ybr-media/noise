@@ -170,8 +170,15 @@ button:disabled { cursor: not-allowed; }
 .track-highlight { animation: track-highlight 2s ease-out; }
 .toast { position: fixed; z-index: 60; right: 16px; bottom: calc(env(safe-area-inset-bottom) + 24px + var(--dock-height) + 12px); left: 16px; display: flex; align-items: flex-start; gap: 10px; max-width: 28rem; margin: 0 auto; padding: 12px 16px; border-radius: 16px; box-shadow: 0 22px 48px rgba(20,20,50,.28); }
 .toast-dismiss { position: relative; display: grid; place-items: center; width: 20px; height: 20px; flex-shrink: 0; }
-.current-tab-title { position: fixed; z-index: 50; top: 16px; left: 50%; display: flex; align-items: center; justify-content: center; padding: 7px 14px; border: .5px solid rgba(255,255,255,.65); border-radius: 999px; color: #6e6e73; background: linear-gradient(145deg, rgba(255,255,255,.55), rgba(255,255,255,.22) 45%, rgba(255,255,255,.32)); box-shadow: inset 0 1px 1px rgba(255,255,255,.9), inset 0 -1px 1px rgba(0,0,0,.04), 0 10px 24px rgba(30,30,60,.12), 0 3px 8px rgba(30,30,60,.06); -webkit-backdrop-filter: blur(22px) saturate(190%); backdrop-filter: blur(22px) saturate(190%); pointer-events: none; transform: translateX(-50%); }
-.current-tab-title span { animation: rise .24s cubic-bezier(.2,.8,.25,1); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.current-tab-title { position: fixed; z-index: 50; top: 16px; left: 50%; display: flex; align-items: center; justify-content: center; gap: 3px; color: #5f6068; opacity: 1; pointer-events: none; transform: translateX(-50%); transition: opacity .24s ease; }
+.current-tab-title.is-hidden { opacity: 0; }
+.current-tab-title span { animation: rise .24s cubic-bezier(.2,.8,.25,1); font-size: 13px; font-weight: 700; letter-spacing: .01em; white-space: nowrap; }
+.current-tab-title-info { pointer-events: auto; }
+.current-tab-title.is-hidden .current-tab-title-info { pointer-events: none; }
+.info-button { position: relative; display: grid; width: 30px; height: 30px; place-items: center; border: 0; border-radius: 50%; padding: 0; color: #6e6e73; background: transparent; }
+.info-button::after { position: absolute; top: 50%; left: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); content: ""; }
+.info-button:hover, .info-button:focus-visible { background: rgba(255,255,255,.55); outline: none; }
+.current-tab-tooltip { position: absolute; top: calc(100% + 4px); left: 50%; width: max-content; max-width: min(280px, calc(100vw - 28px)); margin: 0; padding: 8px 11px; border: 1px solid rgba(255,255,255,.7); border-radius: 11px; color: #4f5058; background: rgba(255,255,255,.9); box-shadow: 0 8px 20px rgba(30,30,60,.12); font-size: 12px; line-height: 1.35; text-align: center; transform: translateX(-50%); }
 .dock { position: fixed; z-index: 50; bottom: calc(24px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); }
 .glassbar { position: relative; display: flex; align-items: center; gap: 4px; padding: 6px; border: .5px solid rgba(255,255,255,.65); border-radius: 999px; background: linear-gradient(145deg, rgba(255,255,255,.55), rgba(255,255,255,.22) 45%, rgba(255,255,255,.32)); box-shadow: inset 0 1px 1px rgba(255,255,255,.9), inset 0 -1px 1px rgba(0,0,0,.04), 0 18px 44px rgba(30,30,60,.18), 0 4px 12px rgba(30,30,60,.08); -webkit-backdrop-filter: blur(22px) saturate(190%); backdrop-filter: blur(22px) saturate(190%); }
 .glassbar::before { position: absolute; top: 1.5px; right: 14%; left: 14%; height: 42%; border-radius: 999px; background: linear-gradient(180deg, rgba(255,255,255,.75), rgba(255,255,255,0)); content: ""; pointer-events: none; }
@@ -188,13 +195,14 @@ button:disabled { cursor: not-allowed; }
 @keyframes track-highlight { 0% { box-shadow: 0 0 0 5px rgba(0,122,255,.35), 0 12px 32px rgba(20,20,50,.06); } 100% { box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px rgba(20,20,50,.06); } }
 @media (prefers-reduced-motion: reduce) {
   .intro-splash { display: none; }
+  .current-tab-title { transition: none; }
   .bell-mark, .bell-eyes, .bell-smile { animation: none; }
   .bell-mark { opacity: 1; transform: none; }
   .bell-eyes { opacity: 1; }
   .bell-smile { clip-path: none; }
 }
 @media (max-width: 520px) {
-  .noise-page { padding-right: 14px; padding-left: 14px; }
+  .noise-page { padding-top: 108px; padding-right: 14px; padding-left: 14px; }
   .spectrum-card, .track-card, .variant-card { padding-right: 16px; padding-left: 16px; }
   .controls-card { padding-right: 16px; padding-left: 16px; }
   .design-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
