@@ -320,7 +320,12 @@ export default function NoiseLab() {
         return;
       }
       const target = renderMode === "dispatch" ? "GitHub Actions renderer" : "worker queue";
-      setToast({ message: `${label === "pilot" ? "Pilot set" : label === "full" ? `Full matrix (${variants.length} variants)` : "Variant"} sent to the ${target}.` });
+      const colorLabel = OPTIONS.color.find(([value]) => value === selection.color)?.[1] ?? selection.color;
+      setToast({
+        message: label === "one"
+          ? `${colorLabel} master and stems being rendered`
+          : `${label === "pilot" ? "Pilot set" : `Full matrix (${variants.length} variants)`} sent to the ${target}.`,
+      });
       await refresh();
     } finally {
       setQueueing(false);
