@@ -849,6 +849,8 @@ function Queue({ jobs, mode, stats, variants, onRefresh, onQueuePilot, onQueueFu
   const fullActionTitle = mode === "unavailable"
     ? "Rendering isn't available on this deployment."
     : `Renders every variant in config/variants.yaml, regardless of what's selected on the Design tab. (${matrixCount} variants)`;
+  const pilotMembers = variants.filter((variant) => variant.pilot !== null).map((variant) => variant.variantId);
+  const fullMembers = variants.map((variant) => variant.variantId);
   useEffect(() => {
     if (!confirmingFull) return;
     const timer = setTimeout(() => setConfirmingFull(false), 8000);
@@ -877,7 +879,7 @@ function Queue({ jobs, mode, stats, variants, onRefresh, onQueuePilot, onQueueFu
     const variant = done ? knownVariantId(job.variantId, variants) : null;
     const batch = isBatchVariantId(job.variantId);
     const name = batch ? formatBatchLabel(job.variantId, { pilot: pilotCount, full: matrixCount }) : formatVariantLabel(job.variantId, variants);
-    const superseded = isSuperseded(job, jobs);
+    const superseded = isSuperseded(job, jobs, job.variantId === "pilot" ? pilotMembers : job.variantId === "full" ? fullMembers : undefined);
     const alreadyRetried = retried.has(job.id) || superseded;
     const attempt = attemptNumber(job, jobs);
     const attemptLabel = hasRepeatedVariant(job, jobs) ? ` · Attempt ${attempt}` : "";

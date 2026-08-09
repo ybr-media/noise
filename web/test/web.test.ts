@@ -119,6 +119,15 @@ test("numbers repeated queue attempts and detects superseded failures", () => {
   assert.equal(isSuperseded(jobs[0], jobs), false);
 });
 
+test("supersedes a batch only after every member has a newer job", () => {
+  const members = ["pilot-a", "pilot-b"];
+  const batch = { id: "batch", variantId: "pilot", status: "Failed" as const, queuedAt: "2026-08-09T12:00:00Z" };
+  const newerA = { id: "new-a", variantId: "pilot-a", status: "Failed" as const, queuedAt: "2026-08-09T12:01:00Z" };
+  const newerB = { id: "new-b", variantId: "pilot-b", status: "Done" as const, queuedAt: "2026-08-09T12:02:00Z" };
+  assert.equal(isSuperseded(batch, [batch, newerA, newerB], members), true);
+  assert.equal(isSuperseded(batch, [batch, newerA], members), false);
+});
+
 test("only exact known variants can become library anchors", async () => {
   const [{ loadVariants }] = await modulesPromise;
   const variants = loadVariants();

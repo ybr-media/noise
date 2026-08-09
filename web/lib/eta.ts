@@ -49,13 +49,25 @@ export function attemptNumber(job: QueueJob, jobs: QueueJob[]): number {
     .findIndex((candidate) => candidate.id === job.id) + 1;
 }
 
-export function isSuperseded(job: QueueJob, jobs: QueueJob[]): boolean {
+function isNewer(candidate: QueueJob, job: QueueJob): boolean {
+  const candidateTime = new Date(candidate.queuedAt).getTime();
   const queuedAt = new Date(job.queuedAt).getTime();
-  return jobs.some((candidate) => {
-    if (candidate.variantId !== job.variantId || candidate.id === job.id) return false;
-    const candidateTime = new Date(candidate.queuedAt).getTime();
-    return candidateTime > queuedAt || (candidateTime === queuedAt && candidate.id > job.id);
-  });
+  return candidateTime > queuedAt || (candidateTime === queuedAt && candidate.id > job.id);
+}
+
+export function isSuperseded(job: QueueJob, jobs: QueueJob[], batchMembers?: string[]): boolean {
+  if (batchMembers) {
+    if (batchMembers.length === 0) return false;
+    return batchMembers.every((member) =>
+      jobs.some((candidate) => candidate.variantId === member && isNewer(candidate, job)),
+    );
+  }
+  return jobs.some(
+    (candidate) =>
+      candidate.variantId === job.variantId &&
+      candidate.id !== job.id &&
+      isNewer(candidate, job),
+  );
 }
 
 export function knownVariantId(variantId: string, variants: Variant[]): string | null {
