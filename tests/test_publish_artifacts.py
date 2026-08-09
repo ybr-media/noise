@@ -116,3 +116,17 @@ def test_stems_are_published_but_only_masters_count_as_releases(tmp_path: Path) 
     uploaded = {path.name for path, _ in publish_artifacts.uploads(tmp_path, manifest)}
     assert {f"{name}.wav" for name in names} <= uploaded
     assert {f"{name}.json" for name in names} <= uploaded
+
+
+def test_releases_merge_without_dropping_published_entries() -> None:
+    local = {"releases": [{"id": "new", "title": "New"}]}
+    published = {"releases": [{"id": "old", "title": "Old"}, {"id": "new", "title": "Stale"}]}
+    merged = publish_artifacts.merged_releases(local, published)
+    assert [release["id"] for release in merged["releases"]] == ["new", "old"]
+    assert next(release for release in merged["releases"] if release["id"] == "new")["title"] == "New"
+
+
+def test_releases_are_uploaded_when_present(rendered: Path) -> None:
+    (rendered / "releases.json").write_text(json.dumps({"releases": [{"id": "pilot-ep"}]}), encoding="utf-8")
+    manifest = publish_artifacts.build_manifest(rendered)
+    assert {path.name for path, _ in publish_artifacts.uploads(rendered, manifest)} >= {"releases.json"}

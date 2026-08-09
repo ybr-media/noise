@@ -38,7 +38,7 @@ function withSidecar(variant: Variant, sidecar: Sidecar | null): Variant {
   };
 }
 
-export async function libraryTracks(): Promise<LibraryTrack[]> {
+export async function libraryTracks(releaseTitles: Map<string, { title: string; description: string }> = new Map()): Promise<LibraryTrack[]> {
   const index = await artifactIndex();
   return loadVariants().map((variant) => {
     const artifact = index.artifacts.get(variant.filename);
@@ -59,8 +59,8 @@ export async function libraryTracks(): Promise<LibraryTrack[]> {
       measuredLufs: lufs,
       measuredTruePeak: peak,
       renderStatus: artifact?.renderStatus ?? "Not rendered",
-      title: typeof sidecar?.seo_title === "string" ? sidecar.seo_title : undefined,
-      description: typeof sidecar?.seo_description === "string" ? sidecar.seo_description : undefined,
+      title: releaseTitles.get(variant.variantId)?.title || (typeof sidecar?.seo_title === "string" ? sidecar.seo_title : undefined),
+      description: releaseTitles.get(variant.variantId)?.description || (typeof sidecar?.seo_description === "string" ? sidecar.seo_description : undefined),
       titleApproved: sidecar?.seo_title_approved === true,
     };
   });
