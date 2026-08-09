@@ -9,7 +9,7 @@
   --label: #1c1c1e;
   --secondary: #8e8e93;
   --secondary-text: #63636b;
-  --dock-height: 56px;
+  --dock-height: 57px;
   --separator: #d8d8dc;
   --track: #e9e9eb;
   --accent: #ff3b30;
@@ -21,7 +21,7 @@ body { margin: 0; background: var(--page); color: var(--label); }
 button, input { font: inherit; }
 button:disabled { cursor: not-allowed; }
 
-.noise-shell { position: relative; overflow-x: hidden; background: var(--page); }
+.noise-shell { position: relative; overflow-x: clip; background: var(--page); }
 .ambient-field { position: fixed; z-index: 0; pointer-events: none; border-radius: 999px; filter: blur(90px); opacity: .55; }
 .ambient-field-a { width: 520px; height: 520px; top: -160px; left: -120px; background: #ffd9d4; }
 .ambient-field-b { width: 460px; height: 460px; right: -100px; bottom: -140px; background: #d7e4ff; }
@@ -35,7 +35,7 @@ button:disabled { cursor: not-allowed; }
 .refresh-button:hover, .round-action:hover { background: rgba(255,255,255,.7); }
 .panel-show { animation: rise .32s cubic-bezier(.2,.8,.25,1); }
 .soft-card { background: #fff; border-radius: 26px; box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px rgba(20,20,50,.06); }
-.design-stack { display: grid; gap: var(--card-gap); }
+.design-stack { display: flex; flex-direction: column; gap: var(--card-gap); }
 .spectrum-card { padding: 22px 24px; }
 .spectrum-frame { height: 150px; overflow: hidden; border-radius: 16px; background: #fff repeating-linear-gradient(90deg, transparent 0 12px, rgba(0,0,0,.045) 12px 13px); background-blend-mode: multiply; }
 .spectrum-ticks { display: flex; justify-content: space-between; margin: 10px 0 16px; color: var(--secondary-text); font-size: 13px; }
@@ -82,6 +82,7 @@ button:disabled { cursor: not-allowed; }
 .track-card { padding: 22px 24px; }
 .queue-card { padding: 0 24px; }
 .queue-groups { display: grid; gap: var(--card-gap); }
+.queue-group { min-width: 0; }
 .queue-group .section-title { margin-top: 0; }
 .queue-item { display: flex; align-items: center; gap: 14px; padding: 16px 0; }
 .queue-item + .queue-item { border-top: 1px solid rgba(0,0,0,.06); }
