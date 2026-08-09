@@ -2,7 +2,7 @@ PYTHON ?= $(shell if [ -x "$(HOME)/venv-noisegen-qa/bin/python" ]; then echo "$(
 
 OUT ?= out
 
-.PHONY: render render-pilot qa publish test
+.PHONY: render render-pilot qa publish test coverage
 
 render:
 	$(PYTHON) orchestrator.py --variants-file config/variants.yaml --output-dir out
@@ -18,3 +18,6 @@ publish:
 
 test:
 	$(PYTHON) -m pytest tests
+
+coverage:
+	$(PYTHON) -m pytest --cov --cov-report=term-missing --cov-fail-under=80
