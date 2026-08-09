@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LibraryTrack, QueueJob, Variant } from "@/lib/types";
+import { knownVariantId, relativeTime, renderEstimate } from "@/lib/eta";
 
 const C = {
   page: "#F2F2F7",
@@ -263,6 +264,7 @@ export default function NoiseLab() {
   const [variants, setVariants] = useState<Variant[]>([]);
   const [tracks, setTracks] = useState<LibraryTrack[]>([]);
   const [jobs, setJobs] = useState<QueueJob[]>([]);
+  const [queueStats, setQueueStats] = useState({ medianRenderSeconds: null as number | null, sampleSize: 0 });
   const [renderMode, setRenderMode] = useState<"local" | "dispatch" | "unavailable">("local");
   const [tab, setTab] = useState<"design" | "library" | "queue">("design");
   const [selection, setSelection] = useState({ color: "white", band: "mid", motion: "drift", balance: "balanced" });
@@ -270,6 +272,7 @@ export default function NoiseLab() {
   const [loading, setLoading] = useState(true);
   const [queueing, setQueueing] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const retryInFlight = useRef(false);
   const dockRef = useRef<HTMLElement>(null);
   const lensRef = useRef<HTMLDivElement>(null);
   const queueCount = jobs.filter((job) => job.status !== "Done" && job.status !== "Failed").length;
@@ -277,6 +280,7 @@ export default function NoiseLab() {
   const selected = useMemo(() => variants.find((variant) => variant.color === selection.color && variant.band === selection.band && variant.motion === selection.motion && variant.balance === selection.balance), [selection, variants]);
   const pilotCount = variants.filter((variant) => variant.pilot !== null).length;
   const preview = useApproxPreview(selected);
+  const queueFetchInFlight = useRef(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -284,13 +288,62 @@ export default function NoiseLab() {
       const [variantResponse, libraryResponse, queueResponse] = await Promise.all([fetch("/api/variants"), fetch("/api/library"), fetch("/api/queue")]);
       setVariants((await variantResponse.json()).variants);
       setTracks((await libraryResponse.json()).tracks);
-      const queuePayload = (await queueResponse.json()) as { jobs: QueueJob[]; mode?: "local" | "dispatch" | "unavailable" };
+      const queuePayload = (await queueResponse.json()) as { jobs: QueueJob[]; mode?: "local" | "dispatch" | "unavailable"; stats?: typeof queueStats };
       setJobs(queuePayload.jobs);
+      setQueueStats(queuePayload.stats ?? { medianRenderSeconds: null, sampleSize: 0 });
       if (queuePayload.mode) setRenderMode(queuePayload.mode);
     } catch { setToast({ message: "Could not load engine data.", error: true }); }
     finally { setLoading(false); }
   }, []);
+  const refreshQueue = useCallback(async () => {
+    if (queueFetchInFlight.current || document.visibilityState !== "visible") return;
+    queueFetchInFlight.current = true;
+    try {
+      const response = await fetch("/api/queue", { cache: "no-store" });
+      if (!response.ok) return;
+      const payload = (await response.json()) as { jobs: QueueJob[]; mode?: "local" | "dispatch" | "unavailable"; stats?: typeof queueStats };
+      setJobs(payload.jobs);
+      setQueueStats(payload.stats ?? { medianRenderSeconds: null, sampleSize: 0 });
+      if (payload.mode) setRenderMode(payload.mode);
+    } catch {
+      setToast({ message: "Could not refresh queue.", error: true });
+    } finally {
+      queueFetchInFlight.current = false;
+    }
+  }, []);
   useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    if (tab !== "queue" || document.visibilityState !== "visible" || !jobs.some((job) => job.status === "Queued" || job.status === "Rendering")) return;
+    const timer = window.setInterval(() => void refreshQueue(), 30000);
+    const update = () => { if (document.visibilityState === "hidden") window.clearInterval(timer); };
+    document.addEventListener("visibilitychange", update);
+    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", update); };
+  }, [jobs, refreshQueue, tab]);
+  const openLibrary = useCallback(async (variantId?: string) => {
+    window.location.hash = variantId ? `library/${variantId}` : "library";
+    setTab("library");
+    await refresh();
+    window.requestAnimationFrame(() => {
+      const target = variantId ? document.getElementById(`track-${variantId}`) : null;
+      (target ?? document.getElementById("panel-library"))?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (target) {
+        target.classList.remove("track-highlight");
+        void target.offsetWidth;
+        target.classList.add("track-highlight");
+      }
+    });
+  }, [refresh]);
+  useEffect(() => {
+    const handleHash = () => {
+      const match = window.location.hash.match(/^#library\/(.+)$/);
+      if (match) void openLibrary(decodeURIComponent(match[1]));
+      else if (window.location.hash === "#library") { setTab("library"); void refresh(); }
+      else if (tab === "library") setTab("queue");
+    };
+    handleHash();
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, [openLibrary, refresh, tab]);
   useEffect(() => {
     const dock = dockRef.current;
     const moveLens = () => {
@@ -330,6 +383,26 @@ export default function NoiseLab() {
       });
       await refresh();
     } finally {
+      setQueueing(false);
+    }
+  }
+
+  async function retry(job: QueueJob) {
+    if (queueing || retryInFlight.current) return false;
+    retryInFlight.current = true;
+    setQueueing(true);
+    try {
+      const response = await fetch("/api/queue/retry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jobId: job.id, variantId: job.variantId }) });
+      if (!response.ok) {
+        const reason = (await response.json().catch(() => ({}))) as { error?: string };
+        setToast({ message: reason.error ?? "Retry failed.", error: true });
+        return false;
+      }
+      setToast({ message: "Retry dispatched" });
+      await refreshQueue();
+      return true;
+    } finally {
+      retryInFlight.current = false;
       setQueueing(false);
     }
   }
@@ -378,7 +451,7 @@ export default function NoiseLab() {
           )}
         </div>
         <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} onRefresh={() => void refresh()} onToast={setToast} /></div>
-        <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} mode={renderMode} onRefresh={() => void refresh()} onQueuePilot={() => void queue([], "pilot")} onQueueFull={() => void queue([], "full")} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
+        <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} mode={renderMode} stats={queueStats} variants={variants} onRefresh={() => void refreshQueue()} onQueuePilot={() => void queue([], "pilot")} onQueueFull={() => void queue([], "full")} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
       </div>
       <div className="dock"><nav ref={dockRef} className="glassbar" role="tablist" aria-label="Primary">
         <div ref={lensRef} className="tab-lens" aria-hidden="true" />
@@ -435,7 +508,7 @@ function TrackCard({ track, onToast }: { track: LibraryTrack; onToast: (toast: {
     onToast(response.ok ? { message: "Name approved in sidecar metadata." } : { message: "Could not approve name.", error: true });
   }
   return (
-    <article className="soft-card track-card">
+      <article id={`track-${track.variantId}`} className="soft-card track-card">
       <div>
         <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-mono text-[11px]">{track.variantId}</div>{track.title && <div className="mt-1 truncate text-sm font-semibold">{track.title}{track.titleApproved && <span className="ml-1 text-[10px] font-normal text-[#34c759]">approved</span>}</div>}<div className="mt-1 text-[12px] text-[color:var(--secondary-text)]">Matrix {track.matrixIndex} · {formatDuration(track.durationSeconds)} · {track.color} / {track.band} / {track.motion}</div></div><span className={`rounded-full px-2 py-1 font-mono text-[10px] font-semibold ${track.qaVerdict === "PASS" ? "bg-green-50 text-[#34c759]" : track.qaVerdict === "FAIL" ? "bg-red-50 text-[#ff3b30]" : "bg-gray-100 text-[color:var(--secondary-text)]"}`}>{track.qaVerdict}</span></div>
         <audio className="mt-3 w-full" controls preload="none" src={track.audioUrl} />
@@ -455,9 +528,12 @@ const QUEUE_NOTES: Record<string, string> = {
   unavailable: "This deployment has no renderer configured, so it browses published masters only.",
 };
 
-function Queue({ jobs, mode, onRefresh, onQueuePilot, onQueueFull, queueing, pilotCount, matrixCount }: { jobs: QueueJob[]; mode: "local" | "dispatch" | "unavailable"; onRefresh: () => void; onQueuePilot: () => void; onQueueFull: () => void; queueing: boolean; pilotCount: number; matrixCount: number }) {
+function Queue({ jobs, mode, stats, variants, onRefresh, onQueuePilot, onQueueFull, onRetry, onDone, queueing, pilotCount, matrixCount }: { jobs: QueueJob[]; mode: "local" | "dispatch" | "unavailable"; stats: { medianRenderSeconds: number | null; sampleSize: number }; variants: Variant[]; onRefresh: () => void; onQueuePilot: () => void; onQueueFull: () => void; onRetry: (job: QueueJob) => Promise<boolean>; onDone: (job: QueueJob) => void; queueing: boolean; pilotCount: number; matrixCount: number }) {
   const activeJobs = jobs.filter((job) => job.status === "Queued" || job.status === "Rendering");
-  const completedJobs = jobs.filter((job) => job.status === "Done" || job.status === "Failed");
+  const failedJobs = jobs.filter((job) => job.status === "Failed");
+  const completedJobs = jobs.filter((job) => job.status === "Done");
+  const queuedJobs = activeJobs.filter((job) => job.status === "Queued");
+  const [retried, setRetried] = useState<Set<string>>(new Set());
   const [confirmingFull, setConfirmingFull] = useState(false);
   const pilotActionLabel = `Queue pilot set (${pilotCount})`;
   const pilotActionTitle = mode === "unavailable"
@@ -467,24 +543,43 @@ function Queue({ jobs, mode, onRefresh, onQueuePilot, onQueueFull, queueing, pil
   const fullActionTitle = mode === "unavailable"
     ? "Rendering isn't available on this deployment."
     : `Renders every variant in config/variants.yaml, regardless of what's selected on the Design tab. (${matrixCount} variants)`;
-  const pilotCaption = `Queues the curated pilot set (${pilotCount} variants) from config/variants_pilot.yaml, ignoring the Design tab selection.`;
-  const fullCaption = `Renders every variant in the matrix (${matrixCount} variants), ignoring the Design tab selection.`;
   useEffect(() => {
     if (!confirmingFull) return;
     const timer = setTimeout(() => setConfirmingFull(false), 8000);
     return () => clearTimeout(timer);
   }, [confirmingFull]);
-  const group = (title: string, entries: QueueJob[]) => <section className="queue-group"><div className="section-title">{title}</div><div className="soft-card queue-card">{entries.length === 0 ? <div className="empty-state">No jobs in this section.</div> : entries.map((job) => <div key={job.id} className="queue-item"><span className={`status-dot ${job.status.toLowerCase()}`} /><div className="queue-body"><div className="queue-name">{job.variantId}</div><div className="queue-sub">{job.status === "Done" ? "Master ready" : job.status === "Failed" ? job.error ?? "Render failed" : job.status}</div></div><time className="queue-time">{new Date(job.queuedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time></div>)}</div></section>;
+  const elapsed = (job: QueueJob) => job.startedAt ? (Date.now() - new Date(job.startedAt).getTime()) / 1000 : 0;
+  const activeCopy = (job: QueueJob) => {
+    if (mode === "local") {
+      const ahead = job.status === "Queued" ? queuedJobs.indexOf(job) : 0;
+      return job.status === "Queued" ? `${ahead === 0 ? "Next" : `${ahead} jobs ahead`}` : "Worker is rendering";
+    }
+    return job.status === "Rendering"
+      ? renderEstimate(stats.medianRenderSeconds, stats.sampleSize, elapsed(job))
+      : stats.sampleSize ? `Typically ${renderEstimate(stats.medianRenderSeconds, stats.sampleSize).replace(" left", "")} once started` : renderEstimate(null, 0);
+  };
+  const row = (job: QueueJob) => {
+    const done = job.status === "Done";
+    const variant = done ? knownVariantId(job.variantId, variants) : null;
+    const content = <><span className={`status-dot ${job.status.toLowerCase()}`} /><div className="queue-body"><div className="queue-name">{job.variantId}</div><div className="queue-sub" title={job.error}>{done ? variant ? "Master ready · Open in Library ›" : "Masters ready · Open Library ›" : job.status === "Failed" ? job.error ?? "Render failed" : activeCopy(job)}</div>{job.status === "Failed" && <div className="queue-actions">{job.logsUrl && <a href={job.logsUrl} target="_blank" rel="noopener" className="queue-link">View logs</a>}{mode !== "unavailable" && <button type="button" className="queue-link" disabled={queueing || retried.has(job.id)} onClick={async () => { if (await onRetry(job)) setRetried((old) => new Set(old).add(job.id)); }}>{retried.has(job.id) ? "Retried ✓" : "Retry"}</button>}</div>}</div><time className="queue-time">{relativeTime(job.queuedAt)}</time></>;
+    return done ? <button type="button" key={job.id} className="queue-item queue-link-row" onClick={() => onDone(job)}>{content}</button> : <div key={job.id} className="queue-item">{content}</div>;
+  };
+  const group = (title: string, entries: QueueJob[], empty: string) => <section className="queue-group"><div className="section-title">{title}</div><div className="soft-card queue-card">{entries.length === 0 ? <div className="empty-state">{empty}</div> : entries.map(row)}</div></section>;
   return (
     <section className="panel-section">
       <div className="panel-heading">
-        <div><h2>Render queue</h2><p>{mode === "dispatch" ? "GitHub Actions run status" : "Honest worker-backed status"}</p></div>
+        <div><div className="queue-heading-line"><h2>Render queue</h2><span className="mode-chip">{mode === "dispatch" ? "GitHub Actions" : mode === "local" ? "Local worker" : "Browse only"}</span></div><p className="queue-summary" aria-live="polite">{activeJobs.length ? `${activeJobs.filter((job) => job.status === "Rendering").length} rendering · ${activeJobs.filter((job) => job.status === "Queued").length} queued${mode === "dispatch" ? ` · ${renderEstimate(stats.medianRenderSeconds, stats.sampleSize, Math.max(...activeJobs.map(elapsed), 0))}` : ""}` : "Queue idle"}</p></div>
         <div className="panel-heading-actions"><button type="button" onClick={onRefresh} className="round-action" aria-label="Refresh queue"><RefreshCw size={14} /></button></div>
       </div>
+      {failedJobs.length > 0 && group("Needs attention", failedJobs, "Nothing needs attention")}
+      {group("Active", activeJobs, "No active renders — open Start renders below")}
+      {group("Completed today", completedJobs, "No completed renders yet")}
+      <details className="start-renders">
+        <summary>Start renders <span>· pilot ({pilotCount}) or full matrix ({matrixCount})</span></summary>
       <div className="bulk-actions">
         <div className="bulk-action">
           <button type="button" onClick={onQueuePilot} disabled={mode === "unavailable" || queueing} className="queue-secondary" title={pilotActionTitle} aria-label={pilotActionTitle}><Layers size={14} /> {pilotActionLabel}</button>
-          <p className="bulk-action-caption">{pilotCaption}</p>
+          <p className="bulk-action-caption">All {pilotCount} pilot variants, ignores Design selection</p>
         </div>
         <div className="bulk-action">
           {confirmingFull ? (
@@ -495,11 +590,11 @@ function Queue({ jobs, mode, onRefresh, onQueuePilot, onQueueFull, queueing, pil
           ) : (
             <button type="button" onClick={() => setConfirmingFull(true)} disabled={mode === "unavailable" || matrixCount === 0 || queueing} className="queue-secondary" title={fullActionTitle} aria-label={fullActionTitle}><Grid3x3 size={14} /> {fullActionLabel}</button>
           )}
-          <p className="bulk-action-caption">{confirmingFull ? `Tap confirm to dispatch all ${matrixCount} renders.` : fullCaption}</p>
+          <p className="bulk-action-caption">{confirmingFull ? `Tap confirm to dispatch all ${matrixCount} renders.` : `All ${matrixCount} variants, ignores Design selection`}</p>
         </div>
       </div>
-      <div className="queue-groups">{group("Rendering", activeJobs)}{group("Completed today", completedJobs)}</div>
       <p className="queue-note">{QUEUE_NOTES[mode]}</p>
+      </details>
     </section>
   );
 }

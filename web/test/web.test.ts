@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import { formatMinutes, knownVariantId, median, relativeTime, renderEstimate } from "../lib/eta";
 
 const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "noise-lab-web-test-"));
 const renderDir = path.join(fixtureDir, "renders");
@@ -77,6 +78,24 @@ const modulesPromise = Promise.all([
   import("../lib/naming"),
   import("../lib/range"),
 ]);
+
+test("formats queue estimates and relative times", () => {
+  assert.equal(median([10, 3, 7]), 7);
+  assert.equal(median([10, 2]), 6);
+  assert.equal(median([]), null);
+  assert.equal(formatMinutes(1), "~1 min");
+  assert.equal(renderEstimate(null, 0), "First render — typically 5–10 min");
+  assert.equal(renderEstimate(180, 1, 200), "~1 min left");
+  assert.equal(relativeTime(new Date(Date.now() - 4 * 60 * 1000).toISOString()), "4m ago");
+});
+
+test("only exact known variants can become library anchors", async () => {
+  const [{ loadVariants }] = await modulesPromise;
+  const variants = loadVariants();
+  assert.equal(knownVariantId(variants[0].variantId, variants), variants[0].variantId);
+  assert.equal(knownVariantId("pilot", variants), null);
+  assert.equal(knownVariantId(`${variants[0].variantId},${variants[1].variantId}`, variants), null);
+});
 
 test("resolves matrix indexes, pilot labels, and total durations from config", async () => {
   const [{ loadVariants }] = await modulesPromise;

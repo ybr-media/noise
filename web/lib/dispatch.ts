@@ -41,6 +41,8 @@ type WorkflowRun = {
   conclusion: string | null;
   created_at: string;
   display_title: string;
+  run_started_at?: string | null;
+  updated_at?: string | null;
 };
 
 const STATUSES: Record<string, QueueJob["status"]> = {
@@ -58,18 +60,44 @@ function statusOf(run: WorkflowRun): QueueJob["status"] {
 
 // The workflow sets its run name to the requested variants, which is the only
 // place GitHub surfaces dispatch inputs back to an API caller.
-export async function dispatchedJobs(): Promise<QueueJob[]> {
+export async function dispatchedQueue(): Promise<{ jobs: QueueJob[]; stats: { medianRenderSeconds: number | null; sampleSize: number } }> {
   const response = await fetch(
     `${API}/repos/${DISPATCH_REPO}/actions/workflows/${DISPATCH_WORKFLOW}/runs?per_page=20`,
     { headers: headers(), cache: "no-store" },
   );
-  if (!response.ok) return [];
+  if (!response.ok) return { jobs: [], stats: { medianRenderSeconds: null, sampleSize: 0 } };
   const body = (await response.json()) as { workflow_runs?: WorkflowRun[] };
-  return (body.workflow_runs ?? []).map((run) => ({
+  const jobs = (body.workflow_runs ?? []).map((run) => {
+    const startedAt = run.run_started_at ?? undefined;
+    const finishedAt = run.status === "completed" ? run.updated_at ?? undefined : undefined;
+    const durationSeconds = startedAt && finishedAt
+      ? Math.max(0, (new Date(finishedAt).getTime() - new Date(startedAt).getTime()) / 1000)
+      : undefined;
+    const failed = run.conclusion && run.conclusion !== "success";
+    return {
     id: String(run.id),
     variantId: run.display_title.replace(/^Render\s+/i, ""),
     status: statusOf(run),
     queuedAt: run.created_at,
-    error: run.conclusion && run.conclusion !== "success" ? `Workflow ${run.conclusion} — ${runUrl(run.id)}` : undefined,
-  }));
+    error: failed ? `Workflow ${run.conclusion}` : undefined,
+    logsUrl: failed ? runUrl(run.id) : undefined,
+    startedAt,
+    finishedAt,
+    durationSeconds,
+    };
+  });
+  const durations = jobs.filter((job) => job.status === "Done" && job.durationSeconds !== undefined).map((job) => job.durationSeconds!);
+  const sorted = [...durations].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return {
+    jobs,
+    stats: {
+      medianRenderSeconds: sorted.length ? sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2 : null,
+      sampleSize: sorted.length,
+    },
+  };
+}
+
+export async function dispatchedJobs(): Promise<QueueJob[]> {
+  return (await dispatchedQueue()).jobs;
 }

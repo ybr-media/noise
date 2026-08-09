@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { enqueue, listJobs } from "@/lib/queue";
-import { dispatchRender, dispatchedJobs } from "@/lib/dispatch";
+import { dispatchRender, dispatchedQueue } from "@/lib/dispatch";
 import { RENDER_MODE, findVariant, resolveSelection, type RenderSelection } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return NextResponse.json({ mode: RENDER_MODE, jobs: RENDER_MODE === "dispatch" ? await dispatchedJobs() : listJobs() });
+  if (RENDER_MODE === "dispatch") {
+    const queue = await dispatchedQueue();
+    return NextResponse.json({ mode: RENDER_MODE, ...queue });
+  }
+  return NextResponse.json({ mode: RENDER_MODE, jobs: listJobs(), stats: { medianRenderSeconds: null, sampleSize: 0 } });
 }
 
 export async function POST(request: NextRequest) {
