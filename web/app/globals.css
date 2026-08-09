@@ -174,6 +174,7 @@ button:disabled { cursor: not-allowed; }
 .current-tab-title.is-hidden { opacity: 0; }
 .current-tab-title span { animation: rise .24s cubic-bezier(.2,.8,.25,1); font-size: 13px; font-weight: 700; letter-spacing: .01em; white-space: nowrap; }
 .current-tab-title-info { pointer-events: auto; }
+.current-tab-title.is-hidden .current-tab-title-info { pointer-events: none; }
 .info-button { position: relative; display: grid; width: 30px; height: 30px; place-items: center; border: 0; border-radius: 50%; padding: 0; color: #6e6e73; background: transparent; }
 .info-button::after { position: absolute; top: 50%; left: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); content: ""; }
 .info-button:hover, .info-button:focus-visible { background: rgba(255,255,255,.55); outline: none; }
@@ -201,7 +202,7 @@ button:disabled { cursor: not-allowed; }
   .bell-smile { clip-path: none; }
 }
 @media (max-width: 520px) {
-  .noise-page { padding-right: 14px; padding-left: 14px; }
+  .noise-page { padding-top: 108px; padding-right: 14px; padding-left: 14px; }
   .spectrum-card, .track-card, .variant-card { padding-right: 16px; padding-left: 16px; }
   .controls-card { padding-right: 16px; padding-left: 16px; }
   .design-row { grid-template-columns: minmax(0, 1fr); gap: 10px; }
