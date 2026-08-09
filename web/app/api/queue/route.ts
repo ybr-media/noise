@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { enqueue, listJobs } from "@/lib/queue";
 import { dispatchRender, dispatchedJobs } from "@/lib/dispatch";
-import { RENDER_MODE, findVariant, loadPilotVariants } from "@/lib/config";
+import { RENDER_MODE, findVariant, resolveSelection, type RenderSelection } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +13,7 @@ export async function POST(request: NextRequest) {
   if (RENDER_MODE === "unavailable") {
     return NextResponse.json({ error: "Rendering needs the local Audacity worker; this deployment is browse-only" }, { status: 503 });
   }
-  const body = (await request.json()) as { variantIds?: unknown[]; pilot?: boolean };
-  const variantIds = body.pilot
-    ? loadPilotVariants().map((variant) => variant.variantId)
-    : Array.isArray(body.variantIds) ? body.variantIds.filter((id): id is string => typeof id === "string") : [];
+  const { variantIds, dispatchInput } = resolveSelection((await request.json()) as RenderSelection);
   if (!variantIds.length || variantIds.some((id) => !findVariant(id))) {
     return NextResponse.json({ error: "Choose one or more known variants" }, { status: 400 });
   }
@@ -24,7 +21,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ mode: RENDER_MODE, jobs: enqueue(variantIds) }, { status: 202 });
   }
   try {
-    await dispatchRender(body.pilot ? "pilot" : variantIds.join(","));
+    await dispatchRender(dispatchInput);
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Render dispatch failed" }, { status: 502 });
   }

@@ -155,3 +155,22 @@ export function loadPilotVariants(): Variant[] {
 export function findVariant(variantId: string): Variant | undefined {
   return loadVariants().find((variant) => variant.variantId === variantId);
 }
+
+export type RenderSelection = { variantIds?: unknown[]; pilot?: boolean; full?: boolean };
+
+// A render request names either a set of ids or a whole manifest. `pilot` and
+// `full` are also render.yml's own selectors, so the whole matrix travels as one
+// keyword instead of 144 comma-separated ids, while the local worker still gets
+// the expanded list it enqueues.
+export function resolveSelection(request: RenderSelection): { variantIds: string[]; dispatchInput: string } {
+  if (request.full) {
+    return { variantIds: loadVariants().map((variant) => variant.variantId), dispatchInput: "full" };
+  }
+  if (request.pilot) {
+    return { variantIds: loadPilotVariants().map((variant) => variant.variantId), dispatchInput: "pilot" };
+  }
+  const variantIds = Array.isArray(request.variantIds)
+    ? request.variantIds.filter((id): id is string => typeof id === "string")
+    : [];
+  return { variantIds, dispatchInput: variantIds.join(",") };
+}

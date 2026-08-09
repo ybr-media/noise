@@ -73,6 +73,23 @@ test("resolves matrix indexes, pilot labels, and total durations from config", a
   assert.equal(variants[1].pilot, null);
 });
 
+test("resolves render selections to ids and a workflow input", async () => {
+  const [{ resolveSelection }] = await modulesPromise;
+  assert.deepEqual(resolveSelection({ full: true }), {
+    variantIds: ["wn_white_mid_drift_balanced", "wn_white_mid_drift_texture-forward"],
+    dispatchInput: "full",
+  });
+  assert.deepEqual(resolveSelection({ pilot: true }), {
+    variantIds: ["wn_white_mid_drift_balanced"],
+    dispatchInput: "pilot",
+  });
+  assert.deepEqual(resolveSelection({ variantIds: ["wn_white_mid_drift_balanced", 7] }), {
+    variantIds: ["wn_white_mid_drift_balanced"],
+    dispatchInput: "wn_white_mid_drift_balanced",
+  });
+  assert.deepEqual(resolveSelection({}), { variantIds: [], dispatchInput: "" });
+});
+
 test("assembles rendered and missing library tracks with QA evidence", async () => {
   const [, { libraryTracks }] = await modulesPromise;
   const tracks = await libraryTracks();
