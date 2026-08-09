@@ -16,6 +16,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LibraryTrack, QueueJob, Variant } from "@/lib/types";
 import { knownVariantId, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
+import { BellMark } from "./bell-mark";
 
 const C = {
   page: "#F2F2F7",
@@ -436,7 +437,7 @@ export default function NoiseLab() {
       <div className="noise-page">
         <header className="noise-header">
           <div className="noise-heading">
-            <h1 className="noise-title">Noise Lab</h1>
+            <h1 className="noise-title"><span className="sr-only">Noise Lab</span><BellMark /></h1>
             <button type="button" onClick={() => setAboutOpen((open) => !open)} aria-label="About Noise Lab" aria-expanded={aboutOpen} className="info-button"><Info size={20} /></button>
             {aboutOpen && <p role="note" className="noise-about">Design a variant, review masters, queue the worker.</p>}
           </div>
