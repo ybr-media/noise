@@ -43,6 +43,9 @@ export function approveName(filename: string, title: string, description: string
   if (!/^[\w.-]+\.wav$/i.test(filename)) throw new Error("Invalid audio filename");
   const sidecarPath = path.join(RENDER_DIR, filename.replace(/\.wav$/, ".json"));
   const sidecar = JSON.parse(fs.readFileSync(sidecarPath, "utf8")) as Record<string, unknown>;
+  // A published title names the release, which is the mixed master; the stems
+  // are supporting assets and carry no name of their own.
+  if ("role" in sidecar && sidecar.role !== "master") throw new Error("Only a master can be named");
   sidecar.seo_title = title.trim();
   sidecar.seo_description = description.trim();
   sidecar.seo_title_approved = true;

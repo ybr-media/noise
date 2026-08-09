@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
+import numpy as np
+import soundfile as sf
 import yaml
 
 ROOT = Path(__file__).parents[1]
@@ -16,7 +19,18 @@ from checks import Sidecar
 
 import orchestrator
 from orchestrator import render_batch
-from render_plan import build_plan
+from render_plan import MASTER_TRACK_INDEX, build_plan
+
+EXPORT_FILENAME = re.compile(r'Export2: Filename="([^"]+)"')
+PROJECT_FILENAME = re.compile(r'SaveProject2: Filename="([^"]+)"')
+MEASURED_LUFS = -14.0
+
+
+def _fake_export(path: Path) -> None:
+    """Stand in for Audacity's export with audio of a known, non-silent level."""
+    generator = np.random.default_rng(0)
+    samples = generator.normal(0.0, 0.05, size=(48000, 2))
+    sf.write(path, samples, 48000, subtype="PCM_24")
 
 
 class FakeTransport:
@@ -32,6 +46,13 @@ class FakeTransport:
         self.commands.append(command)
         if self.fail_at == index:
             raise RuntimeError("synthetic command failure")
+        exported = EXPORT_FILENAME.match(command)
+        if exported:
+            _fake_export(Path(exported.group(1)))
+        saved = PROJECT_FILENAME.match(command)
+        if saved:
+            for suffix in ("", "-wal", "-shm"):
+                Path(f"{saved.group(1)}{suffix}").write_bytes(b"aup3")
         return self.responses[index] if index < len(self.responses) else "OK"
 
     def close(self) -> None:
@@ -114,13 +135,32 @@ def test_sidecar_and_log_contract(tmp_path: Path) -> None:
         transport_factory=transport_factory,
         process_factory=process_factory,
     ) == 0
-    sidecar = next(output.glob("*.json"))
-    parsed = Sidecar.from_json(sidecar)
-    assert parsed.variant_id
-    sidecar_raw = json.loads(sidecar.read_text())
-    assert sidecar_raw["audacity_version"] == "3.7.8"
-    log = json.loads((output / "render_log.jsonl").read_text(encoding="utf-8").splitlines()[0])
     plan = build_plan(row, source["output"], str(output / row["filename"]))
+    master_sidecar = Path(plan.master_path).with_suffix(".json")
+    parsed = Sidecar.from_json(master_sidecar)
+    assert parsed.variant_id
+    assert parsed.is_master
+    sidecar_raw = json.loads(master_sidecar.read_text())
+    assert sidecar_raw["audacity_version"] == "3.7.8"
+    assert sidecar_raw["stem_filenames"] == [
+        Path(path).name for path in plan.stem_paths
+    ]
+    assert sidecar_raw["stem_map"] == {
+        "stem_1": "bed",
+        "stem_2": "texture",
+        "stem_3": "motion",
+    }
+    # One measured gain, recorded identically in all four sidecars.
+    gain = sidecar_raw["loudness_gain_db"]
+    for number, stem_path in enumerate(plan.stem_paths, start=1):
+        stem_sidecar = json.loads(Path(stem_path).with_suffix(".json").read_text())
+        assert stem_sidecar["role"] == f"stem_{number}"
+        assert stem_sidecar["stem"] == ("bed", "texture", "motion")[number - 1]
+        assert stem_sidecar["loudness_gain_db"] == gain
+        assert not Sidecar.from_json(Path(stem_path).with_suffix(".json")).is_master
+    assert len(list(output.glob("*.json"))) == 4
+
+    log = json.loads((output / "render_log.jsonl").read_text(encoding="utf-8").splitlines()[0])
     assert log["variant_id"] == row["variant_id"]
     assert log["seeds"] == [
         row["seeds"][f"{stem}_{channel}"]
@@ -130,8 +170,16 @@ def test_sidecar_and_log_contract(tmp_path: Path) -> None:
     assert all(isinstance(seed, int) for seed in log["seeds"])
     assert log["params"] == {"variant": row, "output": source["output"]}
     assert isinstance(log["wall_clock_seconds"], (int, float))
-    assert log["commands"] == list(plan.commands)
-    assert log["responses"] == ["OK"] * len(plan.commands)
+    commands = log["commands"]
+    assert commands[: len(plan.commands)] == list(plan.commands)
+    # The measurement export, the one shared gain, then the four outputs.
+    exported = [EXPORT_FILENAME.match(command).group(1) for command in commands if command.startswith("Export2:")]
+    assert exported[0].endswith(".measure.wav")
+    assert exported[1:] == list(plan.track_paths)
+    assert not Path(exported[0]).exists()
+    gains = [command for command in commands if command.startswith("Amplify:")]
+    assert gains[len(plan.stem_paths):] == list(plan.gain_commands(gain)[1:])
+    assert len(log["responses"]) == len(commands)
     assert log["exit_state"] == "success"
     assert transports[0].closed and processes[0].killed and processes[0].waited
 
@@ -159,27 +207,46 @@ def test_launch_failure_is_logged(tmp_path: Path) -> None:
     ) == 1
     record = json.loads((output / "render_log.jsonl").read_text(encoding="utf-8").splitlines()[0])
     assert record["exit_state"] == "failure: audacity did not open its pipes"
-    row = yaml.safe_load(matrix.read_text())["variants"][0]
-    source = yaml.safe_load(matrix.read_text())
-    plan = build_plan(row, source["output"], str(output / row["filename"]))
-    assert record["commands"] == list(plan.commands)
+    # Nothing reached Audacity, so the log records an empty exchange.
+    assert record["commands"] == []
     assert record["responses"] == []
 
 
-def test_aup3_serializer_logs_the_commands_it_sent(tmp_path: Path) -> None:
+def test_aup3_serializer_measures_the_mix_and_writes_four_files(
+    tmp_path: Path, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
     matrix = _matrix(tmp_path, 1)
     output = tmp_path / "out"
     created: list[FakeTransport] = []
 
     def factory(timeout: float) -> FakeTransport:
         del timeout
-        transport = FakeTransport(["OK"] * 100, fail_at=0)
+        transport = FakeTransport(["OK"] * 100)
         created.append(transport)
         return transport
 
     def process_factory(binary: str) -> FakeProcess:
         del binary
         return FakeProcess()
+
+    read: list[int] = []
+
+    def fake_read(project: Path, project_xml: Path | None, index: int):  # type: ignore[no-untyped-def]
+        del project, project_xml
+        read.append(index)
+        generator = np.random.default_rng(1)
+        return generator.normal(0.0, 0.05, size=(48000, 2)), 48000
+
+    written: list[tuple[Path, ...]] = []
+
+    def fake_extract(project: Path, project_xml: Path | None, paths: tuple[Path, ...]) -> None:
+        del project, project_xml
+        written.append(paths)
+        for path in paths:
+            _fake_export(path)
+
+    monkeypatch.setattr(orchestrator, "read_stereo_track", fake_read)
+    monkeypatch.setattr(orchestrator, "extract_stereo_tracks_to_wavs", fake_extract)
 
     assert render_batch(
         matrix,
@@ -189,10 +256,24 @@ def test_aup3_serializer_logs_the_commands_it_sent(tmp_path: Path) -> None:
         aup3_serializer=True,
         transport_factory=factory,
         process_factory=process_factory,
-    ) == 1
+    ) == 0
     record = json.loads((output / "render_log.jsonl").read_text(encoding="utf-8").splitlines()[0])
-    assert record["commands"][-1].startswith("SaveProject2:")
+    row = yaml.safe_load(matrix.read_text())["variants"][0]
+    source = yaml.safe_load(matrix.read_text())
+    plan = build_plan(row, source["output"], str(output / row["filename"]))
+    # The master is measured from the saved project, amplified with the stems,
+    # and only then re-saved for extraction.
+    assert read == [MASTER_TRACK_INDEX]
+    assert written == [tuple(Path(path) for path in plan.track_paths)]
+    tail = record["commands"][len(plan.commands):]
+    assert tail[0].startswith("SaveProject2:")
+    assert tail[-1] == "Save:"
+    assert any(command.startswith("Amplify:") for command in tail)
     assert not any(command.startswith("Export2:") for command in record["commands"])
+    assert len(list(output.glob("*.wav"))) == 4
+    # The project is another copy of all four outputs; it does not survive a
+    # successful extraction.
+    assert not list(output.glob("*.aup3*"))
 
 
 def test_resume_and_force(tmp_path: Path) -> None:

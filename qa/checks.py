@@ -23,6 +23,16 @@ BELL_EXCLUSION_OCTAVES: float = 2.0
 #: Width, in octaves, of the band the bell's realized gain is averaged over.
 BELL_MEASURE_WIDTH_OCTAVES: float = 1 / 6
 
+#: Largest sample difference tolerated between the sum of a variant's stems and
+#: its master.  The stems and the master are the same float32 audio written to
+#: four 24-bit files, so the difference is bounded by requantizing four files
+#: (about -128 dBFS); this threshold is that with generous margin.
+STEM_SUM_TOLERANCE: float = 1e-5
+
+#: Frames read at a time when summing stems, so a four-minute master and its
+#: three stems never all sit in memory at once.
+STEM_SUM_BLOCK_FRAMES: int = 1 << 20
+
 
 class SidecarError(ValueError):
     """Raised when a sidecar does not satisfy the input contract."""
@@ -57,6 +67,18 @@ class Sidecar:
     bit_depth: int
     tilt_db_per_oct: float
     bell: Bell | None
+    role: str
+    stem: str | None
+    stem_filenames: tuple[str, ...]
+
+    @property
+    def is_master(self) -> bool:
+        """Whether the described file is the mixed master of its variant.
+
+        Thresholds written for a finished mix only apply to this file; the
+        stems are quiet by design and are checked against the master instead.
+        """
+        return self.role == "master"
 
     @classmethod
     def from_json(cls, path: Path) -> Sidecar:
@@ -107,6 +129,14 @@ class Sidecar:
             if not all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in bell_values):
                 raise SidecarError(f"{path.name}: bell values must be numeric")
             bell = Bell(float(bell_values[0]), float(bell_values[1]), float(bell_values[2]))
+        stems_raw = required("stem_filenames")
+        if not isinstance(stems_raw, list) or not all(
+            isinstance(item, str) and item for item in stems_raw
+        ):
+            raise SidecarError(f"{path.name}: stem_filenames must be a list of names")
+        stem_raw = raw.get("stem")
+        if stem_raw is not None and (not isinstance(stem_raw, str) or not stem_raw):
+            raise SidecarError(f"{path.name}: stem must be null or a non-empty string")
         repeats_value = required("repeats")
         sample_rate = required("sample_rate")
         bit_depth = required("bit_depth")
@@ -137,6 +167,9 @@ class Sidecar:
             bit_depth=bit_depth,
             tilt_db_per_oct=number("tilt_db_per_oct"),
             bell=bell,
+            role=text("role"),
+            stem=stem_raw,
+            stem_filenames=tuple(stems_raw),
         )
         text("audacity_version")
         text("render_timestamp")
@@ -416,6 +449,48 @@ def silence(data: np.ndarray, sidecar: Sidecar) -> CheckResult:
 def decorrelation(data: np.ndarray) -> CheckResult:
     correlation = float(np.corrcoef(data[:, 0], data[:, 1])[0, 1])
     return _result("Stereo decorrelation", f"r={correlation:.5f}", "|r| < 0.5", abs(correlation) < 0.5)
+
+
+def stem_sum(master_path: Path, stem_paths: tuple[Path, ...]) -> CheckResult:
+    """Check that the stems still reconstruct the master they were mixed into.
+
+    This is the check that keeps the four files honest as a group: the master
+    is a mix of exactly these stems at exactly this alignment, so their sum
+    must return it to within requantization error.
+    """
+    threshold = f"max |sum(stems) - master| <= {STEM_SUM_TOLERANCE:g}"
+    missing = [path.name for path in stem_paths if not path.is_file()]
+    if missing or not stem_paths:
+        return _result(
+            "Stem sum", f"missing {', '.join(missing) or 'stem list'}", threshold, False
+        )
+    with sf.SoundFile(master_path) as master_info:
+        shape = (master_info.frames, master_info.samplerate, master_info.channels)
+    for path in stem_paths:
+        with sf.SoundFile(path) as info:
+            if (info.frames, info.samplerate, info.channels) != shape:
+                return _result(
+                    "Stem sum",
+                    f"{path.name} is {info.frames} frames, {info.samplerate} Hz, "
+                    f"{info.channels}ch",
+                    threshold,
+                    False,
+                )
+    worst = 0.0
+    readers = [
+        sf.blocks(path, blocksize=STEM_SUM_BLOCK_FRAMES, dtype="float64", always_2d=True)
+        for path in (master_path, *stem_paths)
+    ]
+    for master_block, *stem_blocks in zip(*readers):
+        residual = master_block - sum(stem_blocks)
+        worst = max(worst, float(np.max(np.abs(residual))))
+    return _result(
+        "Stem sum",
+        f"{worst:.3e} ({20 * math.log10(max(worst, np.finfo(float).tiny)):.1f} dBFS)",
+        threshold,
+        worst <= STEM_SUM_TOLERANCE,
+        {"stems": [path.name for path in stem_paths]},
+    )
 
 
 def duration_format(info: sf.SoundFile, sidecar: Sidecar) -> CheckResult:

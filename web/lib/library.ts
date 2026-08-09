@@ -1,8 +1,32 @@
 import { loadVariants } from "./config";
 import { artifactIndex, artifactUrl } from "./artifacts";
-import type { LibraryTrack, Variant } from "./types";
+import type { ArtifactIndex } from "./artifacts";
+import type { LibraryTrack, TrackStem, Variant } from "./types";
 
 type Sidecar = Record<string, unknown>;
+
+const audioUrls = (filename: string) => ({
+  audioUrl: `/api/audio/${encodeURIComponent(filename)}`,
+  downloadUrl: `/api/audio/${encodeURIComponent(filename)}?download=1`,
+});
+
+// The master's sidecar names its stems and what each one is, so the console
+// never has to reconstruct the naming scheme itself.
+function stemsOf(sidecar: Sidecar | null, index: ArtifactIndex): TrackStem[] {
+  const filenames = Array.isArray(sidecar?.stem_filenames) ? sidecar.stem_filenames : [];
+  const roles = (sidecar?.stem_map ?? {}) as Record<string, unknown>;
+  return filenames.flatMap((filename, position) => {
+    if (typeof filename !== "string") return [];
+    const role = `stem_${position + 1}`;
+    return [{
+      filename,
+      number: position + 1,
+      stem: typeof roles[role] === "string" ? (roles[role] as string) : role,
+      exists: index.artifacts.has(filename),
+      ...audioUrls(filename),
+    }];
+  });
+}
 
 function withSidecar(variant: Variant, sidecar: Sidecar | null): Variant {
   if (!sidecar) return variant;
@@ -27,9 +51,9 @@ export async function libraryTracks(): Promise<LibraryTrack[]> {
     return {
       ...resolved,
       path: artifactUrl(variant.filename),
-      audioUrl: `/api/audio/${encodeURIComponent(variant.filename)}`,
-      downloadUrl: `/api/audio/${encodeURIComponent(variant.filename)}?download=1`,
+      ...audioUrls(variant.filename),
       exists: Boolean(artifact),
+      stems: stemsOf(sidecar, index),
       qaVerdict: !qaChecks.length ? "UNAVAILABLE" : failed ? "FAIL" : "PASS",
       qaChecks,
       measuredLufs: lufs,
@@ -42,6 +66,14 @@ export async function libraryTracks(): Promise<LibraryTrack[]> {
   });
 }
 
-export async function trackForFilename(filename: string): Promise<LibraryTrack | undefined> {
-  return (await libraryTracks()).find((track) => track.filename === filename);
+export type AudioAsset = { filename: string; exists: boolean; isMaster: boolean };
+
+/** Resolve a served filename to a variant's master or to one of its stems. */
+export async function audioAsset(filename: string): Promise<AudioAsset | undefined> {
+  for (const track of await libraryTracks()) {
+    if (track.filename === filename) return { filename, exists: track.exists, isMaster: true };
+    const stem = track.stems.find((candidate) => candidate.filename === filename);
+    if (stem) return { filename, exists: stem.exists, isMaster: false };
+  }
+  return undefined;
 }

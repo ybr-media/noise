@@ -22,6 +22,7 @@ from checks import (
     loudness,
     silence,
     spectral_tilt,
+    stem_sum,
     true_peak,
 )
 from report import (
@@ -59,7 +60,21 @@ def failed_file(filename: str, message: str) -> FileReport:
     return FileReport(filename, (result,), input_error=message)
 
 
+def is_master(path: Path) -> bool:
+    """Whether a rendered file is the master of its variant.
+
+    Thresholds written for a finished mix are meaningless against a stem, so
+    only masters are inspected.  A file whose sidecar cannot be read counts as
+    a master, so a broken render is reported rather than quietly skipped.
+    """
+    try:
+        return Sidecar.from_json(path.with_suffix(".json")).is_master
+    except SidecarError:
+        return True
+
+
 def inspect_file(path: Path) -> FileReport:
+    """Run the finished-mix checks on one master, plus its stem-sum check."""
     try:
         sidecar = Sidecar.from_json(path.with_suffix(".json"))
         with sf.SoundFile(path) as info:
@@ -79,6 +94,10 @@ def inspect_file(path: Path) -> FileReport:
             silence(data, sidecar),
             decorrelation(data),
             format_check,
+            stem_sum(
+                path,
+                tuple(path.parent / name for name in sidecar.stem_filenames),
+            ),
         )
     except (OSError, RuntimeError, ValueError, SidecarError) as exc:
         return failed_file(path.name, str(exc))
@@ -107,7 +126,11 @@ def _summary(files: tuple[FileReport, ...], comparison: ComparisonResult | None,
 
 
 def run(output_dir: Path, compare_dir: Path | None, report: Path, json_path: Path) -> int:
-    files = tuple(inspect_file(path) for path in sorted(output_dir.glob("wn_*.wav")) if path.is_file())
+    files = tuple(
+        inspect_file(path)
+        for path in sorted(output_dir.glob("wn_*.wav"))
+        if path.is_file() and is_master(path)
+    )
     by_hash: dict[str, list[str]] = {}
     for file_report in files:
         if file_report.decoded_pcm_sha256 is not None:
@@ -122,7 +145,7 @@ def run(output_dir: Path, compare_dir: Path | None, report: Path, json_path: Pat
             updated.append(file_report.with_check(CheckResult("Uniqueness", "unique decoded PCM", "no duplicate decoded PCM", True)))
     final_files = tuple(updated)
     comparison = compare_dirs(output_dir, compare_dir) if compare_dir is not None else None
-    error = "no matching wn_*.wav files found" if not final_files else None
+    error = "no rendered masters found" if not final_files else None
     result = RunReport(_summary(final_files, comparison, error), final_files, comparison, error)
     write_reports(report, json_path, result)
     return 0 if result.summary.overall_verdict == "PASS" else 1
