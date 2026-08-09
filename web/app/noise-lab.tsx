@@ -3,6 +3,7 @@
 import {
   AlertCircle,
   Check,
+  Clipboard,
   Download,
   Grid3x3,
   Info,
@@ -11,10 +12,16 @@ import {
   Play,
   RefreshCw,
   Sparkles,
+  Save,
+  ChevronLeft,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { LibraryTrack, QueueJob, Variant } from "@/lib/types";
+import type { LibraryTrack, QueueJob, Release, ReleaseTrack, Variant } from "@/lib/types";
+import type { DerivedRelease } from "@/lib/releases";
+import { toReleaseDocument } from "@/lib/release-document";
+import { mulberry32, renderCoverArt, type CoverArtDimensions } from "@/lib/cover-art";
+import { lintNames } from "@/lib/name-lint";
 import { knownVariantId, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
 import { BellMark } from "./bell-mark";
 
@@ -78,7 +85,7 @@ function Row({ label, hint, children }: { label: string; hint: string; children:
 
 function Toast({ message, error, onClose }: { message: string; error?: boolean; onClose: () => void }) {
   return (
-    <div className="toast" style={{ background: error ? C.accent : C.label }}>
+    <div className="toast" style={{ background: error ? C.accent : C.label }} role="status" aria-live="polite">
       {error ? <AlertCircle size={17} color="#fff" /> : <Check size={17} color="#fff" />}
       <span className="flex-1 text-sm leading-5 text-white">{message}</span>
       <button type="button" onClick={onClose} aria-label="Dismiss" className="toast-dismiss"><X size={16} color="#fff" /></button>
@@ -134,16 +141,6 @@ function Spectrum({ analyser, playing }: { analyser: AnalyserNode | null; playin
     return () => cancelAnimationFrame(frame);
   }, [analyser, playing]);
   return <canvas ref={ref} className="block h-[150px] w-full" aria-label="Approximate preview spectrum" />;
-}
-
-function mulberry32(seed: number) {
-  let state = seed >>> 0;
-  return () => {
-    state += 0x6d2b79f5;
-    let value = Math.imul(state ^ (state >>> 15), 1 | state);
-    value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 function makeCrossfadedBuffer(ctx: AudioContext, seed: number, seconds = 6): AudioBuffer {
@@ -264,10 +261,13 @@ function useApproxPreview(variant: Variant | undefined) {
 export default function NoiseLab() {
   const [variants, setVariants] = useState<Variant[]>([]);
   const [tracks, setTracks] = useState<LibraryTrack[]>([]);
+  const [releases, setReleases] = useState<DerivedRelease[]>([]);
   const [jobs, setJobs] = useState<QueueJob[]>([]);
   const [queueStats, setQueueStats] = useState({ medianRenderSeconds: null as number | null, sampleSize: 0 });
   const [renderMode, setRenderMode] = useState<"local" | "dispatch" | "unavailable">("local");
-  const [tab, setTab] = useState<"design" | "library" | "queue">("design");
+  const [releaseMode, setReleaseMode] = useState<"local" | "dispatch" | "unavailable">("local");
+  const [tab, setTab] = useState<"design" | "library" | "queue" | "releases">("design");
+  const [releaseId, setReleaseId] = useState<string | undefined>();
   const [selection, setSelection] = useState({ color: "white", band: "mid", motion: "drift", balance: "balanced" });
   const [toast, setToast] = useState<{ message: string; error?: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -275,12 +275,13 @@ export default function NoiseLab() {
   const [queueing, setQueueing] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [documentVisible, setDocumentVisible] = useState(true);
-  const libraryReturnTab = useRef<"design" | "queue" | null>(null);
+  const libraryReturnTab = useRef<"design" | "queue" | "releases" | null>(null);
   const retryInFlight = useRef(false);
   const dockRef = useRef<HTMLElement>(null);
   const lensRef = useRef<HTMLDivElement>(null);
   const queueCount = jobs.filter((job) => job.status !== "Done" && job.status !== "Failed").length;
   const libraryCount = tracks.filter((track) => track.exists).length;
+  const releaseCount = releases.filter((release) => release.ladder.ready && !release.ladder.submitted).length;
   const selected = useMemo(() => variants.find((variant) => variant.color === selection.color && variant.band === selection.band && variant.motion === selection.motion && variant.balance === selection.balance), [selection, variants]);
   const pilotCount = variants.filter((variant) => variant.pilot !== null).length;
   const preview = useApproxPreview(selected);
@@ -289,13 +290,16 @@ export default function NoiseLab() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const [variantResponse, libraryResponse, queueResponse] = await Promise.all([fetch("/api/variants"), fetch("/api/library"), fetch("/api/queue")]);
+      const [variantResponse, libraryResponse, queueResponse, releasesResponse] = await Promise.all([fetch("/api/variants"), fetch("/api/library"), fetch("/api/queue"), fetch("/api/releases")]);
       setVariants((await variantResponse.json()).variants);
       setTracks((await libraryResponse.json()).tracks);
       const queuePayload = (await queueResponse.json()) as { jobs: QueueJob[]; mode?: "local" | "dispatch" | "unavailable"; stats?: typeof queueStats };
       setJobs(queuePayload.jobs);
       setQueueStats(queuePayload.stats ?? { medianRenderSeconds: null, sampleSize: 0 });
       if (queuePayload.mode) setRenderMode(queuePayload.mode);
+      const releasesPayload = (await releasesResponse.json()) as { releases: DerivedRelease[]; mode?: "local" | "dispatch" | "unavailable" };
+      setReleases(releasesPayload.releases);
+      if (releasesPayload.mode) setReleaseMode(releasesPayload.mode);
     } catch { setToast({ message: "Could not load engine data.", error: true }); }
     finally { setLoading(false); }
   }, []);
@@ -349,22 +353,38 @@ export default function NoiseLab() {
       });
     });
   }, [refresh]);
+  const loadReleasesFromHash = useCallback(() => {
+    const match = window.location.hash.match(/^#releases\/(.+)$/);
+    if (window.location.hash !== "#releases" && !match) return;
+    setTab("releases");
+    setReleaseId(match ? decodeURIComponent(match[1]) : undefined);
+    void refresh();
+  }, [refresh]);
   const handleHashChange = useCallback(() => {
     const isLibraryHash = window.location.hash === "#library" || window.location.hash.startsWith("#library/");
+    const isReleasesHash = window.location.hash === "#releases" || window.location.hash.startsWith("#releases/");
+    if (isReleasesHash) {
+      loadReleasesFromHash();
+      return;
+    }
     if (!isLibraryHash) {
       if (libraryReturnTab.current) setTab(libraryReturnTab.current);
       libraryReturnTab.current = null;
+      if (window.location.hash === "") setReleaseId(undefined);
       return;
     }
     libraryReturnTab.current ??= tab === "library" ? "queue" : tab;
     loadLibraryFromHash();
-  }, [loadLibraryFromHash, tab]);
+  }, [loadLibraryFromHash, loadReleasesFromHash, tab]);
   useEffect(() => {
     if (window.location.hash === "#library" || window.location.hash.startsWith("#library/")) {
       libraryReturnTab.current = "design";
       loadLibraryFromHash();
     }
   }, [loadLibraryFromHash]);
+  useEffect(() => {
+    if (window.location.hash === "#releases" || window.location.hash.startsWith("#releases/")) loadReleasesFromHash();
+  }, [loadReleasesFromHash]);
   useEffect(() => {
     window.addEventListener("hashchange", handleHashChange);
     return () => window.removeEventListener("hashchange", handleHashChange);
@@ -477,16 +497,20 @@ export default function NoiseLab() {
         </div>
         <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} onRefresh={() => void refresh()} onToast={setToast} /></div>
         <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} mode={renderMode} stats={queueStats} variants={variants} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onQueuePilot={() => void queue([], "pilot")} onQueueFull={() => void queue([], "full")} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
+        <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} loading={loading} onRefresh={() => void refresh()} onToast={setToast} /></div>
       </div>
       <div className="dock"><nav ref={dockRef} className="glassbar" role="tablist" aria-label="Primary">
         <div ref={lensRef} className="tab-lens" aria-hidden="true" />
-        {(["design", "queue", "library"] as const).map((item) => {
-          const count = item === "queue" ? queueCount : item === "library" ? libraryCount : 0;
+        {(["design", "queue", "library", "releases"] as const).map((item) => {
+          const count = item === "queue" ? queueCount : item === "library" ? libraryCount : item === "releases" ? releaseCount : 0;
           return <button key={item} id={`tab-${item}`} type="button" data-tab={item} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${item[0].toUpperCase()}${item.slice(1)}${count ? `, ${count}` : ""}`} onClick={() => {
             if (item === "library") {
               libraryReturnTab.current = tab === "library" ? "queue" : tab;
               window.location.hash = "library";
-            } else if (window.location.hash === "#library" || window.location.hash.startsWith("#library/")) {
+            } else if (item === "releases") {
+              setReleaseId(undefined);
+              window.location.hash = "releases";
+            } else if (window.location.hash === "#library" || window.location.hash.startsWith("#library/") || window.location.hash === "#releases" || window.location.hash.startsWith("#releases/")) {
               libraryReturnTab.current = item;
               window.location.hash = "";
             } else {
@@ -557,6 +581,261 @@ function TrackCard({ track, onToast }: { track: LibraryTrack; onToast: (toast: {
       </div>
     </article>
   );
+}
+
+function Releases({ releases, releaseId, variants, tracks, mode, loading, onRefresh, onToast }: {
+  releases: DerivedRelease[];
+  releaseId?: string;
+  variants: Variant[];
+  tracks: LibraryTrack[];
+  mode: "local" | "dispatch" | "unavailable";
+  loading: boolean;
+  onRefresh: () => void;
+  onToast: (toast: { message: string; error?: boolean }) => void;
+}) {
+  const release = releases.find((candidate) => candidate.id === releaseId);
+  if (!releaseId || !release) {
+    return <ReleaseList releases={releases} loading={loading} onRefresh={onRefresh} />;
+  }
+  return <ReleaseDetail release={release} savedArtist={releases.find((candidate) => !candidate.unsaved)?.artist} variants={variants} tracks={tracks} mode={mode} onRefresh={onRefresh} onToast={onToast} />;
+}
+
+function ReleaseList({ releases, loading, onRefresh }: { releases: DerivedRelease[]; loading: boolean; onRefresh: () => void }) {
+  return (
+    <section className="panel-section">
+      <div className="panel-heading">
+        <div><h2>Releases</h2><p>Prepare rendered masters for distribution</p></div>
+        <button type="button" onClick={onRefresh} disabled={loading} aria-busy={loading} className={`round-action ${loading ? "is-refreshing" : ""}`} aria-label="Refresh releases"><RefreshCw size={14} /></button>
+      </div>
+      <div className="release-list">
+        {releases.length === 0 && <div className="soft-card empty-state">No releases yet.</div>}
+        {releases.map((release) => (
+          <article key={release.id} className="soft-card release-card" tabIndex={0} role="button" onClick={() => { window.location.hash = `releases/${encodeURIComponent(release.id)}`; }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") window.location.hash = `releases/${encodeURIComponent(release.id)}`; }}>
+            <div className="release-card-heading"><div className="min-w-0 text-left"><div className="release-kicker">{release.unsaved ? "Suggested preset" : release.type.toUpperCase()}</div><h3>{release.title}</h3><p>{release.artist} · {release.tracks.length} tracks</p></div><span className={`release-state release-state-${release.state.toLowerCase()}`}>{release.state}</span></div>
+            <div className="release-checklist" aria-label={`${release.state}: ${release.blockingItem}`}><span className={release.ladder.named ? "release-stage-done" : "release-stage-pending"}>{release.ladder.named ? "✓" : "○"} Named</span><span className={release.ladder.art ? "release-stage-done" : "release-stage-pending"}>{release.ladder.art ? "✓" : "○"} Art</span><span className={release.ladder.ready ? "release-stage-done" : "release-stage-pending"}>{release.ladder.ready ? "✓" : "○"} Ready</span>{release.ladder.submitted && <span className="release-stage-done">✓ Submitted</span>}<span className="release-blocker">{release.blockingItem}</span></div>
+            {release.unsaved && release.id === "pilot-ep" && <div className="release-preset-hint">Start with the pilot EP (8 tracks)</div>}
+            {release.submitted.storeUrl && <a href={release.submitted.storeUrl} target="_blank" rel="noreferrer" className="release-store-link" onClick={(event) => event.stopPropagation()}>Submitted · open in store ↗</a>}
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ReleaseDetail({ release, savedArtist, variants, tracks, mode, onRefresh, onToast }: {
+  release: DerivedRelease;
+  savedArtist?: string;
+  variants: Variant[];
+  tracks: LibraryTrack[];
+  mode: "local" | "dispatch" | "unavailable";
+  onRefresh: () => void;
+  onToast: (toast: { message: string; error?: boolean }) => void;
+}) {
+  const [draft, setDraft] = useState<Release>(release);
+  const [busy, setBusy] = useState(false);
+  const [handoff, setHandoff] = useState(false);
+  const artPreview = useRef<HTMLCanvasElement>(null);
+  const candidateCounts = useRef(new Map<string, number>());
+  const dirty = useRef(false);
+  const loadedReleaseId = useRef(release.id);
+  const dimensions = useMemo<CoverArtDimensions>(() => {
+    const byId = new Map(variants.map((variant) => [variant.variantId, variant]));
+    return draft.tracks.flatMap((track) => {
+      const variant = byId.get(track.variantId);
+      return variant ? [{ color: variant.color, band: variant.band, motion: variant.motion }] : [];
+    });
+  }, [draft.tracks, variants]);
+  const lint = useMemo(() => lintNames(draft.tracks.map((track) => track.title)), [draft.tracks]);
+  const variantById = useMemo(() => new Map(variants.map((variant) => [variant.variantId, variant])), [variants]);
+  const libraryById = useMemo(() => new Map(tracks.map((track) => [track.variantId, track])), [tracks]);
+  useEffect(() => {
+    if (loadedReleaseId.current === release.id && dirty.current) return;
+    const next = { ...release };
+    if (release.unsaved && savedArtist) next.artist = savedArtist;
+    setDraft(next);
+    setHandoff(false);
+    dirty.current = false;
+    loadedReleaseId.current = release.id;
+  }, [release, savedArtist]);
+
+  useEffect(() => {
+    if (!artPreview.current || draft.artSeed === null || !dimensions.length) return;
+    const source = document.createElement("canvas");
+    renderCoverArt(source, draft, dimensions, draft.artSeed, true);
+    const context = artPreview.current.getContext("2d");
+    if (!context) return;
+    context.clearRect(0, 0, artPreview.current.width, artPreview.current.height);
+    context.drawImage(source, 0, 0, artPreview.current.width, artPreview.current.height);
+  }, [draft, dimensions]);
+
+  function update(patch: Partial<Release>) {
+    dirty.current = true;
+    setDraft((current) => ({ ...current, ...patch }));
+  }
+
+  async function persist(next = draft) {
+    if (mode === "unavailable") {
+      onToast({ message: "Releases are edited where a writer is configured; this deployment is read-only", error: true });
+      return false;
+    }
+    setBusy(true);
+    try {
+      const response = await fetch("/api/releases", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(toReleaseDocument(next)) });
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        onToast({ message: payload.error ?? "Could not save release.", error: true });
+        return false;
+      }
+      onToast({ message: mode === "dispatch" ? "Release save dispatched." : "Release saved." });
+      dirty.current = false;
+      onRefresh();
+      return true;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function generateNames() {
+    if (busy || mode === "unavailable") return;
+    setBusy(true);
+    try {
+      const nextTracks: ReleaseTrack[] = [];
+      for (const track of draft.tracks) {
+        const response = await fetch("/api/names/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ variantId: track.variantId, siblingTitles: nextTracks.map((candidate) => candidate.title) }) });
+        if (!response.ok) throw new Error("Name generation failed");
+        const payload = (await response.json()) as { suggestion: { title: string; description: string } };
+        nextTracks.push({ ...track, title: payload.suggestion.title, description: payload.suggestion.description, approvedAt: null });
+      }
+      const next = { ...draft, tracks: nextTracks };
+      setDraft(next);
+      await persist(next);
+    } catch (error) {
+      onToast({ message: error instanceof Error ? error.message : "Name generation failed.", error: true });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function regenerate(index: number) {
+    if (busy || mode === "unavailable") return;
+    const track = draft.tracks[index];
+    const candidate = (candidateCounts.current.get(track.variantId) ?? index) + 1;
+    candidateCounts.current.set(track.variantId, candidate);
+    const response = await fetch("/api/names/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ variantId: track.variantId, candidate, siblingTitles: draft.tracks.filter((_, row) => row !== index).map((candidate) => candidate.title) }) });
+    if (!response.ok) {
+      onToast({ message: "Name generation failed.", error: true });
+      return;
+    }
+    const payload = (await response.json()) as { suggestion: { title: string; description: string } };
+    const nextTracks = draft.tracks.map((candidate, row) => row === index ? { ...candidate, title: payload.suggestion.title, description: payload.suggestion.description, approvedAt: null } : candidate);
+    dirty.current = true;
+    setDraft({ ...draft, tracks: nextTracks });
+  }
+
+  async function approveNames() {
+    if (lint.hardFailures.length) {
+      onToast({ message: lint.hardFailures[0].message, error: true });
+      return;
+    }
+    const next = { ...draft, tracks: draft.tracks.map((track) => ({ ...track, approvedAt: new Date().toISOString() })) };
+    dirty.current = true;
+    setDraft(next);
+    await persist(next);
+  }
+
+  function regenerateArt() {
+    if (mode === "unavailable") return;
+    const next = { ...draft, artSeed: crypto.getRandomValues(new Uint32Array(1))[0] & 0x7fffffff };
+    dirty.current = true;
+    setDraft(next);
+    void persist(next);
+  }
+
+  function downloadArt() {
+    if (draft.artSeed === null || !dimensions.length) return;
+    const source = document.createElement("canvas");
+    renderCoverArt(source, draft, dimensions, draft.artSeed, true);
+    source.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${draft.id}-cover.png`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, "image/png");
+  }
+
+  function copy(value: string, label: string) {
+    if (!navigator.clipboard) {
+      onToast({ message: `Could not copy ${label.toLowerCase()}.`, error: true });
+      return;
+    }
+    void navigator.clipboard.writeText(value)
+      .then(() => onToast({ message: `${label} copied.` }))
+      .catch(() => onToast({ message: `Could not copy ${label.toLowerCase()}.`, error: true }));
+  }
+
+  async function markSubmitted(storeUrl: string) {
+    const next = { ...draft, submitted: { at: new Date().toISOString(), storeUrl: storeUrl.trim() || null } };
+    setDraft(next);
+    await persist(next);
+  }
+
+  if (handoff && release.state === "Ready") {
+    return <DistroHandoff release={draft} tracks={tracks} onBack={() => setHandoff(false)} onCopy={copy} onSubmit={markSubmitted} mode={mode} />;
+  }
+  const namesReady = draft.tracks.every((track) => track.title.trim()) && lint.hardFailures.length === 0;
+  const footerLabel = release.state === "Submitted" ? "Submitted · open in store" : !namesReady ? "Generate names" : release.state === "Named" ? "Approve names" : release.state === "Ready" ? "Prepare for DistroKid" : "Save release";
+  const footerAction = release.state === "Submitted" ? () => undefined : !namesReady ? generateNames : release.state === "Named" ? approveNames : release.state === "Ready" ? () => setHandoff(true) : () => void persist();
+  return (
+    <section className="panel-section release-detail">
+      <button type="button" className="back-link" onClick={() => { window.location.hash = "releases"; }}><ChevronLeft size={17} /> All releases</button>
+      <div className="panel-heading"><div><div className="release-kicker">{release.unsaved ? "Suggested preset" : release.type.toUpperCase()}</div><h2>{draft.title || "Untitled release"}</h2><p>{draft.tracks.length} tracks · <span aria-live="polite">{release.state} · {release.blockingItem}</span></p>{release.submitted.storeUrl && <a href={release.submitted.storeUrl} target="_blank" rel="noreferrer" className="release-store-link">Submitted · open in store ↗</a>}</div><button type="button" onClick={() => void persist()} disabled={busy || mode === "unavailable" || release.state === "Submitted"} className="round-action" aria-label="Save release"><Save size={14} /></button></div>
+      {mode === "unavailable" && <div className="soft-card unavailable-note">Releases are edited where a writer is configured; this deployment is read-only.</div>}
+      <section className="soft-card release-section"><div className="section-title">Metadata</div><div className="release-fields">
+        {(["artist", "title", "genre", "secondaryGenre", "songwriter"] as const).map((field) => <label key={field} className="release-field"><span>{field === "secondaryGenre" ? "Secondary genre" : field[0].toUpperCase() + field.slice(1)}</span><input value={draft[field]} disabled={mode === "unavailable"} onChange={(event) => update({ [field]: event.target.value })} /></label>)}
+        <label className="release-field"><span>Release date</span><input type="date" value={draft.releaseDate} disabled={mode === "unavailable"} onChange={(event) => update({ releaseDate: event.target.value })} /></label>
+      </div></section>
+      <section className="soft-card release-section"><div className="section-title">Tracklist · {draft.tracks.length}</div>
+        <ol className="tracklist" aria-label="Release tracklist">
+          {draft.tracks.map((track, index) => {
+            const library = libraryById.get(track.variantId);
+            const variant = variantById.get(track.variantId);
+            const messages = lint.messages.filter((message) => message.row === index);
+            return <li className="release-track-row" aria-label={`Track ${index + 1}: ${track.title || "untitled"}`} key={track.variantId}>
+              <div className="release-track-number">{index + 1}</div><div className="release-track-body"><div className="release-track-meta">{variant?.color} / {variant?.band} / {variant?.motion} {library?.exists ? "· rendered" : "· not rendered"}</div><input aria-label={`Track ${index + 1} title`} value={track.title} disabled={mode === "unavailable"} placeholder="Untitled track" onChange={(event) => { dirty.current = true; setDraft({ ...draft, tracks: draft.tracks.map((candidate, row) => row === index ? { ...candidate, title: event.target.value, approvedAt: null } : candidate) }); }} />{messages.map((message) => <div className={`lint-message lint-${message.severity}`} key={message.message}>{message.message}</div>)}</div><button type="button" className="queue-link regenerate-button" disabled={busy || mode === "unavailable"} onClick={() => void regenerate(index)} aria-label={`Regenerate title for track ${index + 1}`}><RefreshCw size={14} /></button>
+            </li>;
+          })}
+        </ol>
+        <div className="release-track-actions"><button type="button" className="queue-secondary" disabled={busy || mode === "unavailable"} onClick={() => void generateNames()}><Sparkles size={14} /> Generate names</button><button type="button" className="queue-primary" disabled={busy || mode === "unavailable" || lint.hardFailures.length > 0 || !namesReady} onClick={() => void approveNames()}>Approve names</button></div>
+      </section>
+      <section className="soft-card release-section"><div className="section-title">Cover art</div><div className="cover-art-frame">{draft.artSeed === null ? <div className="empty-state">No art yet — generate a seed below.</div> : <canvas ref={artPreview} width="240" height="240" aria-label="Generated cover art preview" />}</div><div className="cover-art-actions"><button type="button" className="queue-secondary" disabled={mode === "unavailable"} onClick={regenerateArt}>{draft.artSeed === null ? "Generate cover art" : "Regenerate"}</button>{draft.artSeed !== null && <button type="button" className="queue-secondary cover-download" onClick={downloadArt}><Download size={14} /> Download PNG</button>}</div></section>
+      <div className="release-footer"><div className="release-footer-status" aria-live="polite"><strong>{release.state}</strong><span>{release.blockingItem}</span></div><button type="button" className="queue-primary" disabled={busy || mode === "unavailable" || (release.state === "Ready" && !namesReady)} onClick={() => void footerAction()}>{footerLabel}</button></div>
+    </section>
+  );
+}
+
+function DistroHandoff({ release, tracks, onBack, onCopy, onSubmit, mode }: {
+  release: Release;
+  tracks: LibraryTrack[];
+  onBack: () => void;
+  onCopy: (value: string, label: string) => void;
+  onSubmit: (storeUrl: string) => Promise<void>;
+  mode: "local" | "dispatch" | "unavailable";
+}) {
+  const [storeUrl, setStoreUrl] = useState("");
+  const byId = new Map(tracks.map((track) => [track.variantId, track]));
+  return <section className="panel-section release-detail">
+    <button type="button" className="back-link" onClick={onBack}><ChevronLeft size={17} /> Release checklist</button>
+    <div className="panel-heading"><div><h2>Prepare for DistroKid</h2><p>Copy each field, then upload the downloaded files.</p></div></div>
+    <section className="soft-card release-section"><div className="section-title">Release metadata</div>{[
+      ["Artist", release.artist], ["Release title", release.title], ["Number of songs", String(release.tracks.length)], ["Genre", release.genre], ["Secondary genre", release.secondaryGenre], ["Release date", release.releaseDate], ["Songwriter", release.songwriter],
+    ].map(([label, value]) => <div className="copy-field" key={label}><div><span>{label}</span><strong>{value || "Not set"}</strong></div><button type="button" className="copy-button" disabled={!value} onClick={() => onCopy(value, label)} aria-label={`Copy ${label}`}><Clipboard size={16} /> Copy</button></div>)}</section>
+    <section className="soft-card release-section"><div className="section-title">Tracklist</div>{release.tracks.map((track, index) => <div className="copy-field" key={track.variantId}><div><span>{index + 1}. Track title · Songwriter</span><strong>{track.title} · {release.songwriter || "Not set"}</strong></div><div className="copy-actions"><button type="button" className="copy-button" onClick={() => onCopy(track.title, `Track ${index + 1} title`)}><Clipboard size={16} /> Copy</button>{byId.get(track.variantId)?.exists && <a className="copy-button" href={byId.get(track.variantId)?.downloadUrl} download><Download size={16} /> WAV</a>}</div></div>)}</section>
+    <section className="soft-card release-section"><div className="section-title">Store answers</div><p className="handoff-note">Not explicit · Instrumental · No radio edit</p><p className="handoff-note">Masters: 48 kHz/24-bit WAV · −20 LUFS / −3 dBTP</p></section>
+    <section className="soft-card release-section"><div className="section-title">Mark submitted</div><label className="release-field"><span>DistroKid or Spotify URL (optional)</span><input value={storeUrl} onChange={(event) => setStoreUrl(event.target.value)} placeholder="https://" /></label><button type="button" className="queue-primary handoff-submit" disabled={mode === "unavailable"} onClick={() => void onSubmit(storeUrl)}>Mark submitted</button></section>
+  </section>;
 }
 
 const QUEUE_NOTES: Record<string, string> = {

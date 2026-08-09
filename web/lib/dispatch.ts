@@ -36,6 +36,17 @@ export async function dispatchRender(variants: string): Promise<void> {
   }
 }
 
+export async function dispatchMetadata(payload: string): Promise<void> {
+  const response = await fetch(`${API}/repos/${DISPATCH_REPO}/actions/workflows/metadata.yml/dispatches`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ ref: DISPATCH_REF, inputs: { payload } }),
+  });
+  if (!response.ok) {
+    throw new Error(`GitHub refused the metadata dispatch (${response.status}): ${(await response.text()).slice(0, 300)}`);
+  }
+}
+
 type WorkflowRun = {
   id: number;
   status: string;
