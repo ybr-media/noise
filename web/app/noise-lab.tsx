@@ -346,11 +346,9 @@ export default function NoiseLab() {
               <button type="button" onClick={preview.toggle} aria-label={preview.playing ? "Stop approximate preview" : "Play approximate preview"} className="play-button">
                 {preview.playing ? <Pause size={27} fill="white" strokeWidth={0} /> : <Play size={27} fill="white" strokeWidth={0} className="ml-1" />}
               </button>
-              <div className="action-row-main">
-                <button type="button" onClick={() => void queue([selected.variantId], "one")} className="queue-primary" title="Queues only the currently selected variant." aria-label="Queue only the currently selected variant"><Layers size={16} /> Queue this render</button>
-                <div className="matrix-label">Matrix {selected.matrixIndex} of {variants.length}</div>
-              </div>
+              <button type="button" onClick={() => void queue([selected.variantId], "one")} className="queue-primary" title="Queues only the currently selected variant." aria-label="Queue only the currently selected variant"><Layers size={16} /> Queue this render</button>
             </div>
+            <div className="matrix-label">Matrix {selected.matrixIndex} of {variants.length}</div>
             <section className="soft-card controls-card">
               <Row label="Color" hint={selected.spectrum.bell ? "+6 dB bell @ 500 Hz" : `${selected.spectrum.tiltDbPerOct} dB/oct`}><Segmented options={OPTIONS.color} value={selection.color} onChange={(value) => setSelection((old) => ({ ...old, color: value }))} label="Color" /></Row>
               <Row label="Band" hint={`${selected.band} texture`}><Segmented options={OPTIONS.band} value={selection.band} onChange={(value) => setSelection((old) => ({ ...old, band: value }))} label="Band" /></Row>
