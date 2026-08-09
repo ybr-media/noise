@@ -270,6 +270,7 @@ export default function NoiseLab() {
   const [selection, setSelection] = useState({ color: "white", band: "mid", motion: "drift", balance: "balanced" });
   const [toast, setToast] = useState<{ message: string; error?: boolean } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [queueRefreshing, setQueueRefreshing] = useState(false);
   const [queueing, setQueueing] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [documentVisible, setDocumentVisible] = useState(true);
@@ -297,9 +298,10 @@ export default function NoiseLab() {
     } catch { setToast({ message: "Could not load engine data.", error: true }); }
     finally { setLoading(false); }
   }, []);
-  const refreshQueue = useCallback(async () => {
+  const refreshQueue = useCallback(async (showBusy = false) => {
     if (queueFetchInFlight.current || document.visibilityState !== "visible") return;
     queueFetchInFlight.current = true;
+    if (showBusy) setQueueRefreshing(true);
     try {
       const response = await fetch("/api/queue", { cache: "no-store" });
       if (!response.ok) return;
@@ -310,6 +312,7 @@ export default function NoiseLab() {
     } catch {
     } finally {
       queueFetchInFlight.current = false;
+      if (showBusy) setQueueRefreshing(false);
     }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
@@ -440,7 +443,7 @@ export default function NoiseLab() {
             <button type="button" onClick={() => setAboutOpen((open) => !open)} aria-label="About Noise Lab" aria-expanded={aboutOpen} className="info-button"><Info size={20} /></button>
             {aboutOpen && <p role="note" className="noise-about">Design a variant, review masters, queue the worker.</p>}
           </div>
-          <button type="button" onClick={() => void refresh()} aria-label="Refresh" className="refresh-button"><RefreshCw size={21} /></button>
+          <button type="button" onClick={() => void refresh()} disabled={loading} aria-busy={loading} aria-label="Refresh" className={`refresh-button ${loading ? "is-refreshing" : ""}`}><RefreshCw size={21} /></button>
         </header>
 
         <div id="panel-design" role="tabpanel" aria-labelledby="tab-design" className={`panel ${tab === "design" ? "panel-show" : ""}`} hidden={tab !== "design"}>
@@ -472,7 +475,7 @@ export default function NoiseLab() {
           )}
         </div>
         <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} onRefresh={() => void refresh()} onToast={setToast} /></div>
-        <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} mode={renderMode} stats={queueStats} variants={variants} onRefresh={() => void refreshQueue()} onQueuePilot={() => void queue([], "pilot")} onQueueFull={() => void queue([], "full")} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
+        <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} mode={renderMode} stats={queueStats} variants={variants} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onQueuePilot={() => void queue([], "pilot")} onQueueFull={() => void queue([], "full")} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
       </div>
       <div className="dock"><nav ref={dockRef} className="glassbar" role="tablist" aria-label="Primary">
         <div ref={lensRef} className="tab-lens" aria-hidden="true" />
@@ -501,7 +504,7 @@ export default function NoiseLab() {
 function Library({ tracks, loading, onRefresh, onToast }: { tracks: LibraryTrack[]; loading: boolean; onRefresh: () => void; onToast: (toast: { message: string; error?: boolean }) => void }) {
   return (
     <section className="panel-section">
-      <div className="panel-heading"><div><h2>Library</h2><p>Rendered masters and QA evidence</p></div><button type="button" onClick={onRefresh} className="round-action" aria-label="Refresh library"><RefreshCw size={14} /></button></div>
+      <div className="panel-heading"><div><h2>Library</h2><p>Rendered masters and QA evidence</p></div><button type="button" onClick={onRefresh} disabled={loading} aria-busy={loading} className={`round-action ${loading ? "is-refreshing" : ""}`} aria-label="Refresh library"><RefreshCw size={14} /></button></div>
       <div className="section-title">Masters · {tracks.filter((track) => track.exists).length}</div>
       <div className="soft-card library-summary"><div className="font-medium">{tracks.filter((track) => track.exists).length} of {tracks.length} variants rendered</div><div className="mt-1 break-all font-mono text-[10px] text-[color:var(--secondary-text)]">Reading {tracks[0]?.path.replace(/\/[^/]+$/, "") ?? "configured render directory"}</div></div>
       <div className="library-list">
@@ -543,13 +546,13 @@ function TrackCard({ track, onToast }: { track: LibraryTrack; onToast: (toast: {
   return (
     <article id={`track-${track.variantId}`} className="soft-card track-card">
       <div>
-        <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-mono text-[11px]">{track.variantId}</div>{track.title && <div className="mt-1 truncate text-sm font-semibold">{track.title}{track.titleApproved && <span className="ml-1 text-[10px] font-normal text-[#34c759]">approved</span>}</div>}<div className="mt-1 text-[12px] text-[color:var(--secondary-text)]">Matrix {track.matrixIndex} · {formatDuration(track.durationSeconds)} · {track.color} / {track.band} / {track.motion}</div></div><span className={`rounded-full px-2 py-1 font-mono text-[10px] font-semibold ${track.qaVerdict === "PASS" ? "bg-green-50 text-[#34c759]" : track.qaVerdict === "FAIL" ? "bg-red-50 text-[#ff3b30]" : "bg-gray-100 text-[color:var(--secondary-text)]"}`}>{track.qaVerdict}</span></div>
+        <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-mono text-[11px]">{track.variantId}</div>{track.title && <div className="mt-1 truncate text-sm font-semibold">{track.title}{track.titleApproved && <span className="ml-1 text-[10px] font-normal text-[#187a35]">approved</span>}</div>}<div className="mt-1 text-[12px] text-[color:var(--secondary-text)]">Matrix {track.matrixIndex} · {formatDuration(track.durationSeconds)} · {track.color} / {track.band} / {track.motion}</div></div><span className={`rounded-full px-2 py-1 font-mono text-[10px] font-semibold ${track.qaVerdict === "PASS" ? "bg-green-50 text-[#187a35]" : track.qaVerdict === "FAIL" ? "bg-red-50 text-[#b42318]" : "bg-gray-100 text-[color:var(--secondary-text)]"}`}>{track.qaVerdict}</span></div>
         <audio className="mt-3 w-full" controls preload="none" src={track.audioUrl} />
         <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-[#f2f2f7] p-3 text-xs"><div><span className="text-[color:var(--secondary-text)]">LUFS</span><div className="mt-0.5 font-mono font-semibold">{track.measuredLufs ?? "—"}</div></div><div><span className="text-[color:var(--secondary-text)]">True peak</span><div className="mt-0.5 font-mono font-semibold">{track.measuredTruePeak ?? "—"}</div></div></div>
-        <details className="mt-3"><summary className="cursor-pointer text-xs font-medium text-[#007aff]">Show QA checks</summary><div className="mt-2 space-y-1">{track.qaChecks.map((check) => <div key={check.name} className="flex justify-between gap-2 border-t border-[#d8d8dc] py-1.5 text-[11px]"><span>{check.passed ? "✓" : "×"} {check.name}</span><span className="font-mono text-[color:var(--secondary-text)]">{check.measured}</span></div>)}</div></details>
+        <details className="mt-3"><summary className="cursor-pointer text-xs font-medium text-[#005bb5]">Show QA checks</summary><div className="mt-2 space-y-1">{track.qaChecks.map((check) => <div key={check.name} className="flex justify-between gap-2 border-t border-[#d8d8dc] py-1.5 text-[11px]"><span>{check.passed ? "✓" : "×"} {check.name}</span><span className="font-mono text-[color:var(--secondary-text)]">{check.measured}</span></div>)}</div></details>
         <div className="mt-3 flex gap-2"><a href={track.downloadUrl} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#e9e9eb] py-2.5 text-xs font-medium"><Download size={14} /> Download master</a><button type="button" onClick={() => void generate()} disabled={busy} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#1c1c1e] py-2.5 text-xs font-medium text-white"><Sparkles size={14} /> {busy ? "Thinking…" : "Suggest SEO name"}</button></div>
         {Boolean(track.stems.length) && <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]"><span className="text-[color:var(--secondary-text)]">Stems</span>{track.stems.map((stem) => stem.exists ? <a key={stem.filename} href={stem.downloadUrl} className="rounded-lg bg-[#f2f2f7] px-2 py-1 font-medium">{stem.number}. {stem.stem}</a> : <span key={stem.filename} className="rounded-lg px-2 py-1 text-[color:var(--secondary-text)]">{stem.number}. {stem.stem} —</span>)}</div>}
-        {suggestion && <div className="mt-3 rounded-xl border border-[#d8d8dc] p-3"><div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--secondary-text)]">Review before approval</div><input value={suggestion.title} onChange={(event) => setSuggestion({ ...suggestion, title: event.target.value })} className="w-full border-b border-[#d8d8dc] pb-1 text-sm font-semibold outline-none" /><textarea value={suggestion.description} onChange={(event) => setSuggestion({ ...suggestion, description: event.target.value })} className="mt-2 h-16 w-full resize-none text-xs leading-4 outline-none" /><div className="mt-2 flex justify-end gap-2"><button type="button" onClick={() => void regenerate()} disabled={busy} className="rounded-lg px-2 py-1.5 text-xs text-[#007aff] disabled:text-[#aeaeb2]">Regenerate</button><button type="button" onClick={() => void approve()} disabled={busy} className="rounded-lg bg-[#34c759] px-3 py-1.5 text-xs font-semibold text-white disabled:bg-[#c7c7cc]">{busy ? "Approving…" : "Approve"}</button></div></div>}
+        {suggestion && <div className="mt-3 rounded-xl border border-[#d8d8dc] p-3"><div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--secondary-text)]">Review before approval</div><input value={suggestion.title} onChange={(event) => setSuggestion({ ...suggestion, title: event.target.value })} className="w-full border-b border-[#d8d8dc] pb-1 text-sm font-semibold outline-none" /><textarea value={suggestion.description} onChange={(event) => setSuggestion({ ...suggestion, description: event.target.value })} className="mt-2 h-16 w-full resize-none text-xs leading-4 outline-none" /><div className="mt-2 flex justify-end gap-2"><button type="button" onClick={() => void regenerate()} disabled={busy} className="rounded-lg px-2 py-1.5 text-xs text-[#005bb5] disabled:text-[color:var(--secondary-text)]">Regenerate</button><button type="button" onClick={() => void approve()} disabled={busy} className="rounded-lg bg-[#34c759] px-3 py-1.5 text-xs font-semibold text-white disabled:bg-[#c7c7cc]">{busy ? "Approving…" : "Approve"}</button></div></div>}
       </div>
     </article>
   );
@@ -561,7 +564,7 @@ const QUEUE_NOTES: Record<string, string> = {
   unavailable: "This deployment has no renderer configured, so it browses published masters only.",
 };
 
-function Queue({ jobs, mode, stats, variants, onRefresh, onQueuePilot, onQueueFull, onRetry, onDone, queueing, pilotCount, matrixCount }: { jobs: QueueJob[]; mode: "local" | "dispatch" | "unavailable"; stats: { medianRenderSeconds: number | null; sampleSize: number }; variants: Variant[]; onRefresh: () => void; onQueuePilot: () => void; onQueueFull: () => void; onRetry: (job: QueueJob) => Promise<boolean>; onDone: (job: QueueJob) => void; queueing: boolean; pilotCount: number; matrixCount: number }) {
+function Queue({ jobs, mode, stats, variants, onRefresh, refreshing, onQueuePilot, onQueueFull, onRetry, onDone, queueing, pilotCount, matrixCount }: { jobs: QueueJob[]; mode: "local" | "dispatch" | "unavailable"; stats: { medianRenderSeconds: number | null; sampleSize: number }; variants: Variant[]; onRefresh: () => void; refreshing: boolean; onQueuePilot: () => void; onQueueFull: () => void; onRetry: (job: QueueJob) => Promise<boolean>; onDone: (job: QueueJob) => void; queueing: boolean; pilotCount: number; matrixCount: number }) {
   const activeJobs = jobs.filter((job) => job.status === "Queued" || job.status === "Rendering");
   const failedJobs = jobs.filter((job) => job.status === "Failed");
   const completedJobs = jobs.filter((job) => job.status === "Done");
@@ -609,7 +612,7 @@ function Queue({ jobs, mode, stats, variants, onRefresh, onQueuePilot, onQueueFu
     <section className="panel-section">
       <div className="panel-heading">
         <div><div className="queue-heading-line"><h2>Render queue</h2><span className="mode-chip">{mode === "dispatch" ? "GitHub Actions" : mode === "local" ? "Local worker" : "Browse only"}</span></div><p className="queue-summary" aria-live="polite">{summary}</p></div>
-        <div className="panel-heading-actions"><button type="button" onClick={onRefresh} className="round-action" aria-label="Refresh queue"><RefreshCw size={14} /></button></div>
+        <div className="panel-heading-actions"><button type="button" onClick={onRefresh} disabled={refreshing} aria-busy={refreshing} className={`round-action ${refreshing ? "is-refreshing" : ""}`} aria-label="Refresh queue"><RefreshCw size={14} /></button></div>
       </div>
       {failedJobs.length > 0 && group("Needs attention", failedJobs, "Nothing needs attention")}
       {group("Active", activeJobs, "No active renders — open Start renders below")}
