@@ -480,7 +480,7 @@ export default function NoiseLab() {
         </div>
         <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} onRefresh={() => void refresh()} onToast={setToast} /></div>
         <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} mode={renderMode} stats={queueStats} variants={variants} onRefresh={() => void refreshQueue()} onQueuePilot={() => void queue([], "pilot")} onQueueFull={() => void queue([], "full")} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
-        <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} loading={loading} onRefresh={() => void refresh()} onToast={setToast} /></div>
+        <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} onRefresh={() => void refresh()} onToast={setToast} /></div>
       </div>
       <div className="dock"><nav ref={dockRef} className="glassbar" role="tablist" aria-label="Primary">
         <div ref={lensRef} className="tab-lens" aria-hidden="true" />
@@ -566,29 +566,28 @@ function TrackCard({ track, onToast }: { track: LibraryTrack; onToast: (toast: {
   );
 }
 
-function Releases({ releases, releaseId, variants, tracks, mode, loading, onRefresh, onToast }: {
+function Releases({ releases, releaseId, variants, tracks, mode, onRefresh, onToast }: {
   releases: DerivedRelease[];
   releaseId?: string;
   variants: Variant[];
   tracks: LibraryTrack[];
   mode: "local" | "dispatch" | "unavailable";
-  loading: boolean;
   onRefresh: () => void;
   onToast: (toast: { message: string; error?: boolean }) => void;
 }) {
   const release = releases.find((candidate) => candidate.id === releaseId);
   if (!releaseId || !release) {
-    return <ReleaseList releases={releases} loading={loading} onRefresh={onRefresh} />;
+    return <ReleaseList releases={releases} onRefresh={onRefresh} />;
   }
   return <ReleaseDetail release={release} savedArtist={releases.find((candidate) => !candidate.unsaved)?.artist} variants={variants} tracks={tracks} mode={mode} onRefresh={onRefresh} onToast={onToast} />;
 }
 
-function ReleaseList({ releases, loading, onRefresh }: { releases: DerivedRelease[]; loading: boolean; onRefresh: () => void }) {
+function ReleaseList({ releases, onRefresh }: { releases: DerivedRelease[]; onRefresh: () => void }) {
   return (
     <section className="panel-section">
       <div className="panel-heading">
         <div><h2>Releases</h2><p>Prepare rendered masters for distribution</p></div>
-        <button type="button" onClick={onRefresh} disabled={loading} aria-busy={loading} className={`round-action ${loading ? "is-refreshing" : ""}`} aria-label="Refresh releases"><RefreshCw size={14} /></button>
+        <button type="button" onClick={onRefresh} className="round-action" aria-label="Refresh releases"><RefreshCw size={14} /></button>
       </div>
       <div className="release-list">
         {releases.length === 0 && <div className="soft-card empty-state">No releases yet.</div>}
