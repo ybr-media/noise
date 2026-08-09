@@ -214,6 +214,7 @@ button:disabled { cursor: not-allowed; }
   .glassbar { justify-content: space-between; width: 100%; }
   .dock-tab { flex: 1; justify-content: center; padding-right: 10px; padding-left: 10px; font-size: 14px; }
   .release-section { padding-right: 14px; padding-left: 14px; }
+  .release-detail { padding-bottom: calc(var(--dock-height) + var(--dock-height) + var(--card-gap) + env(safe-area-inset-bottom)); }
   .release-footer { bottom: calc(var(--dock-height) + 34px + env(safe-area-inset-bottom)); align-items: stretch; flex-direction: column; }
   .release-footer .queue-primary { width: 100%; }
   .copy-field { align-items: flex-start; }
