@@ -273,7 +273,7 @@ export default function NoiseLab() {
   const [queueing, setQueueing] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [documentVisible, setDocumentVisible] = useState(true);
-  const [, setLibraryReturnTab] = useState<"design" | "queue" | null>(null);
+  const libraryReturnTab = useRef<"design" | "queue" | null>(null);
   const retryInFlight = useRef(false);
   const dockRef = useRef<HTMLElement>(null);
   const lensRef = useRef<HTMLDivElement>(null);
@@ -325,7 +325,7 @@ export default function NoiseLab() {
     return () => window.clearInterval(timer);
   }, [documentVisible, jobs, refreshQueue, tab]);
   const openLibrary = useCallback((variantId?: string) => {
-    setLibraryReturnTab(tab === "library" ? "queue" : tab);
+    libraryReturnTab.current = tab === "library" ? "queue" : tab;
     window.location.hash = variantId ? `library/${variantId}` : "library";
   }, [tab]);
   const loadLibraryFromHash = useCallback(() => {
@@ -348,18 +348,16 @@ export default function NoiseLab() {
   const handleHashChange = useCallback(() => {
     const isLibraryHash = window.location.hash === "#library" || window.location.hash.startsWith("#library/");
     if (!isLibraryHash) {
-      setLibraryReturnTab((returnTab) => {
-        if (returnTab) setTab(returnTab);
-        return null;
-      });
+      if (libraryReturnTab.current) setTab(libraryReturnTab.current);
+      libraryReturnTab.current = null;
       return;
     }
-    setLibraryReturnTab((returnTab) => returnTab ?? (tab === "library" ? "queue" : tab));
+    libraryReturnTab.current ??= tab === "library" ? "queue" : tab;
     loadLibraryFromHash();
   }, [loadLibraryFromHash, tab]);
   useEffect(() => {
     if (window.location.hash === "#library" || window.location.hash.startsWith("#library/")) {
-      setLibraryReturnTab("design");
+      libraryReturnTab.current = "design";
       loadLibraryFromHash();
     }
   }, [loadLibraryFromHash]);
@@ -482,17 +480,14 @@ export default function NoiseLab() {
           const count = item === "queue" ? queueCount : item === "library" ? libraryCount : 0;
           return <button key={item} id={`tab-${item}`} type="button" data-tab={item} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${item[0].toUpperCase()}${item.slice(1)}${count ? `, ${count}` : ""}`} onClick={() => {
             if (item === "library") {
-              setLibraryReturnTab(tab === "library" ? "queue" : tab);
+              libraryReturnTab.current = tab === "library" ? "queue" : tab;
               window.location.hash = "library";
-            }
-            else {
-              if (window.location.hash === "#library" || window.location.hash.startsWith("#library/")) {
-                setLibraryReturnTab(item);
-                window.location.hash = "";
-              } else {
-                setLibraryReturnTab(null);
-                setTab(item);
-              }
+            } else if (window.location.hash === "#library" || window.location.hash.startsWith("#library/")) {
+              libraryReturnTab.current = item;
+              window.location.hash = "";
+            } else {
+              libraryReturnTab.current = null;
+              setTab(item);
             }
             window.scrollTo({ top: 0, behavior: "smooth" });
           }} className={`dock-tab ${tab === item ? "is-active" : ""}`}>{item[0].toUpperCase() + item.slice(1)}{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</button>;
