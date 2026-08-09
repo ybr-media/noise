@@ -33,6 +33,10 @@ The Library reads sidecars, `qa_results.json`, and `render_log.jsonl`, streams
 local WAVs through a range-aware API route, and never loads a master into the
 client bundle.
 
+One library track is one variant's master. The master's sidecar names the three
+stems it was mixed from, which the card offers as extra downloads through the
+same audio route; only the master is playable, QA'd, and nameable.
+
 ## Render modes
 
 The console reports one of three modes and never accepts work it cannot run:

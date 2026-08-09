@@ -13,6 +13,14 @@ Determinism rules encoded here:
   in the Nyquist shipped with Audacity 3.7.8.
 * Left and right are generated from separate seeds inside a single stereo
   Nyquist expression, so the two channels decorrelate.
+
+Every variant exports four aligned files: the mixed master plus the three
+stems it was mixed from. The three stems stay in the project as tracks 0-2 and
+the master is mixed into a fourth track, so the stems survive the mix and every
+file is written from the same post-processed audio.  Loudness is measured once,
+on the master, by the caller; the resulting fixed linear gain is then applied
+identically to all four tracks through :meth:`RenderPlan.gain_commands`, which
+is what keeps ``sum(stems) == master``.
 """
 
 from __future__ import annotations
@@ -20,9 +28,22 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
+from pathlib import PurePath
 
 STEMS: tuple[str, ...] = ("bed", "texture", "motion")
 CHANNELS: tuple[str, ...] = ("l", "r")
+
+#: Track holding the mixed master once the stems have been mixed into it.
+MASTER_TRACK_INDEX: int = len(STEMS)
+
+#: Suffix identifying the mixed master among a variant's four output files.
+MASTER_SUFFIX: str = "_master"
+
+#: ``stem_N`` key -> stem name.  Numbers are one-based and are part of the
+#: published contract, so consumers never have to parse filenames.
+STEM_MAP: Mapping[str, str] = {
+    f"stem_{number}": stem for number, stem in enumerate(STEMS, start=1)
+}
 
 #: Extra audio generated beyond the cell length, consumed by the tail-to-head
 #: crossfade that makes the cell loop seamlessly.
@@ -54,6 +75,54 @@ MAX_CURVE_HZ: float = 20000.0
 
 class PlanError(ValueError):
     """Raised when a variant row cannot be turned into a render plan."""
+
+
+def master_filename(track_name: str, suffix: str = ".wav") -> str:
+    """Return the master filename for a variant's base track name."""
+    return f"{track_name}{MASTER_SUFFIX}{suffix}"
+
+
+def stem_filename(track_name: str, number: int, suffix: str = ".wav") -> str:
+    """Return the filename of one one-based stem of a variant."""
+    if not 1 <= number <= len(STEMS):
+        raise PlanError(f"stem number out of range: {number}")
+    return f"{track_name}_stem_{number}{suffix}"
+
+
+def track_name_of_master(filename: str) -> str:
+    """Return the base track name of a master filename."""
+    stem, dot, _ = filename.rpartition(".")
+    name = stem if dot else filename
+    if not name.endswith(MASTER_SUFFIX):
+        raise PlanError(f"not a master filename: {filename!r}")
+    return name[: -len(MASTER_SUFFIX)]
+
+
+def is_master_filename(filename: str) -> bool:
+    """Return whether ``filename`` names a mixed master."""
+    try:
+        track_name_of_master(filename)
+    except PlanError:
+        return False
+    return True
+
+
+def stem_filenames(master: str) -> tuple[str, ...]:
+    """Return the three stem filenames belonging to a master filename."""
+    _, dot, extension = master.rpartition(".")
+    suffix = f".{extension}" if dot else ""
+    track_name = track_name_of_master(master)
+    return tuple(
+        stem_filename(track_name, number, suffix)
+        for number in range(1, len(STEMS) + 1)
+    )
+
+
+def _stem_paths(master_path: str) -> tuple[str, ...]:
+    path = PurePath(master_path)
+    return tuple(
+        str(path.with_name(name)) for name in stem_filenames(path.name)
+    )
 
 
 @dataclass(frozen=True)
@@ -130,17 +199,64 @@ class Output:
 
 @dataclass(frozen=True)
 class RenderPlan:
-    """An ordered, side-effect-free description of one variant's render."""
+    """An ordered, side-effect-free description of one variant's render.
+
+    ``commands`` leaves the project with the three post-processed stems on
+    tracks 0-2 and the mixed master on track 3, at its natural level.  The
+    caller then measures the master, applies :meth:`gain_commands` once and
+    writes the four files.
+    """
 
     variant: Variant
     output: Output
-    export_path: str
+    master_path: str
+    stem_paths: tuple[str, ...]
     commands: tuple[str, ...]
 
     @property
     def total_seconds(self) -> float:
-        """Duration of the exported file, in seconds."""
+        """Duration of the exported files, in seconds."""
         return self.output.cell_seconds * self.output.repeats
+
+    @property
+    def track_paths(self) -> tuple[str, ...]:
+        """Output paths indexed by the project track they are written from."""
+        return (*self.stem_paths, self.master_path)
+
+    def gain_commands(self, gain_db: float) -> tuple[str, ...]:
+        """Commands applying one fixed gain to the master and every stem.
+
+        ``Amplify`` takes an absolute linear ratio, so a single command over
+        the whole four-track selection scales every track by exactly the same
+        factor and leaves the stem sum equal to the master.
+        """
+        return (
+            self._select(0, len(self.track_paths)),
+            f"Amplify: Ratio={_ratio(gain_db)} AllowClipping=1",
+        )
+
+    def export_commands(self, track_index: int, export_path: str) -> tuple[str, ...]:
+        """Commands exporting one track of the finished project.
+
+        ``Export2`` mixes down the unmuted tracks, so isolating a track means
+        muting every other one first.
+        """
+        if not 0 <= track_index < len(self.track_paths):
+            raise PlanError(f"track index out of range: {track_index}")
+        return (
+            self._select(0, len(self.track_paths)),
+            "SetTrack: Mute=1",
+            self._select(track_index, 1),
+            "SetTrack: Mute=0",
+            f"Export2: Filename={_quote(export_path)} NumChannels=2",
+        )
+
+    def _select(self, track_index: int, track_count: int) -> str:
+        return (
+            f"Select: Start=0 End={_seconds(self.total_seconds)} "
+            f"Track={track_index} TrackCount={track_count} "
+            "Mode=Set RelativeTo=ProjectStart"
+        )
 
 
 def _require(row: Mapping[str, object], key: str, context: str) -> object:
@@ -266,6 +382,11 @@ def _seconds(value: float) -> str:
 
 def _decibels(value: float) -> str:
     return f"{value:.4f}".rstrip("0").rstrip(".")
+
+
+def _ratio(gain_db: float) -> str:
+    """Render a decibel gain as the linear ratio ``Amplify`` expects."""
+    return f"{10.0 ** (gain_db / 20.0):.9g}"
 
 
 def _nyquist_number(value: float) -> str:
@@ -506,33 +627,39 @@ def _crossfade_expression(cell_seconds: float, crossfade_seconds: float) -> str:
     )
 
 
+def _stem_selection(start: float, end: float) -> str:
+    """Select one time range across all three stem tracks."""
+    return (
+        f"Select: Start={_seconds(start)} End={_seconds(end)} "
+        f"Track=0 TrackCount={len(STEMS)} Mode=Set RelativeTo=ProjectStart"
+    )
+
+
 def _fade_commands(output: Output, total_seconds: float) -> list[str]:
     fade = output.fade_seconds
     if fade <= 0:
         return []
     return [
-        f"Select: Start=0 End={_seconds(fade)} Mode=Set RelativeTo=ProjectStart",
+        _stem_selection(0, fade),
         "FadeIn:",
-        (
-            f"Select: Start={_seconds(total_seconds - fade)} "
-            f"End={_seconds(total_seconds)} Mode=Set RelativeTo=ProjectStart"
-        ),
+        _stem_selection(total_seconds - fade, total_seconds),
         "FadeOut:",
-        f"Select: Start=0 End={_seconds(total_seconds)} Mode=Set RelativeTo=ProjectStart",
+        _stem_selection(0, total_seconds),
     ]
 
 
 def build_plan(
     variant_row: Mapping[str, object],
     output_row: Mapping[str, object],
-    export_path: str,
+    master_path: str,
     crossfade_seconds: float = CROSSFADE_SECONDS,
 ) -> RenderPlan:
-    """Build the full command sequence for one variant.
+    """Build the render command sequence for one variant.
 
-    ``export_path`` is the absolute path Audacity writes the WAV to; the
-    caller is responsible for combining the output directory with the
-    variant's ``filename``.
+    ``master_path`` is the absolute path of the mixed master; the caller is
+    responsible for combining the output directory with the variant's
+    ``filename``.  The three stem paths are derived from it, so the master
+    filename is the single source of truth for a variant's file group.
     """
     variant = parse_variant(variant_row)
     output = parse_output(output_row)
@@ -555,50 +682,48 @@ def build_plan(
     commands += _texture_commands(variant, 1, stem_seconds)
     commands += _motion_commands(variant, 2, stem_seconds)
 
+    # Bake the balance into the samples rather than riding the track's volume
+    # slider: a slider only affects what Audacity itself mixes and exports,
+    # while the .aup3 serializer reads the stored samples.
     for index, stem in enumerate(STEMS):
         commands.append(
-            f"Select: Track={index} TrackCount=1 Mode=Set "
-            "RelativeTo=ProjectStart"
+            f"Select: Start=0 End={_seconds(stem_seconds)} "
+            f"Track={index} TrackCount=1 Mode=Set RelativeTo=ProjectStart"
         )
         commands.append(
-            f"SetTrackAudio: Volume={_decibels(variant.gain_db(stem) + STEM_HEADROOM_DB)}"
+            "Amplify: "
+            f"Ratio={_ratio(variant.gain_db(stem) + STEM_HEADROOM_DB)} "
+            "AllowClipping=1"
         )
 
+    # Every stem is looped, trimmed and faded identically, so the stems stay
+    # sample-aligned with each other and with the master mixed from them.
     commands += [
-        "SelectAll:",
-        "MixAndRender:",
-        (
-            f"Select: Start=0 End={_seconds(stem_seconds)} "
-            "Track=0 TrackCount=1 Mode=Set RelativeTo=ProjectStart"
-        ),
+        _stem_selection(0, stem_seconds),
         nyquist_prompt(_crossfade_expression(output.cell_seconds, crossfade_seconds)),
-        (
-            f"Select: Start=0 End={_seconds(output.cell_seconds)} "
-            "Track=0 TrackCount=1 Mode=Set RelativeTo=ProjectStart"
-        ),
+        _stem_selection(0, output.cell_seconds),
         "Trim:",
     ]
 
-    commands.append(
-        "LoudnessNormalization: "
-        f"LUFSLevel={_decibels(output.target_lufs)} NormalizeTo=0 "
-        "StereoIndependent=0 DualMono=0"
-    )
-
-    # `Repeat: Count=N` appends N further copies of the normalized selection,
-    # so the selection plus its copies is N + 1 cells long.
+    # `Repeat: Count=N` appends N further copies of the selection, so the
+    # selection plus its copies is N + 1 cells long.
     if output.repeats > 1:
         commands.append(f"Repeat: Count={output.repeats - 1}")
 
-    commands += [
-        f"Select: Start=0 End={_seconds(total_seconds)} Mode=Set RelativeTo=ProjectStart",
-    ]
+    commands.append(_stem_selection(0, total_seconds))
     commands += _fade_commands(output, total_seconds)
-    commands.append(f"Export2: Filename={_quote(export_path)} NumChannels=2")
+
+    # `MixAndRenderToNewTrack` keeps its sources, unlike `MixAndRender`, so
+    # the three stems remain exportable next to the master they sum to.
+    commands += [
+        _stem_selection(0, total_seconds),
+        "MixAndRenderToNewTrack:",
+    ]
 
     return RenderPlan(
         variant=variant,
         output=output,
-        export_path=export_path,
+        master_path=master_path,
+        stem_paths=_stem_paths(master_path),
         commands=tuple(commands),
     )

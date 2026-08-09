@@ -93,3 +93,26 @@ def test_selection_supports_pilot_full_and_explicit_ids(tmp_path: Path) -> None:
 def test_selection_rejects_unknown_ids() -> None:
     with pytest.raises(SystemExit):
         select_variants.select("not_a_variant")
+
+
+def test_stems_are_published_but_only_masters_count_as_releases(tmp_path: Path) -> None:
+    names = ["wn_v_master", "wn_v_stem_1", "wn_v_stem_2", "wn_v_stem_3"]
+    for index, name in enumerate(names):
+        (tmp_path / f"{name}.wav").write_bytes(b"RIFF")
+        (tmp_path / f"{name}.json").write_text(
+            json.dumps({
+                "variant_id": "v",
+                "role": "master" if not index else f"stem_{index}",
+                "stem_filenames": [f"{stem}.wav" for stem in names[1:]],
+            }),
+            encoding="utf-8",
+        )
+    manifest = publish_artifacts.build_manifest(tmp_path)
+    assert [entry["filename"] for entry in manifest["artifacts"]] == [
+        f"{name}.wav" for name in names
+    ]
+    # Four files ship, but the library gains one track.
+    assert publish_artifacts.master_count(manifest) == 1
+    uploaded = {path.name for path, _ in publish_artifacts.uploads(tmp_path, manifest)}
+    assert {f"{name}.wav" for name in names} <= uploaded
+    assert {f"{name}.json" for name in names} <= uploaded

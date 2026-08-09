@@ -32,6 +32,30 @@ On Audacity 3.7.8, the Nyquist function is `(random-seed N)`; the PRD's
 uses the supported function and this discrepancy is recorded in
 `docs/audacity-notes.md`.
 
+## Outputs per variant
+
+Every variant renders four aligned 48 kHz/24-bit stereo WAVs:
+
+```text
+<track-name>_master.wav   the mixed master, and the library track
+<track-name>_stem_1.wav   bed
+<track-name>_stem_2.wav   texture
+<track-name>_stem_3.wav   motion
+```
+
+The three stems are the same audio the master was mixed from, so they sum back
+to it: QA's `Stem sum` check requires `max |sum(stems) - master| <= 1e-5`, and a
+real render measures about `2.4e-7` (`-132 dBFS`), which is 24-bit
+requantization of four files. That holds because loudness is measured once on
+the mix and the resulting gain is applied to all four tracks; the stems are
+never normalized on their own, and the finished-mix thresholds (loudness, true
+peak, tilt, seam) still apply to the master alone.
+
+Four files per variant is four times the bytes: about 260 MB per four-minute
+variant, so the full 144-variant matrix is roughly 37 GB published. The renderer
+deletes each variant's intermediate `.aup3` as soon as its outputs are
+extracted, keeping the CI runner's working set to one variant.
+
 ## Publishing renders
 
 Masters, sidecars, and QA evidence are published to an S3-compatible bucket
