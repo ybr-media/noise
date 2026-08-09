@@ -31,7 +31,12 @@ export function relativeTime(iso: string, now = Date.now()): string {
 export function absoluteTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
-  return `${date.toISOString().replace("T", " ").replace(".000Z", " UTC").replace("Z", " UTC")}`;
+  const [datePart, timePart] = date.toISOString().split("T");
+  return `${datePart} ${timePart.slice(0, 8)} UTC`;
+}
+
+export function hasRepeatedVariant(job: QueueJob, jobs: QueueJob[]): boolean {
+  return jobs.some((candidate) => candidate.id !== job.id && candidate.variantId === job.variantId);
 }
 
 export function attemptNumber(job: QueueJob, jobs: QueueJob[]): number {

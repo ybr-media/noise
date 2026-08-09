@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LibraryTrack, QueueJob, Variant } from "@/lib/types";
-import { attemptNumber, absoluteTime, isSuperseded, knownVariantId, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
+import { absoluteTime, attemptNumber, hasRepeatedVariant, isSuperseded, knownVariantId, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
 import { formatBatchLabel, formatVariantLabel, isBatchVariantId, OPTIONS } from "@/lib/variant-labels";
 import { BellMark } from "./bell-mark";
 
@@ -594,6 +594,7 @@ function Queue({ jobs, mode, stats, variants, onRefresh, onQueuePilot, onQueueFu
     const superseded = isSuperseded(job, jobs);
     const alreadyRetried = retried.has(job.id) || superseded;
     const attempt = attemptNumber(job, jobs);
+    const attemptLabel = hasRepeatedVariant(job, jobs) ? ` · Attempt ${attempt}` : "";
     const failureCopy = batch
       ? `${name} render failed — see logs for which variant(s)`
       : job.error ?? "Render failed";
@@ -616,7 +617,7 @@ function Queue({ jobs, mode, stats, variants, onRefresh, onQueuePilot, onQueueFu
         }}>{alreadyRetried ? "Retried ✓" : "Retry"}</button>
       )
     );
-    const content = <><span className={`status-dot ${job.status.toLowerCase()}`} /><div className="queue-body"><div className="queue-name" title={job.variantId}>{name} · Attempt {attempt}</div><div className="queue-sub" title={job.error}>{done ? variant ? "Master ready · Open in Library ›" : "Masters ready · Open Library ›" : job.status === "Failed" ? failureCopy : activeCopy(job)}</div>{job.status === "Failed" && <div className="queue-actions">{job.logsUrl && <a href={job.logsUrl} target="_blank" rel="noopener" className="queue-link">View logs</a>}{retryControl}</div>}</div><time className="queue-time" title={absoluteTime(job.queuedAt)}>{relativeTime(job.queuedAt)}</time></>;
+    const content = <><span className={`status-dot ${job.status.toLowerCase()}`} /><div className="queue-body"><div className="queue-name" title={`${job.variantId} · Run ${job.id}`}>{name}{attemptLabel}</div><div className="queue-sub" title={job.error}>{done ? variant ? "Master ready · Open in Library ›" : "Masters ready · Open Library ›" : job.status === "Failed" ? failureCopy : activeCopy(job)}</div>{job.status === "Failed" && <div className="queue-actions">{job.logsUrl && <a href={job.logsUrl} target="_blank" rel="noopener" className="queue-link">View logs</a>}{retryControl}</div>}</div><time className="queue-time" title={absoluteTime(job.queuedAt)}>{relativeTime(job.queuedAt)}</time></>;
     return done ? <button type="button" key={job.id} className="queue-item queue-link-row" onClick={() => onDone(job)}>{content}</button> : <div key={job.id} className="queue-item">{content}</div>;
   };
   const group = (title: string, entries: QueueJob[], empty: string) => <section className="queue-group"><div className="section-title">{title}</div><div className="soft-card queue-card">{entries.length === 0 ? <div className="empty-state">{empty}</div> : entries.map(row)}</div></section>;

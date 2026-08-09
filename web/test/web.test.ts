@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { absoluteTime, attemptNumber, formatMinutes, isSuperseded, knownVariantId, median, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "../lib/eta";
+import { absoluteTime, attemptNumber, formatMinutes, hasRepeatedVariant, isSuperseded, knownVariantId, median, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "../lib/eta";
 import { formatBatchLabel, formatVariantLabel } from "../lib/variant-labels";
 
 const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "noise-lab-web-test-"));
@@ -92,6 +92,7 @@ test("formats queue estimates and relative times", () => {
   assert.equal(`${renderEstimate(180, 1, 0)} remaining`, "~3 min remaining");
   assert.equal(relativeTime(new Date(Date.now() - 4 * 60 * 1000).toISOString()), "4m ago");
   assert.equal(absoluteTime("2026-08-09T12:34:56.000Z"), "2026-08-09 12:34:56 UTC");
+  assert.equal(absoluteTime("2026-08-09T12:34:56.123Z"), "2026-08-09 12:34:56 UTC");
 });
 
 test("formats known variants and batch fallbacks for queue rows", async () => {
@@ -112,6 +113,8 @@ test("numbers repeated queue attempts and detects superseded failures", () => {
   ];
   assert.equal(attemptNumber(jobs[1], jobs), 1);
   assert.equal(attemptNumber(jobs[0], jobs), 2);
+  assert.equal(hasRepeatedVariant(jobs[1], jobs), true);
+  assert.equal(hasRepeatedVariant(jobs[2], jobs), false);
   assert.equal(isSuperseded(jobs[1], jobs), true);
   assert.equal(isSuperseded(jobs[0], jobs), false);
 });
