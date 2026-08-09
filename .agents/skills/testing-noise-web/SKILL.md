@@ -1,6 +1,6 @@
 ---
 name: testing-noise-web
-description: How to run and visually test the Noise Lab Next.js console in web/ (dev and production servers, seeding Library/Queue data for count badges, tab selectors and hash routing, stale .next pitfalls, inspecting SVG artwork and CSS load animations).
+description: How to run and visually test the Noise Lab Next.js console in web/ (dev and production servers, fabricating arbitrary Queue states from a JSONL fixture, making in-flight refresh/busy states observable, sampling CSS animation state reliably, seeding Library/Queue data for count badges, tab selectors and hash routing, stale .next pitfalls, inspecting SVG artwork and CSS load animations).
 ---
 
 # Testing the Noise Lab web console (`web/`)
@@ -61,6 +61,78 @@ Out of the box both are empty, so tab count badges never render and you cannot t
   increments the Render badge and pops a toast. No worker/Audacity is needed just to see queue
   state; actual rendering requires `setup.sh` + Audacity under Xvfb.
 
+## Fabricating arbitrary Queue states (failed rows, batches, repeated variants)
+Clicking "Queue this render" can only ever produce *queued* jobs, so failure/retry/batch rows must be
+fabricated. The queue is file-backed when you point it at a JSONL fixture, which makes every queue-row
+scenario testable with no GitHub Actions and no worker:
+
+```bash
+mkdir -p /tmp/nq
+cd web
+NOISE_QUEUE_FILE=/tmp/nq/queue.jsonl \
+NOISE_RENDERING_AVAILABLE=1 \
+PORT=3001 npm run dev
+```
+
+`NOISE_RENDERING_AVAILABLE=1` puts the app in **Local worker** mode (shown as a chip next to the
+"Render queue" heading). One JSON object per line; the list is rendered newest-first. Useful fields:
+`id`, `variantId`, `status` (`Failed`/`Queued`/`Done`), `queuedAt` (ISO), `error`, `logsUrl`.
+
+To exercise every label kind at once use `variantId` values: a known id (`wn_white_mid_drift_balanced`
+→ `White · Mid · Drift · Even`), a comma-joined/unknown id (falls back to the raw slug), `pilot`
+(`Pilot set (8)`), `full` (`Full matrix (144)`), and the SAME `variantId` twice with different
+`queuedAt` to trigger the `Attempt N` markers. Keep a pristine copy (`queue.base.jsonl`) and `cp` it
+back between tests — retries mutate the fixture. Assert dispatch counts by diffing `wc -l` on the
+fixture rather than trusting the UI alone.
+
+**Batch retry expands to individual variant ids.** `POST /api/queue/retry` with `variantId: "pilot"`
+enqueues the 8 concrete variant ids, not another `pilot` row. Because "Retried ✓" is derived by
+looking for a *sibling job sharing the same variantId*, a batch (`pilot`/`full`) row therefore cannot
+show "Retried ✓" after a reload in local-worker mode, while single-variant rows can. Expect this
+asymmetry before filing it as a bug.
+
+## Observing in-flight / busy UI state (refresh spinners, disabled, aria-busy)
+Local API routes answer in a few ms, so in-flight state is otherwise impossible to catch. Add a
+**temporary, uncommitted** env-gated delay at the top of the GET handlers in
+`web/app/api/{queue,variants,library,releases}/route.ts`:
+
+```ts
+const d = Number(process.env.NOISE_TEST_DELAY_MS ?? 0);
+if (d) await new Promise((r) => setTimeout(r, d));
+```
+
+Run with `NOISE_TEST_DELAY_MS=6000`. This scaffolding must never be committed — `git status` should
+show only these route files as modified, and they must be reverted before any merge or push.
+
+**Sample with a requestAnimationFrame loop, not a single probe.** A `browser_console` call issued
+after a click usually lands *after* the fetch resolved and reports a misleading all-idle result. Arm a
+sampler first, then click through the real UI, then read the collected samples:
+
+```js
+window.__s = []; const t0 = performance.now();
+const tick = () => {
+  const b = document.querySelector('.round-action[aria-label="Refresh queue"]');
+  const svg = b.querySelector('svg'), cs = getComputedStyle(svg);
+  window.__s.push({ disabled: b.disabled, ariaBusy: b.getAttribute('aria-busy'),
+    refreshing: b.classList.contains('is-refreshing'),
+    anim: cs.animationName, transform: cs.transform, nAnims: svg.getAnimations().length });
+  if (performance.now() - t0 < 12000) requestAnimationFrame(tick);
+};
+requestAnimationFrame(tick);
+```
+
+Then filter to `refreshing === true` samples. `animationName`, `getAnimations().length` and the set of
+distinct `transform` values are the objective proof of an actual spin — zoomed screenshots of a small
+icon are ambiguous and should not be the primary evidence. Note a *dead* `@keyframes spin` can exist
+with no rule ever assigning `animation: spin ...`; always grep for the positive assignment, not just
+the keyframe, and check the **served** CSS too:
+`curl -s localhost:3001/_next/static/css/app/layout.css | tr '}' '}\n' | grep -n is-refreshing`.
+
+The refresh buttons are `.round-action[aria-label="Refresh library|Refresh queue|Refresh releases"]`.
+Queue's busy state is opt-in: only a user click passes `refreshQueue(true)`, while the 30s background
+poll calls `refreshQueue()` and must leave the button idle — watch the dev-server log for a poll
+`GET /api/queue 200` while sampling to prove it.
+
 ## UI map / selectors
 - Tabs live in `nav.glassbar[role=tablist]` in the bottom dock; buttons are
   `[data-tab="design|queue|library|releases"]` with ids `tab-<value>` and panels `#panel-<value>`.
@@ -97,8 +169,17 @@ The bell uses `rise` (.58s), `bell-eyes-in` (.18s @ .16s) and `bell-smile-in` (.
   screenshots at ~3.5s / 4.5s / 5.5s to capture intermediate frames. Restore the file afterwards
   (`cp` a backup first, then confirm `git diff` is empty).
 - `prefers-reduced-motion` can only be exercised via DevTools → **Rendering** panel → "Emulate CSS
-  media feature prefers-reduced-motion". Open DevTools with F12 first; Ctrl+Shift+P while the *page*
-  has focus opens the print dialog, not the command menu.
+  media feature prefers-reduced-motion". Open DevTools with F12 first, then **click inside the
+  DevTools pane** so it owns focus — Ctrl+Shift+P while the *page* has focus opens the print dialog,
+  not the command menu. `Ctrl+Shift+P` → "Show Rendering" gives the drawer with the dropdown, which is
+  more reliable than the one-shot command-menu toggle because you can read the current value and set
+  it back to "No emulation" for the control run. Always confirm the state in-page with
+  `matchMedia('(prefers-reduced-motion: reduce)').matches` before trusting a result.
+- When asserting that reduced motion *suppresses* something, always run the **control** case too
+  (emulation off) and show the thing does appear. The intro splash is gated in JS
+  (`introState` → `"hidden"` immediately under reduce) and is removed from the DOM ~1.65s after load
+  anyway, so "element absent" alone proves nothing — reload with emulation off and screenshot within
+  the first second to catch the bell.
 - Anything server-rendered and then hidden by a `useEffect` (`matchMedia` checks, splash/intro
   overlays) still paints before hydration. Re-check on the production build before reporting, and
   take the screenshot immediately after `Ctrl+Shift+R` (no `wait` first) to catch the first frame.
@@ -119,6 +200,20 @@ Mobile rules kick in at `max-width: 520px` (the Design action row becomes sticky
 width). Device emulation at 390x844 works; resizing the real window also works:
 `wmctrl -r :ACTIVE: -b remove,maximized_vert,maximized_horz && wmctrl -r :ACTIVE: -e 0,0,0,500,900`
 then reload; restore with `wmctrl -r :ACTIVE: -b add,maximized_vert,maximized_horz`.
+
+The window manager enforces a **minimum outer window width (~532px here)**, so `wmctrl` alone cannot
+reach ~390 CSS px. Combine it with Chrome page zoom (`Ctrl+-`) to shrink the CSS viewport further, and
+always report the real `window.innerWidth` you achieved rather than the nominal target. Media queries
+evaluate against the zoomed CSS viewport, so `matchMedia('(max-width: 400px)').matches` is a valid
+check. Remember **Chrome zoom is per-host**, so reset with Ctrl+0 afterwards.
+
+To prove nothing is trapped under the fixed dock, scroll to the bottom and compare geometry rather
+than eyeballing it — collect the largest `getBoundingClientRect().bottom` over visible descendants of
+the active panel (skipping `display:none` and closed `<details>`) and subtract it from
+`.dock` `getBoundingClientRect().top`; a positive gap is the pass. Measure touch targets the same way:
+`.dock-tab` heights drop to ~41.5px at `<=520px` (the mobile rule shrinks `font-size` to 13px while
+keeping 11px padding), which is under the 44px guideline even though `.mini-segment`,
+`.bulk-action` buttons and `.queue-link` all explicitly set `min-height: 44px`.
 
 ## Test-harness caveat
 The screenshot tool annotates the live DOM with `devin-hidden`/`offscreen` attributes. A screenshot
