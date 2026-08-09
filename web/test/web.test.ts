@@ -32,20 +32,35 @@ const variant = (id: string, filename: string) => ({
   variant_id: id,
 });
 fs.writeFileSync(configPath, JSON.stringify({ output: { cell_seconds: 60, repeats: 4 }, variants: [
-  variant("wn_white_mid_drift_balanced", "present.wav"),
-  variant("wn_white_mid_drift_texture-forward", "missing.wav"),
+  variant("wn_white_mid_drift_balanced", "present_master.wav"),
+  variant("wn_white_mid_drift_texture-forward", "missing_master.wav"),
 ] }));
-fs.writeFileSync(pilotPath, JSON.stringify({ output: { cell_seconds: 60, repeats: 4 }, variants: [variant("wn_white_mid_drift_balanced", "present.wav")] }));
-fs.writeFileSync(path.join(renderDir, "present.wav"), "RIFFfixture");
-fs.writeFileSync(path.join(renderDir, "present.json"), JSON.stringify({
+fs.writeFileSync(pilotPath, JSON.stringify({ output: { cell_seconds: 60, repeats: 4 }, variants: [variant("wn_white_mid_drift_balanced", "present_master.wav")] }));
+const stemFilenames = ["present_stem_1.wav", "present_stem_2.wav", "present_stem_3.wav"];
+fs.writeFileSync(path.join(renderDir, "present_master.wav"), "RIFFfixture");
+// The third stem is absent on purpose: a half-published group must still render.
+for (const filename of stemFilenames.slice(0, 2)) {
+  fs.writeFileSync(path.join(renderDir, filename), "RIFFstem");
+}
+fs.writeFileSync(path.join(renderDir, "present_master.json"), JSON.stringify({
   variant_id: "wn_white_mid_drift_balanced",
   cell_seconds: 61.25,
   repeats: 4,
   existing_key: "preserved",
+  role: "master",
+  stem: null,
+  stem_filenames: stemFilenames,
+  stem_map: { stem_1: "bed", stem_2: "texture", stem_3: "motion" },
+}));
+fs.writeFileSync(path.join(renderDir, "present_stem_1.json"), JSON.stringify({
+  variant_id: "wn_white_mid_drift_balanced",
+  role: "stem_1",
+  stem: "bed",
+  stem_filenames: stemFilenames,
 }));
 fs.writeFileSync(path.join(renderDir, "qa_results.json"), JSON.stringify({
   summary: { overall_verdict: "PASS" },
-  files: [{ filename: "present.wav", checks: [
+  files: [{ filename: "present_master.wav", checks: [
     { name: "Loudness", measured: "-20.000 LUFS", threshold: "within", passed: true },
     { name: "True peak", measured: "-10.000 dBTP", threshold: "under", passed: true },
   ] }],
@@ -103,6 +118,41 @@ test("assembles rendered and missing library tracks with QA evidence", async () 
   assert.deepEqual(tracks[1].qaChecks, []);
 });
 
+test("groups the stems with their master and serves every file as audio", async () => {
+  const [, { libraryTracks, audioAsset }] = await modulesPromise;
+  const [master, missing] = await libraryTracks();
+  assert.deepEqual(master.stems.map((stem) => [stem.number, stem.stem, stem.exists]), [
+    [1, "bed", true],
+    [2, "texture", true],
+    [3, "motion", false],
+  ]);
+  assert.equal(master.stems[0].audioUrl, "/api/audio/present_stem_1.wav");
+  assert.equal(master.stems[0].downloadUrl, "/api/audio/present_stem_1.wav?download=1");
+  // A variant that was never rendered has no stems to offer.
+  assert.deepEqual(missing.stems, []);
+  assert.deepEqual(await audioAsset("present_master.wav"), {
+    filename: "present_master.wav",
+    exists: true,
+    isMaster: true,
+  });
+  assert.deepEqual(await audioAsset("present_stem_2.wav"), {
+    filename: "present_stem_2.wav",
+    exists: true,
+    isMaster: false,
+  });
+  assert.deepEqual(await audioAsset("present_stem_3.wav"), {
+    filename: "present_stem_3.wav",
+    exists: false,
+    isMaster: false,
+  });
+  assert.equal(await audioAsset("not_a_render.wav"), undefined);
+});
+
+test("only a master can be named", async () => {
+  const [, , { approveName }] = await modulesPromise;
+  assert.throws(() => approveName("present_stem_1.wav", "Title", "Description"), /master/);
+});
+
 test("resolves inclusive byte ranges including suffix ranges", async () => {
   const [, , , { resolveByteRange }] = await modulesPromise;
   assert.deepEqual(resolveByteRange("bytes=10-19", 100), { start: 10, end: 19 });
@@ -113,8 +163,8 @@ test("resolves inclusive byte ranges including suffix ranges", async () => {
 
 test("approval preserves existing sidecar keys", async () => {
   const [, , { approveName }] = await modulesPromise;
-  approveName("present.wav", "Approved title", "Approved description");
-  const sidecar = JSON.parse(fs.readFileSync(path.join(renderDir, "present.json"), "utf8")) as Record<string, unknown>;
+  approveName("present_master.wav", "Approved title", "Approved description");
+  const sidecar = JSON.parse(fs.readFileSync(path.join(renderDir, "present_master.json"), "utf8")) as Record<string, unknown>;
   assert.equal(sidecar.existing_key, "preserved");
   assert.equal(sidecar.variant_id, "wn_white_mid_drift_balanced");
   assert.equal(sidecar.seo_title, "Approved title");

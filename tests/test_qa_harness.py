@@ -46,6 +46,11 @@ def sidecar(**changes: object) -> dict[str, object]:
         "tilt_db_per_oct": 0,
         "audacity_version": "test",
         "render_timestamp": "2025-01-01T00:00:00Z",
+        "loudness_gain_db": -3.0,
+        "role": "master",
+        "stem": None,
+        "stem_filenames": [],
+        "stem_map": {"stem_1": "bed", "stem_2": "texture", "stem_3": "motion"},
     }
     result.update(changes)
     return result
@@ -94,6 +99,35 @@ def _tilted_cell(rng: np.random.Generator, slope: float = 0) -> np.ndarray:
     return cell
 
 
+#: Fractions of the master carried by each fixture stem.  Real stems are
+#: independent sources; a QA fixture only has to sum back to its master.
+STEM_WEIGHTS = (0.5, 0.3, 0.2)
+
+
+def stem_paths(master: Path) -> list[Path]:
+    base = master.name.removesuffix(".wav").removesuffix("_master")
+    return [master.with_name(f"{base}_stem_{number}.wav") for number in (1, 2, 3)]
+
+
+def write_group(master: Path, audio: np.ndarray, rate: int) -> None:
+    """Write a master and the three stems that sum back to it."""
+    sf.write(master, audio, rate, subtype="PCM_24", format="WAV")
+    metadata = json.loads(master.with_suffix(".json").read_text())
+    names = [path.name for path in stem_paths(master)]
+    metadata["stem_filenames"] = names
+    master.with_suffix(".json").write_text(json.dumps(metadata), encoding="utf-8")
+    for number, (path, weight) in enumerate(zip(stem_paths(master), STEM_WEIGHTS), start=1):
+        sf.write(path, audio * weight, rate, subtype="PCM_24", format="WAV")
+        path.with_suffix(".json").write_text(
+            json.dumps({
+                **metadata,
+                "role": f"stem_{number}",
+                "stem": ("bed", "texture", "motion")[number - 1],
+            }),
+            encoding="utf-8",
+        )
+
+
 def make_track(
     directory: Path,
     name: str = "wn_white_full_static_balanced_s1.wav",
@@ -115,12 +149,12 @@ def make_track(
     loudness = pyln.Meter(SAMPLE_RATE).integrated_loudness(audio)
     audio *= 10 ** ((-20 - loudness) / 20)
     path = directory / name
-    sf.write(path, audio, SAMPLE_RATE, subtype="PCM_24", format="WAV")
     metadata = sidecar(tilt_db_per_oct=slope)
     if bell:
         metadata["color"] = "green"
         metadata["bell"] = {"gain_db": BELL_GAIN_DB, "center_hz": BELL_CENTER_HZ, "q": BELL_Q}
     path.with_suffix(".json").write_text(json.dumps(metadata), encoding="utf-8")
+    write_group(path, audio, SAMPLE_RATE)
     return path
 
 
@@ -145,13 +179,13 @@ def test_targeted_basic_failures(tmp_path: Path) -> None:
     path = make_track(tmp_path)
     audio, rate = sf.read(path, dtype="float64", always_2d=True)
     audio *= 2
-    sf.write(path, audio, rate, subtype="PCM_24", format="WAV")
+    write_group(path, audio, rate)
     assert_only(path, "Loudness")
 
     path = make_track(tmp_path, "wn_white_full_static_balanced_s2.wav")
     audio, rate = sf.read(path, dtype="float64", always_2d=True)
     audio[100000, 0] = 1.0
-    sf.write(path, audio, rate, subtype="PCM_24", format="WAV")
+    write_group(path, audio, rate)
     result = checks(path)
     failing = {name for name, check in result.items() if not check.passed}
     # A full-scale sample also necessarily exceeds the -3 dBTP true-peak limit.
@@ -160,13 +194,13 @@ def test_targeted_basic_failures(tmp_path: Path) -> None:
     path = make_track(tmp_path, "wn_white_full_static_balanced_s3.wav")
     audio, rate = sf.read(path, dtype="float64", always_2d=True)
     audio += 0.001
-    sf.write(path, audio, rate, subtype="PCM_24", format="WAV")
+    write_group(path, audio, rate)
     assert_only(path, "DC offset")
 
     path = make_track(tmp_path, "wn_white_full_static_balanced_s4.wav")
     audio, rate = sf.read(path, dtype="float64", always_2d=True)
     audio[:, 1] = audio[:, 0]
-    sf.write(path, audio, rate, subtype="PCM_24", format="WAV")
+    write_group(path, audio, rate)
     assert_only(path, "Stereo decorrelation")
 
 
@@ -203,14 +237,14 @@ def test_wrong_tilt_gap_and_first_seam_click(tmp_path: Path) -> None:
     path = make_track(tmp_path, "wn_white_full_static_balanced_s2.wav")
     audio, rate = sf.read(path, dtype="float64", always_2d=True)
     audio[150000:150000 + round(0.2 * rate)] = 0
-    sf.write(path, audio, rate, subtype="PCM_24", format="WAV")
+    write_group(path, audio, rate)
     assert_only(path, "Silence/dropout")
 
     path = make_track(tmp_path, "wn_white_full_static_balanced_s3.wav")
     audio, rate = sf.read(path, dtype="float64", always_2d=True)
     boundary = CELL_FRAMES
     audio[boundary, :] += 0.65
-    sf.write(path, audio, rate, subtype="PCM_24", format="WAV")
+    write_group(path, audio, rate)
     assert_only(path, "Loop seam")
 
 
@@ -221,7 +255,7 @@ def test_loop_seam_negative_control_uncorrelated_splice(tmp_path: Path) -> None:
     audio[CELL_FRAMES : 2 * CELL_FRAMES] = rng.normal(
         0, 0.5, (CELL_FRAMES, 2)
     )
-    sf.write(path, audio, rate, subtype="PCM_24", format="WAV")
+    write_group(path, audio, rate)
     assert not checks(path)["Loop seam"].passed
 
 
@@ -306,5 +340,37 @@ def test_cli_exit_codes_reports_and_read_only(tmp_path: Path) -> None:
     assert before == after
     audio, rate = sf.read(path, dtype="float64", always_2d=True)
     audio[:, 1] = audio[:, 0]
-    sf.write(path, audio, rate, subtype="PCM_24", format="WAV")
+    write_group(path, audio, rate)
     assert qa_harness.run(tmp_path, None, report, result_path) != 0
+
+
+def test_only_masters_are_graded_and_their_stems_must_sum(tmp_path: Path) -> None:
+    master = make_track(tmp_path)
+    assert len(list(tmp_path.glob("*.wav"))) == 4
+    assert qa_harness.run(tmp_path, None, tmp_path / "r.html", tmp_path / "r.json") == 0
+    payload = json.loads((tmp_path / "r.json").read_text())
+    # The stems ride along with their master instead of being graded as
+    # finished mixes of their own.
+    assert [item["filename"] for item in payload["files"]] == [master.name]
+    result = checks(master)["Stem sum"]
+    assert result.passed
+    assert result.details["stems"] == [path.name for path in stem_paths(master)]
+
+    first = stem_paths(master)[0]
+    audio, rate = sf.read(first, dtype="float64", always_2d=True)
+    sf.write(first, audio * 1.01, rate, subtype="PCM_24", format="WAV")
+    assert_only(master, "Stem sum")
+    assert qa_harness.run(tmp_path, None, tmp_path / "r.html", tmp_path / "r.json") != 0
+
+    first.unlink()
+    stem_check = checks(master)["Stem sum"]
+    assert not stem_check.passed
+    assert first.name in stem_check.measured
+
+
+def test_a_master_whose_stems_are_the_wrong_length_fails(tmp_path: Path) -> None:
+    master = make_track(tmp_path)
+    short = stem_paths(master)[1]
+    audio, rate = sf.read(short, dtype="float64", always_2d=True)
+    sf.write(short, audio[:-1], rate, subtype="PCM_24", format="WAV")
+    assert_only(master, "Stem sum")

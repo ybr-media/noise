@@ -15,11 +15,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
 
+import numpy as np
+import pyloudnorm as pyln
+import soundfile as sf
 import yaml
 
 from audacity_pipe import AudacityPipe, AudacityPipeError
-from aup3_serializer import extract_to_wav
-from render_plan import RenderPlan, build_plan
+from aup3_serializer import extract_stereo_tracks_to_wavs, read_stereo_track
+from render_plan import (
+    MASTER_TRACK_INDEX,
+    STEM_MAP,
+    RenderPlan,
+    build_plan,
+)
 
 AUDACITY_VERSION = "3.7.8"
 DEFAULT_VARIANTS_FILE = Path("config/variants.yaml")
@@ -252,8 +260,16 @@ def _seed_list(plan: RenderPlan) -> list[int]:
     ]
 
 
-def _sidecar(plan: RenderPlan) -> dict[str, object]:
+def _integrated_loudness(samples: np.ndarray, sample_rate: int) -> float:
+    """Measure one buffer the same way the QA harness measures the master."""
+    return float(
+        pyln.Meter(sample_rate).integrated_loudness(samples.astype(np.float64))
+    )
+
+
+def _sidecar(plan: RenderPlan, loudness_gain_db: float) -> dict[str, object]:
     variant = plan.variant
+    master = Path(plan.master_path)
     return {
         "variant_id": variant.variant_id,
         "color": variant.color,
@@ -289,7 +305,33 @@ def _sidecar(plan: RenderPlan) -> dict[str, object]:
         ),
         "audacity_version": AUDACITY_VERSION,
         "render_timestamp": datetime.now(timezone.utc).isoformat(),
+        # One measurement of the mix, applied unchanged to all four outputs.
+        "loudness_gain_db": loudness_gain_db,
+        "master_filename": master.name,
+        "stem_filenames": [Path(path).name for path in plan.stem_paths],
+        "stem_map": dict(STEM_MAP),
     }
+
+
+def _output_sidecars(
+    plan: RenderPlan, loudness_gain_db: float
+) -> dict[Path, dict[str, object]]:
+    """Sidecar metadata per output file, keyed by that file's path.
+
+    Every sidecar names the role of its own file, so nothing downstream has to
+    infer a stem from a filename.
+    """
+    shared = _sidecar(plan, loudness_gain_db)
+    sidecars = {Path(plan.master_path): {**shared, "role": "master", "stem": None}}
+    for number, (path, stem) in enumerate(
+        zip(plan.stem_paths, STEM_MAP.values()), start=1
+    ):
+        sidecars[Path(path)] = {
+            **shared,
+            "role": f"stem_{number}",
+            "stem": stem,
+        }
+    return sidecars
 
 
 def _log_record(
@@ -310,6 +352,68 @@ def _log_record(
         "wall_clock_seconds": duration,
         "exit_state": exit_state,
     }
+
+
+def _render_variant(
+    plan: RenderPlan,
+    transport: Transport,
+    timeout: float,
+    aup3_serializer: bool,
+    project_xml: Path | None,
+    sent: list[str],
+    responses: list[str],
+) -> float:
+    """Render one variant's four files, returning the shared loudness gain.
+
+    Both routes measure the finished mix once and then apply that one gain to
+    the master and all three stems, so the stems keep summing to the master.
+    ``sent`` and ``responses`` accumulate the exchange, so a failure part way
+    through still leaves the caller with everything that was sent.
+    """
+
+    def send(command: str) -> None:
+        sent.append(command)
+        responses.append(transport.send(command, timeout))
+
+    for command in plan.commands:
+        send(command)
+
+    master_path = Path(plan.master_path)
+    output_paths = tuple(Path(path) for path in plan.track_paths)
+    if aup3_serializer:
+        project = master_path.with_suffix(".aup3")
+        send(f'SaveProject2: Filename="{project}"')
+        samples, sample_rate = read_stereo_track(
+            project, project_xml, MASTER_TRACK_INDEX
+        )
+        gain_db = plan.output.target_lufs - _integrated_loudness(samples, sample_rate)
+        for command in plan.gain_commands(gain_db):
+            send(command)
+        # `Save:` rewrites the project that `SaveProject2:` named, so the
+        # amplified samples are the ones the serializer reads back.
+        send("Save:")
+        extract_stereo_tracks_to_wavs(project, project_xml, output_paths)
+        # Four outputs per variant already multiply the render's footprint, and
+        # the project holds another copy of all of them. It is only kept when
+        # extraction fails, where it is the evidence.
+        for path in (project, *(Path(f"{project}{tail}") for tail in ("-wal", "-shm"))):
+            path.unlink(missing_ok=True)
+        return gain_db
+
+    probe_path = master_path.with_name(f"{master_path.stem}.measure.wav")
+    try:
+        for command in plan.export_commands(MASTER_TRACK_INDEX, str(probe_path)):
+            send(command)
+        samples, sample_rate = sf.read(probe_path, always_2d=True)
+    finally:
+        probe_path.unlink(missing_ok=True)
+    gain_db = plan.output.target_lufs - _integrated_loudness(samples, sample_rate)
+    for command in plan.gain_commands(gain_db):
+        send(command)
+    for track_index, output_path in enumerate(output_paths):
+        for command in plan.export_commands(track_index, str(output_path)):
+            send(command)
+    return gain_db
 
 
 def render_batch(
@@ -342,10 +446,9 @@ def render_batch(
             filename = row.get("filename")
             if not isinstance(filename, str) or not filename:
                 raise ValueError(f"{variant_id}: missing filename")
-            export_path = output_dir / filename
-            plan = build_plan(row, output_row, str(export_path))
+            plan = build_plan(row, output_row, str(output_dir / filename))
             started = time.monotonic()
-            commands = plan.commands
+            commands: list[str] = []
             responses: list[str] = []
             exit_state = "dry-run" if dry_run else "success"
             process: ProcessHandle | None = None
@@ -354,24 +457,20 @@ def render_batch(
                 if not dry_run:
                     process = process_factory(audacity_bin)
                     transport = transport_factory(timeout)
-                    commands = (
-                        plan.commands[:-1]
-                        + (f'SaveProject2: Filename="{export_path.with_suffix(".aup3")}"',)
-                        if aup3_serializer
-                        else plan.commands
+                    gain_db = _render_variant(
+                        plan,
+                        transport,
+                        timeout,
+                        aup3_serializer,
+                        project_xml,
+                        commands,
+                        responses,
                     )
-                    for command in commands:
-                        responses.append(transport.send(command, timeout))
-                    if aup3_serializer:
-                        extract_to_wav(
-                            export_path.with_suffix(".aup3"),
-                            project_xml,
-                            export_path,
+                    for path, sidecar in _output_sidecars(plan, gain_db).items():
+                        path.with_suffix(".json").write_text(
+                            json.dumps(sidecar, indent=2) + "\n",
+                            encoding="utf-8",
                         )
-                    export_path.with_suffix(".json").write_text(
-                        json.dumps(_sidecar(plan), indent=2) + "\n",
-                        encoding="utf-8",
-                    )
             except (
                 AudacityPipeError,
                 OSError,
@@ -396,7 +495,7 @@ def render_batch(
                         plan,
                         row,
                         output_row,
-                        commands if not dry_run else plan.commands,
+                        plan.commands if dry_run else commands,
                         responses,
                         duration,
                         exit_state,
