@@ -347,7 +347,6 @@ export default function NoiseLab() {
             <section className="soft-card spectrum-card">
               <div className="spectrum-frame"><Spectrum analyser={preview.analyser} playing={preview.playing} /></div>
               <div className="spectrum-ticks"><span>30 Hz</span><span>500</span><span>2k</span><span>16k</span></div>
-              <div className="preview-note"><strong>Approximate preview</strong> · WebAudio audition only; the Audacity-rendered master is the source of truth.</div>
             </section>
             <div className="action-row">
               <button type="button" onClick={preview.toggle} aria-label={preview.playing ? "Stop approximate preview" : "Play approximate preview"} className="play-button">
