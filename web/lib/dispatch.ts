@@ -1,4 +1,5 @@
 import type { QueueJob } from "./types";
+import { median } from "./eta";
 
 // A hosted console has no Audacity and no persistent disk, so rendering is
 // delegated to a GitHub Actions runner that publishes to object storage.
@@ -75,29 +76,23 @@ export async function dispatchedQueue(): Promise<{ jobs: QueueJob[]; stats: { me
       : undefined;
     const failed = run.conclusion && run.conclusion !== "success";
     return {
-    id: String(run.id),
-    variantId: run.display_title.replace(/^Render\s+/i, ""),
-    status: statusOf(run),
-    queuedAt: run.created_at,
-    error: failed ? `Workflow ${run.conclusion}` : undefined,
-    logsUrl: failed ? runUrl(run.id) : undefined,
-    startedAt,
-    finishedAt,
-    durationSeconds,
+      id: String(run.id),
+      variantId: run.display_title.replace(/^Render\s+/i, ""),
+      status: statusOf(run),
+      queuedAt: run.created_at,
+      error: failed ? `Workflow ${run.conclusion}` : undefined,
+      logsUrl: failed ? runUrl(run.id) : undefined,
+      startedAt,
+      finishedAt,
+      durationSeconds,
     };
   });
   const durations = jobs.filter((job) => job.status === "Done" && job.durationSeconds !== undefined).map((job) => job.durationSeconds!);
-  const sorted = [...durations].sort((a, b) => a - b);
-  const middle = Math.floor(sorted.length / 2);
   return {
     jobs,
     stats: {
-      medianRenderSeconds: sorted.length ? sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2 : null,
-      sampleSize: sorted.length,
+      medianRenderSeconds: median(durations),
+      sampleSize: durations.length,
     },
   };
-}
-
-export async function dispatchedJobs(): Promise<QueueJob[]> {
-  return (await dispatchedQueue()).jobs;
 }

@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LibraryTrack, QueueJob, Variant } from "@/lib/types";
-import { knownVariantId, relativeTime, renderEstimate } from "@/lib/eta";
+import { knownVariantId, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
 
 const C = {
   page: "#F2F2F7",
@@ -272,7 +272,10 @@ export default function NoiseLab() {
   const [loading, setLoading] = useState(true);
   const [queueing, setQueueing] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [documentVisible, setDocumentVisible] = useState(true);
   const retryInFlight = useRef(false);
+  const libraryHashActive = useRef(false);
+  const requestedTab = useRef<"design" | "queue" | null>(null);
   const dockRef = useRef<HTMLElement>(null);
   const lensRef = useRef<HTMLDivElement>(null);
   const queueCount = jobs.filter((job) => job.status !== "Done" && job.status !== "Failed").length;
@@ -306,44 +309,61 @@ export default function NoiseLab() {
       setQueueStats(payload.stats ?? { medianRenderSeconds: null, sampleSize: 0 });
       if (payload.mode) setRenderMode(payload.mode);
     } catch {
-      setToast({ message: "Could not refresh queue.", error: true });
     } finally {
       queueFetchInFlight.current = false;
     }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => {
-    if (tab !== "queue" || document.visibilityState !== "visible" || !jobs.some((job) => job.status === "Queued" || job.status === "Rendering")) return;
+    const updateVisibility = () => setDocumentVisible(document.visibilityState === "visible");
+    updateVisibility();
+    document.addEventListener("visibilitychange", updateVisibility);
+    return () => document.removeEventListener("visibilitychange", updateVisibility);
+  }, []);
+  useEffect(() => {
+    if (tab !== "queue" || !documentVisible || !jobs.some((job) => job.status === "Queued" || job.status === "Rendering")) return;
     const timer = window.setInterval(() => void refreshQueue(), 30000);
-    const update = () => { if (document.visibilityState === "hidden") window.clearInterval(timer); };
-    document.addEventListener("visibilitychange", update);
-    return () => { window.clearInterval(timer); document.removeEventListener("visibilitychange", update); };
-  }, [jobs, refreshQueue, tab]);
-  const openLibrary = useCallback(async (variantId?: string) => {
+    return () => window.clearInterval(timer);
+  }, [documentVisible, jobs, refreshQueue, tab]);
+  const openLibrary = useCallback((variantId?: string) => {
     window.location.hash = variantId ? `library/${variantId}` : "library";
-    setTab("library");
-    await refresh();
-    window.requestAnimationFrame(() => {
-      const target = variantId ? document.getElementById(`track-${variantId}`) : null;
-      (target ?? document.getElementById("panel-library"))?.scrollIntoView({ behavior: "smooth", block: "start" });
-      if (target) {
-        target.classList.remove("track-highlight");
-        void target.offsetWidth;
-        target.classList.add("track-highlight");
-      }
-    });
-  }, [refresh]);
+  }, []);
   useEffect(() => {
     const handleHash = () => {
       const match = window.location.hash.match(/^#library\/(.+)$/);
-      if (match) void openLibrary(decodeURIComponent(match[1]));
-      else if (window.location.hash === "#library") { setTab("library"); void refresh(); }
-      else if (tab === "library") setTab("queue");
+      if (!match && window.location.hash !== "#library") {
+        if (requestedTab.current) {
+          setTab(requestedTab.current);
+          requestedTab.current = null;
+          libraryHashActive.current = false;
+          return;
+        }
+        if (libraryHashActive.current) {
+          libraryHashActive.current = false;
+          setTab(requestedTab.current ?? "queue");
+          requestedTab.current = null;
+        }
+        return;
+      }
+      libraryHashActive.current = true;
+      setTab("library");
+      void refresh().then(() => {
+        const variantId = match ? decodeURIComponent(match[1]) : undefined;
+        window.requestAnimationFrame(() => {
+          const target = variantId ? document.getElementById(`track-${variantId}`) : null;
+          (target ?? document.getElementById("panel-library"))?.scrollIntoView({ behavior: "smooth", block: "start" });
+          if (target) {
+            target.classList.remove("track-highlight");
+            void target.offsetWidth;
+            target.classList.add("track-highlight");
+          }
+        });
+      });
     };
     handleHash();
     window.addEventListener("hashchange", handleHash);
     return () => window.removeEventListener("hashchange", handleHash);
-  }, [openLibrary, refresh, tab]);
+  }, [refresh]);
   useEffect(() => {
     const dock = dockRef.current;
     const moveLens = () => {
@@ -457,7 +477,15 @@ export default function NoiseLab() {
         <div ref={lensRef} className="tab-lens" aria-hidden="true" />
         {(["design", "queue", "library"] as const).map((item) => {
           const count = item === "queue" ? queueCount : item === "library" ? libraryCount : 0;
-          return <button key={item} id={`tab-${item}`} type="button" data-tab={item} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${item[0].toUpperCase()}${item.slice(1)}${count ? `, ${count}` : ""}`} onClick={() => { setTab(item); window.scrollTo({ top: 0, behavior: "smooth" }); }} className={`dock-tab ${tab === item ? "is-active" : ""}`}>{item[0].toUpperCase() + item.slice(1)}{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</button>;
+          return <button key={item} id={`tab-${item}`} type="button" data-tab={item} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${item[0].toUpperCase()}${item.slice(1)}${count ? `, ${count}` : ""}`} onClick={() => {
+            if (item === "library") window.location.hash = "library";
+            else {
+              requestedTab.current = item;
+              if (window.location.hash) window.location.hash = "";
+              else setTab(item);
+            }
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }} className={`dock-tab ${tab === item ? "is-active" : ""}`}>{item[0].toUpperCase() + item.slice(1)}{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</button>;
         })}
       </nav></div>
       {toast && <Toast message={toast.message} error={toast.error} onClose={() => setToast(null)} />}
@@ -508,7 +536,7 @@ function TrackCard({ track, onToast }: { track: LibraryTrack; onToast: (toast: {
     onToast(response.ok ? { message: "Name approved in sidecar metadata." } : { message: "Could not approve name.", error: true });
   }
   return (
-      <article id={`track-${track.variantId}`} className="soft-card track-card">
+    <article id={`track-${track.variantId}`} className="soft-card track-card">
       <div>
         <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-mono text-[11px]">{track.variantId}</div>{track.title && <div className="mt-1 truncate text-sm font-semibold">{track.title}{track.titleApproved && <span className="ml-1 text-[10px] font-normal text-[#34c759]">approved</span>}</div>}<div className="mt-1 text-[12px] text-[color:var(--secondary-text)]">Matrix {track.matrixIndex} · {formatDuration(track.durationSeconds)} · {track.color} / {track.band} / {track.motion}</div></div><span className={`rounded-full px-2 py-1 font-mono text-[10px] font-semibold ${track.qaVerdict === "PASS" ? "bg-green-50 text-[#34c759]" : track.qaVerdict === "FAIL" ? "bg-red-50 text-[#ff3b30]" : "bg-gray-100 text-[color:var(--secondary-text)]"}`}>{track.qaVerdict}</span></div>
         <audio className="mt-3 w-full" controls preload="none" src={track.audioUrl} />
@@ -532,7 +560,6 @@ function Queue({ jobs, mode, stats, variants, onRefresh, onQueuePilot, onQueueFu
   const activeJobs = jobs.filter((job) => job.status === "Queued" || job.status === "Rendering");
   const failedJobs = jobs.filter((job) => job.status === "Failed");
   const completedJobs = jobs.filter((job) => job.status === "Done");
-  const queuedJobs = activeJobs.filter((job) => job.status === "Queued");
   const [retried, setRetried] = useState<Set<string>>(new Set());
   const [confirmingFull, setConfirmingFull] = useState(false);
   const pilotActionLabel = `Queue pilot set (${pilotCount})`;
@@ -551,13 +578,21 @@ function Queue({ jobs, mode, stats, variants, onRefresh, onQueuePilot, onQueueFu
   const elapsed = (job: QueueJob) => job.startedAt ? (Date.now() - new Date(job.startedAt).getTime()) / 1000 : 0;
   const activeCopy = (job: QueueJob) => {
     if (mode === "local") {
-      const ahead = job.status === "Queued" ? queuedJobs.indexOf(job) : 0;
-      return job.status === "Queued" ? `${ahead === 0 ? "Next" : `${ahead} jobs ahead`}` : "Worker is rendering";
+      return job.status === "Queued" ? queueAheadLabel(queuedJobsAhead(job.id, jobs)) : "Worker is rendering";
     }
     return job.status === "Rendering"
       ? renderEstimate(stats.medianRenderSeconds, stats.sampleSize, elapsed(job))
       : stats.sampleSize ? `Typically ${renderEstimate(stats.medianRenderSeconds, stats.sampleSize).replace(" left", "")} once started` : renderEstimate(null, 0);
   };
+  const renderingCount = activeJobs.filter((job) => job.status === "Rendering").length;
+  const queuedCount = activeJobs.filter((job) => job.status === "Queued").length;
+  const summary = activeJobs.length
+    ? [
+      renderingCount ? `${renderingCount} rendering` : "",
+      queuedCount ? `${queuedCount} queued` : "",
+      mode === "dispatch" ? renderEstimate(stats.medianRenderSeconds, stats.sampleSize, Math.max(...activeJobs.map(elapsed), 0)).replace(" left", " remaining") : "",
+    ].filter(Boolean).join(" · ")
+    : "Queue idle";
   const row = (job: QueueJob) => {
     const done = job.status === "Done";
     const variant = done ? knownVariantId(job.variantId, variants) : null;
@@ -568,7 +603,7 @@ function Queue({ jobs, mode, stats, variants, onRefresh, onQueuePilot, onQueueFu
   return (
     <section className="panel-section">
       <div className="panel-heading">
-        <div><div className="queue-heading-line"><h2>Render queue</h2><span className="mode-chip">{mode === "dispatch" ? "GitHub Actions" : mode === "local" ? "Local worker" : "Browse only"}</span></div><p className="queue-summary" aria-live="polite">{activeJobs.length ? `${activeJobs.filter((job) => job.status === "Rendering").length} rendering · ${activeJobs.filter((job) => job.status === "Queued").length} queued${mode === "dispatch" ? ` · ${renderEstimate(stats.medianRenderSeconds, stats.sampleSize, Math.max(...activeJobs.map(elapsed), 0))}` : ""}` : "Queue idle"}</p></div>
+        <div><div className="queue-heading-line"><h2>Render queue</h2><span className="mode-chip">{mode === "dispatch" ? "GitHub Actions" : mode === "local" ? "Local worker" : "Browse only"}</span></div><p className="queue-summary" aria-live="polite">{summary}</p></div>
         <div className="panel-heading-actions"><button type="button" onClick={onRefresh} className="round-action" aria-label="Refresh queue"><RefreshCw size={14} /></button></div>
       </div>
       {failedJobs.length > 0 && group("Needs attention", failedJobs, "Nothing needs attention")}
@@ -576,24 +611,24 @@ function Queue({ jobs, mode, stats, variants, onRefresh, onQueuePilot, onQueueFu
       {group("Completed today", completedJobs, "No completed renders yet")}
       <details className="start-renders">
         <summary>Start renders <span>· pilot ({pilotCount}) or full matrix ({matrixCount})</span></summary>
-      <div className="bulk-actions">
-        <div className="bulk-action">
-          <button type="button" onClick={onQueuePilot} disabled={mode === "unavailable" || queueing} className="queue-secondary" title={pilotActionTitle} aria-label={pilotActionTitle}><Layers size={14} /> {pilotActionLabel}</button>
-          <p className="bulk-action-caption">All {pilotCount} pilot variants, ignores Design selection</p>
+        <div className="bulk-actions">
+          <div className="bulk-action">
+            <button type="button" onClick={onQueuePilot} disabled={mode === "unavailable" || queueing} className="queue-secondary" title={pilotActionTitle} aria-label={pilotActionTitle}><Layers size={14} /> {pilotActionLabel}</button>
+            <p className="bulk-action-caption">All {pilotCount} pilot variants, ignores Design selection</p>
+          </div>
+          <div className="bulk-action">
+            {confirmingFull ? (
+              <div className="bulk-confirm">
+                <button type="button" onClick={() => { setConfirmingFull(false); onQueueFull(); }} disabled={queueing} className="queue-primary" aria-label={`Confirm rendering all ${matrixCount} variants`}>Confirm {matrixCount} renders</button>
+                <button type="button" onClick={() => setConfirmingFull(false)} className="queue-secondary">Cancel</button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setConfirmingFull(true)} disabled={mode === "unavailable" || matrixCount === 0 || queueing} className="queue-secondary" title={fullActionTitle} aria-label={fullActionTitle}><Grid3x3 size={14} /> {fullActionLabel}</button>
+            )}
+            <p className="bulk-action-caption">{confirmingFull ? `Tap confirm to dispatch all ${matrixCount} renders.` : `All ${matrixCount} variants, ignores Design selection`}</p>
+          </div>
         </div>
-        <div className="bulk-action">
-          {confirmingFull ? (
-            <div className="bulk-confirm">
-              <button type="button" onClick={() => { setConfirmingFull(false); onQueueFull(); }} disabled={queueing} className="queue-primary" aria-label={`Confirm rendering all ${matrixCount} variants`}>Confirm {matrixCount} renders</button>
-              <button type="button" onClick={() => setConfirmingFull(false)} className="queue-secondary">Cancel</button>
-            </div>
-          ) : (
-            <button type="button" onClick={() => setConfirmingFull(true)} disabled={mode === "unavailable" || matrixCount === 0 || queueing} className="queue-secondary" title={fullActionTitle} aria-label={fullActionTitle}><Grid3x3 size={14} /> {fullActionLabel}</button>
-          )}
-          <p className="bulk-action-caption">{confirmingFull ? `Tap confirm to dispatch all ${matrixCount} renders.` : `All ${matrixCount} variants, ignores Design selection`}</p>
-        </div>
-      </div>
-      <p className="queue-note">{QUEUE_NOTES[mode]}</p>
+        <p className="queue-note">{QUEUE_NOTES[mode]}</p>
       </details>
     </section>
   );

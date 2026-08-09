@@ -1,4 +1,4 @@
-import type { Variant } from "./types";
+import type { QueueJob, Variant } from "./types";
 
 export const DEFAULT_RENDER_ESTIMATE_RANGE = "5–10 min";
 
@@ -30,4 +30,13 @@ export function relativeTime(iso: string, now = Date.now()): string {
 
 export function knownVariantId(variantId: string, variants: Variant[]): string | null {
   return variants.some((variant) => variant.variantId === variantId) ? variantId : null;
+}
+
+export function queuedJobsAhead(jobId: string, jobs: QueueJob[]): number {
+  const workerOrder = jobs.filter((job) => job.status === "Queued").reverse();
+  return Math.max(0, workerOrder.findIndex((job) => job.id === jobId));
+}
+
+export function queueAheadLabel(ahead: number): string {
+  return ahead === 0 ? "Next" : `${ahead} job${ahead === 1 ? "" : "s"} ahead`;
 }
