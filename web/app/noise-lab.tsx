@@ -481,7 +481,8 @@ export default function NoiseLab() {
         <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} onRefresh={() => void refresh()} onToast={setToast} /></div>
         <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} mode={renderMode} stats={queueStats} variants={variants} onRefresh={() => void refreshQueue()} onQueuePilot={() => void queue([], "pilot")} onQueueFull={() => void queue([], "full")} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
       </div>
-      <div className="top-tabs"><nav ref={tabsRef} className="glassbar" role="tablist" aria-label="Primary">
+      <div className="current-tab-title" aria-hidden="true"><span key={tab}>{tab === "queue" ? "Render" : tab[0].toUpperCase() + tab.slice(1)}</span></div>
+      <div className="dock"><nav ref={tabsRef} className="glassbar" role="tablist" aria-label="Primary">
         <div ref={lensRef} className="tab-lens" aria-hidden="true" />
         {(["design", "queue", "library"] as const).map((item) => {
           const count = item === "queue" ? queueCount : item === "library" ? libraryCount : 0;
