@@ -75,10 +75,10 @@ function Row({ label, hint, children }: { label: string; hint: string; children:
 
 function Toast({ message, error, onClose }: { message: string; error?: boolean; onClose: () => void }) {
   return (
-    <div className="fixed bottom-6 left-4 right-4 z-30 mx-auto flex max-w-md items-start gap-2.5 rounded-2xl px-4 py-3 shadow-2xl" style={{ background: error ? C.accent : C.label }}>
+    <div className="toast" style={{ background: error ? C.accent : C.label }}>
       {error ? <AlertCircle size={17} color="#fff" /> : <Check size={17} color="#fff" />}
       <span className="flex-1 text-sm leading-5 text-white">{message}</span>
-      <button type="button" onClick={onClose} aria-label="Dismiss"><X size={16} color="#fff" /></button>
+      <button type="button" onClick={onClose} aria-label="Dismiss" className="toast-dismiss"><X size={16} color="#fff" /></button>
     </div>
   );
 }
@@ -349,14 +349,13 @@ export default function NoiseLab() {
               <div className="spectrum-ticks"><span>30 Hz</span><span>500</span><span>2k</span><span>16k</span></div>
               <div className="preview-note"><strong>Approximate preview</strong> · WebAudio audition only; the Audacity-rendered master is the source of truth.</div>
             </section>
-            <div className="play-wrap">
+            <div className="action-row">
               <button type="button" onClick={preview.toggle} aria-label={preview.playing ? "Stop approximate preview" : "Play approximate preview"} className="play-button">
                 {preview.playing ? <Pause size={27} fill="white" strokeWidth={0} /> : <Play size={27} fill="white" strokeWidth={0} className="ml-1" />}
               </button>
-              <div className="matrix-label">
-                <span>Matrix {selected.matrixIndex} of {variants.length}</span>
-              </div>
+              <button type="button" onClick={() => void queue([selected.variantId], "one")} disabled={queueing} className="queue-primary" title="Queues only the currently selected variant." aria-label="Queue only the currently selected variant"><Layers size={16} /> {queueing ? "Queueing…" : "Queue this render"}</button>
             </div>
+            <div className="matrix-label">Matrix {selected.matrixIndex} of {variants.length}</div>
             <section className="soft-card controls-card">
               <Row label="Color" hint={selected.spectrum.bell ? "+6 dB bell @ 500 Hz" : `${selected.spectrum.tiltDbPerOct} dB/oct`}><Segmented options={OPTIONS.color} value={selection.color} onChange={(value) => setSelection((old) => ({ ...old, color: value }))} label="Color" /></Row>
               <Row label="Band" hint={`${selected.band} texture`}><Segmented options={OPTIONS.band} value={selection.band} onChange={(value) => setSelection((old) => ({ ...old, band: value }))} label="Band" /></Row>
@@ -367,9 +366,6 @@ export default function NoiseLab() {
               <div className="variant-id">{selected.variantId}</div>
               <div className="variant-meta"><span>Duration {formatDuration(selected.durationSeconds)}</span><span>Seed {selected.seeds.bed_l}</span></div>
               {selected.pilot && <div className="pilot-badge">Pilot {selected.pilot}</div>}
-              <div className="queue-actions">
-                <button type="button" onClick={() => void queue([selected.variantId], "one")} disabled={queueing} className="queue-primary" title="Queues only the currently selected variant." aria-label="Queue only the currently selected variant"><Layers size={16} /> {queueing ? "Queueing…" : "Queue this render"}</button>
-              </div>
             </section>
           </div>
           )}
@@ -394,7 +390,7 @@ function Library({ tracks, loading, onRefresh, onToast }: { tracks: LibraryTrack
     <section className="panel-section">
       <div className="panel-heading"><div><h2>Library</h2><p>Rendered masters and QA evidence</p></div><button type="button" onClick={onRefresh} className="round-action" aria-label="Refresh library"><RefreshCw size={14} /></button></div>
       <div className="section-title">Masters · {tracks.filter((track) => track.exists).length}</div>
-      <div className="soft-card library-summary"><div className="font-medium">{tracks.filter((track) => track.exists).length} of {tracks.length} variants rendered</div><div className="mt-1 break-all font-mono text-[10px] text-[#8e8e93]">Reading {tracks[0]?.path.replace(/\/[^/]+$/, "") ?? "configured render directory"}</div></div>
+      <div className="soft-card library-summary"><div className="font-medium">{tracks.filter((track) => track.exists).length} of {tracks.length} variants rendered</div><div className="mt-1 break-all font-mono text-[10px] text-[color:var(--secondary-text)]">Reading {tracks[0]?.path.replace(/\/[^/]+$/, "") ?? "configured render directory"}</div></div>
       <div className="library-list">
         {loading && <div className="soft-card empty-state">Loading render directory…</div>}
         {!loading && tracks.filter((track) => track.exists).length === 0 && <div className="soft-card empty-state">No rendered files found in the directory above.</div>}
@@ -434,13 +430,13 @@ function TrackCard({ track, onToast }: { track: LibraryTrack; onToast: (toast: {
   return (
     <article className="soft-card track-card">
       <div>
-        <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-mono text-[11px]">{track.variantId}</div>{track.title && <div className="mt-1 truncate text-sm font-semibold">{track.title}{track.titleApproved && <span className="ml-1 text-[10px] font-normal text-[#34c759]">approved</span>}</div>}<div className="mt-1 text-[12px] text-[#8e8e93]">Matrix {track.matrixIndex} · {formatDuration(track.durationSeconds)} · {track.color} / {track.band} / {track.motion}</div></div><span className={`rounded-full px-2 py-1 font-mono text-[10px] font-semibold ${track.qaVerdict === "PASS" ? "bg-green-50 text-[#34c759]" : track.qaVerdict === "FAIL" ? "bg-red-50 text-[#ff3b30]" : "bg-gray-100 text-[#8e8e93]"}`}>{track.qaVerdict}</span></div>
+        <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-mono text-[11px]">{track.variantId}</div>{track.title && <div className="mt-1 truncate text-sm font-semibold">{track.title}{track.titleApproved && <span className="ml-1 text-[10px] font-normal text-[#34c759]">approved</span>}</div>}<div className="mt-1 text-[12px] text-[color:var(--secondary-text)]">Matrix {track.matrixIndex} · {formatDuration(track.durationSeconds)} · {track.color} / {track.band} / {track.motion}</div></div><span className={`rounded-full px-2 py-1 font-mono text-[10px] font-semibold ${track.qaVerdict === "PASS" ? "bg-green-50 text-[#34c759]" : track.qaVerdict === "FAIL" ? "bg-red-50 text-[#ff3b30]" : "bg-gray-100 text-[color:var(--secondary-text)]"}`}>{track.qaVerdict}</span></div>
         <audio className="mt-3 w-full" controls preload="none" src={track.audioUrl} />
-        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-[#f2f2f7] p-3 text-xs"><div><span className="text-[#8e8e93]">LUFS</span><div className="mt-0.5 font-mono font-semibold">{track.measuredLufs ?? "—"}</div></div><div><span className="text-[#8e8e93]">True peak</span><div className="mt-0.5 font-mono font-semibold">{track.measuredTruePeak ?? "—"}</div></div></div>
-        <details className="mt-3"><summary className="cursor-pointer text-xs font-medium text-[#007aff]">Show QA checks</summary><div className="mt-2 space-y-1">{track.qaChecks.map((check) => <div key={check.name} className="flex justify-between gap-2 border-t border-[#d8d8dc] py-1.5 text-[11px]"><span>{check.passed ? "✓" : "×"} {check.name}</span><span className="font-mono text-[#8e8e93]">{check.measured}</span></div>)}</div></details>
+        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-[#f2f2f7] p-3 text-xs"><div><span className="text-[color:var(--secondary-text)]">LUFS</span><div className="mt-0.5 font-mono font-semibold">{track.measuredLufs ?? "—"}</div></div><div><span className="text-[color:var(--secondary-text)]">True peak</span><div className="mt-0.5 font-mono font-semibold">{track.measuredTruePeak ?? "—"}</div></div></div>
+        <details className="mt-3"><summary className="cursor-pointer text-xs font-medium text-[#007aff]">Show QA checks</summary><div className="mt-2 space-y-1">{track.qaChecks.map((check) => <div key={check.name} className="flex justify-between gap-2 border-t border-[#d8d8dc] py-1.5 text-[11px]"><span>{check.passed ? "✓" : "×"} {check.name}</span><span className="font-mono text-[color:var(--secondary-text)]">{check.measured}</span></div>)}</div></details>
         <div className="mt-3 flex gap-2"><a href={track.downloadUrl} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#e9e9eb] py-2.5 text-xs font-medium"><Download size={14} /> Download master</a><button type="button" onClick={() => void generate()} disabled={busy} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#1c1c1e] py-2.5 text-xs font-medium text-white"><Sparkles size={14} /> {busy ? "Thinking…" : "Suggest SEO name"}</button></div>
-        {Boolean(track.stems.length) && <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]"><span className="text-[#8e8e93]">Stems</span>{track.stems.map((stem) => stem.exists ? <a key={stem.filename} href={stem.downloadUrl} className="rounded-lg bg-[#f2f2f7] px-2 py-1 font-medium">{stem.number}. {stem.stem}</a> : <span key={stem.filename} className="rounded-lg px-2 py-1 text-[#8e8e93]">{stem.number}. {stem.stem} —</span>)}</div>}
-        {suggestion && <div className="mt-3 rounded-xl border border-[#d8d8dc] p-3"><div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[#8e8e93]">Review before approval</div><input value={suggestion.title} onChange={(event) => setSuggestion({ ...suggestion, title: event.target.value })} className="w-full border-b border-[#d8d8dc] pb-1 text-sm font-semibold outline-none" /><textarea value={suggestion.description} onChange={(event) => setSuggestion({ ...suggestion, description: event.target.value })} className="mt-2 h-16 w-full resize-none text-xs leading-4 outline-none" /><div className="mt-2 flex justify-end gap-2"><button type="button" onClick={() => void regenerate()} disabled={busy} className="rounded-lg px-2 py-1.5 text-xs text-[#007aff] disabled:text-[#aeaeb2]">Regenerate</button><button type="button" onClick={() => void approve()} disabled={busy} className="rounded-lg bg-[#34c759] px-3 py-1.5 text-xs font-semibold text-white disabled:bg-[#c7c7cc]">{busy ? "Approving…" : "Approve"}</button></div></div>}
+        {Boolean(track.stems.length) && <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]"><span className="text-[color:var(--secondary-text)]">Stems</span>{track.stems.map((stem) => stem.exists ? <a key={stem.filename} href={stem.downloadUrl} className="rounded-lg bg-[#f2f2f7] px-2 py-1 font-medium">{stem.number}. {stem.stem}</a> : <span key={stem.filename} className="rounded-lg px-2 py-1 text-[color:var(--secondary-text)]">{stem.number}. {stem.stem} —</span>)}</div>}
+        {suggestion && <div className="mt-3 rounded-xl border border-[#d8d8dc] p-3"><div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--secondary-text)]">Review before approval</div><input value={suggestion.title} onChange={(event) => setSuggestion({ ...suggestion, title: event.target.value })} className="w-full border-b border-[#d8d8dc] pb-1 text-sm font-semibold outline-none" /><textarea value={suggestion.description} onChange={(event) => setSuggestion({ ...suggestion, description: event.target.value })} className="mt-2 h-16 w-full resize-none text-xs leading-4 outline-none" /><div className="mt-2 flex justify-end gap-2"><button type="button" onClick={() => void regenerate()} disabled={busy} className="rounded-lg px-2 py-1.5 text-xs text-[#007aff] disabled:text-[#aeaeb2]">Regenerate</button><button type="button" onClick={() => void approve()} disabled={busy} className="rounded-lg bg-[#34c759] px-3 py-1.5 text-xs font-semibold text-white disabled:bg-[#c7c7cc]">{busy ? "Approving…" : "Approve"}</button></div></div>}
       </div>
     </article>
   );
@@ -455,6 +451,7 @@ const QUEUE_NOTES: Record<string, string> = {
 function Queue({ jobs, mode, onRefresh, onQueuePilot, onQueueFull, queueing, pilotCount, matrixCount }: { jobs: QueueJob[]; mode: "local" | "dispatch" | "unavailable"; onRefresh: () => void; onQueuePilot: () => void; onQueueFull: () => void; queueing: boolean; pilotCount: number; matrixCount: number }) {
   const activeJobs = jobs.filter((job) => job.status === "Queued" || job.status === "Rendering");
   const completedJobs = jobs.filter((job) => job.status === "Done" || job.status === "Failed");
+  const [confirmingFull, setConfirmingFull] = useState(false);
   const pilotActionLabel = `Queue pilot set (${pilotCount})`;
   const pilotActionTitle = mode === "unavailable"
     ? "Rendering isn't available on this deployment."
@@ -463,6 +460,39 @@ function Queue({ jobs, mode, onRefresh, onQueuePilot, onQueueFull, queueing, pil
   const fullActionTitle = mode === "unavailable"
     ? "Rendering isn't available on this deployment."
     : `Renders every variant in config/variants.yaml, regardless of what's selected on the Design tab. (${matrixCount} variants)`;
+  const pilotCaption = `Queues the curated pilot set (${pilotCount} variants) from config/variants_pilot.yaml, ignoring the Design tab selection.`;
+  const fullCaption = `Renders every variant in the matrix (${matrixCount} variants), ignoring the Design tab selection.`;
+  useEffect(() => {
+    if (!confirmingFull) return;
+    const timer = setTimeout(() => setConfirmingFull(false), 8000);
+    return () => clearTimeout(timer);
+  }, [confirmingFull]);
   const group = (title: string, entries: QueueJob[]) => <section className="queue-group"><div className="section-title">{title}</div><div className="soft-card queue-card">{entries.length === 0 ? <div className="empty-state">No jobs in this section.</div> : entries.map((job) => <div key={job.id} className="queue-item"><span className={`status-dot ${job.status.toLowerCase()}`} /><div className="queue-body"><div className="queue-name">{job.variantId}</div><div className="queue-sub">{job.status === "Done" ? "Master ready" : job.status === "Failed" ? job.error ?? "Render failed" : job.status}</div></div><time className="queue-time">{new Date(job.queuedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</time></div>)}</div></section>;
-  return <section className="panel-section"><div className="panel-heading"><div><h2>Render queue</h2><p>{mode === "dispatch" ? "GitHub Actions run status" : "Honest worker-backed status"}</p></div><div className="panel-heading-actions"><button type="button" onClick={onQueuePilot} disabled={mode === "unavailable" || queueing} className="queue-secondary" title={pilotActionTitle} aria-label={pilotActionTitle}><Layers size={14} /> {pilotActionLabel}</button><button type="button" onClick={onQueueFull} disabled={mode === "unavailable" || matrixCount === 0 || queueing} className="queue-secondary" title={fullActionTitle} aria-label={fullActionTitle}><Grid3x3 size={14} /> {fullActionLabel}</button><button type="button" onClick={onRefresh} className="round-action" aria-label="Refresh queue"><RefreshCw size={14} /></button></div></div><div className="queue-groups">{group("Rendering", activeJobs)}{group("Completed today", completedJobs)}</div><p className="queue-note">{QUEUE_NOTES[mode]}</p></section>;
+  return (
+    <section className="panel-section">
+      <div className="panel-heading">
+        <div><h2>Render queue</h2><p>{mode === "dispatch" ? "GitHub Actions run status" : "Honest worker-backed status"}</p></div>
+        <div className="panel-heading-actions"><button type="button" onClick={onRefresh} className="round-action" aria-label="Refresh queue"><RefreshCw size={14} /></button></div>
+      </div>
+      <div className="bulk-actions">
+        <div className="bulk-action">
+          <button type="button" onClick={onQueuePilot} disabled={mode === "unavailable" || queueing} className="queue-secondary" title={pilotActionTitle} aria-label={pilotActionTitle}><Layers size={14} /> {pilotActionLabel}</button>
+          <p className="bulk-action-caption">{pilotCaption}</p>
+        </div>
+        <div className="bulk-action">
+          {confirmingFull ? (
+            <div className="bulk-confirm">
+              <button type="button" onClick={() => { setConfirmingFull(false); onQueueFull(); }} disabled={queueing} className="queue-primary" aria-label={`Confirm rendering all ${matrixCount} variants`}>Confirm {matrixCount} renders</button>
+              <button type="button" onClick={() => setConfirmingFull(false)} className="queue-secondary">Cancel</button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setConfirmingFull(true)} disabled={mode === "unavailable" || matrixCount === 0 || queueing} className="queue-secondary" title={fullActionTitle} aria-label={fullActionTitle}><Grid3x3 size={14} /> {fullActionLabel}</button>
+          )}
+          <p className="bulk-action-caption">{confirmingFull ? `Tap confirm to dispatch all ${matrixCount} renders.` : fullCaption}</p>
+        </div>
+      </div>
+      <div className="queue-groups">{group("Rendering", activeJobs)}{group("Completed today", completedJobs)}</div>
+      <p className="queue-note">{QUEUE_NOTES[mode]}</p>
+    </section>
+  );
 }
