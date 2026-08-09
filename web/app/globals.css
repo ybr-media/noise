@@ -28,7 +28,11 @@ button:disabled { cursor: not-allowed; }
 .ambient-field-c { width: 380px; height: 380px; bottom: 18%; left: -140px; background: #e6ddf7; }
 .noise-page { position: relative; z-index: 1; width: 100%; max-width: 660px; margin: 0 auto; padding: 64px 22px calc(env(safe-area-inset-bottom) + var(--dock-height) + 34px); }
 .noise-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 34px; }
-.noise-title { font-size: 44px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+.noise-title { display: flex; align-items: center; height: 52px; margin: 0; font-size: 44px; font-weight: 800; letter-spacing: -.02em; line-height: 1.1; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.bell-mark { width: 52px; height: 52px; display: block; overflow: visible; animation: rise .58s cubic-bezier(.2,.8,.25,1) both; }
+.bell-eyes { opacity: 0; animation: bell-eyes-in .18s ease-out .16s forwards; }
+.bell-smile { clip-path: inset(0 100% 0 0); animation: bell-smile-in .42s cubic-bezier(.2,.8,.25,1) .3s forwards; }
 .noise-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .info-button { position: relative; width: 30px; height: 30px; display: grid; place-items: center; margin-top: 4px; border-radius: 50%; color: var(--secondary-text); }
 .info-button::after { position: absolute; top: 50%; left: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); content: ""; }
@@ -126,12 +130,22 @@ button:disabled { cursor: not-allowed; }
 .count-badge.dim { color: #fff; background: #bcbcc2; box-shadow: none; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 7px rgba(229,72,60,.07); } }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes bell-eyes-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bell-smile-in { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes track-highlight { 0% { box-shadow: 0 0 0 5px rgba(0,122,255,.35), 0 12px 32px rgba(20,20,50,.06); } 100% { box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px rgba(20,20,50,.06); } }
 @keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .bell-mark, .bell-eyes, .bell-smile { animation: none; }
+  .bell-mark { opacity: 1; transform: none; }
+  .bell-eyes { opacity: 1; }
+  .bell-smile { clip-path: none; }
+  .refresh-button.is-refreshing svg, .round-action.is-refreshing svg { animation: none; }
+}
 @media (max-width: 520px) {
   :root { --dock-height: 57px; }
   .noise-page { padding-right: 14px; padding-left: 14px; }
-  .noise-title { font-size: 38px; }
+  .noise-title { height: 44px; font-size: 38px; }
+  .bell-mark { width: 44px; height: 44px; }
   .noise-about { max-width: 260px; font-size: 14px; }
   .spectrum-card, .track-card, .variant-card { padding-right: 16px; padding-left: 16px; }
   .controls-card { padding-right: 16px; padding-left: 16px; }
