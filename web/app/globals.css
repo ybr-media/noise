@@ -69,6 +69,7 @@ button:disabled { cursor: not-allowed; }
 .queue-primary { color: #fff; background: #e5483c; box-shadow: 0 6px 14px rgba(229,72,60,.2); }
 .queue-secondary { color: #1c1c1e; background: #f0f0f4; font-weight: 500; }
 .queue-secondary:disabled { color: #aeaeb2; }
+.queue-primary:disabled { background: #f0a49e; box-shadow: none; }
 .panel-section { margin-top: 5px; }
 .panel-heading { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
 .panel-heading-actions { display: flex; align-items: center; gap: 8px; }
