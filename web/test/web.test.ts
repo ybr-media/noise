@@ -98,7 +98,7 @@ test("formats queue estimates and relative times", () => {
 test("formats known variants and batch fallbacks for queue rows", async () => {
   const [{ loadVariants }] = await modulesPromise;
   const variants = loadVariants();
-  assert.equal(formatVariantLabel(variants[0].variantId, variants), "White · Mid · Drift · Even");
+  assert.equal(formatVariantLabel(variants[0].variantId, variants), "White · Mid · Drift · Balanced");
   assert.equal(formatVariantLabel("unknown", variants), "unknown");
   assert.equal(formatBatchLabel("pilot", { pilot: 8, full: 144 }), "Pilot set (8)");
   assert.equal(formatBatchLabel("full", { pilot: 8, full: 144 }), "Full matrix (144)");

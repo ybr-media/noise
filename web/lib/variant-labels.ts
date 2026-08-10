@@ -11,7 +11,7 @@ export const OPTIONS = {
     ["still", "Still"], ["drift", "Drift"], ["breathing", "Breathing"],
   ],
   balance: [
-    ["bed-forward", "Bed"], ["balanced", "Even"], ["texture-forward", "Texture"],
+    ["bed-forward", "Smooth"], ["balanced", "Balanced"], ["texture-forward", "Grainy"],
   ],
 } as const;
 
