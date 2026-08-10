@@ -582,7 +582,7 @@ export default function NoiseLab() {
 
   return (
     <main className="noise-shell min-h-screen w-full" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif' }}>
-      {introState !== "hidden" && <div className={`intro-splash ${introState === "fading" ? "is-fading" : ""}`} aria-hidden="true"><BellMark /></div>}
+      {introState !== "hidden" && <div className={`intro-splash ${introState === "fading" ? "is-fading" : ""}`} aria-hidden="true"><BellMark /><span className="intro-wordmark">Noise Labs</span></div>}
       <div className="ambient-field ambient-field-a" />
       <div className="ambient-field ambient-field-b" />
       <div className="ambient-field ambient-field-c" />

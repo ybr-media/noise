@@ -28,9 +28,10 @@ button:disabled { cursor: not-allowed; }
 .ambient-field-c { width: 380px; height: 380px; bottom: 18%; left: -140px; background: #e6ddf7; }
 .noise-page { position: relative; z-index: 1; width: 100%; max-width: 660px; margin: 0 auto; padding: 72px 22px calc(env(safe-area-inset-bottom) + var(--dock-height) + 34px); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-.intro-splash { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; background: var(--page); opacity: 1; pointer-events: none; transition: opacity .4s ease; }
+.intro-splash { position: fixed; z-index: 100; inset: 0; display: grid; place-items: center; align-content: center; justify-items: center; gap: 18px; background: var(--page); opacity: 1; pointer-events: none; transition: opacity .4s ease; }
 .intro-splash.is-fading { opacity: 0; }
 .intro-splash .bell-mark { width: min(46vw, 220px); height: min(46vw, 220px); }
+.intro-wordmark { color: #1c1c1e; font-size: clamp(22px, 6vw, 32px); font-weight: 700; letter-spacing: -.02em; animation: rise .58s cubic-bezier(.2,.8,.25,1) .34s both; }
 .bell-mark { width: 52px; height: 52px; display: block; overflow: visible; animation: rise .58s cubic-bezier(.2,.8,.25,1) both; }
 .bell-eyes { opacity: 0; animation: bell-eyes-in .18s ease-out .16s forwards; }
 .bell-smile { clip-path: inset(0 100% 0 0); animation: bell-smile-in .42s cubic-bezier(.2,.8,.25,1) .3s forwards; }
@@ -215,7 +216,7 @@ button:disabled { cursor: not-allowed; }
 @media (prefers-reduced-motion: reduce) {
   .intro-splash { display: none; }
   .current-tab-title { transition: none; }
-  .bell-mark, .bell-eyes, .bell-smile { animation: none; }
+  .bell-mark, .bell-eyes, .bell-smile, .intro-wordmark { animation: none; }
   .bell-mark { opacity: 1; transform: none; }
   .bell-eyes { opacity: 1; }
   .bell-smile { clip-path: none; }
