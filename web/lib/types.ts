@@ -65,7 +65,7 @@ export type LibraryTrack = Variant & {
 export type QueueJob = {
   id: string;
   variantId: string;
-  status: "Queued" | "Rendering" | "Done" | "Failed";
+  status: "Queued" | "Rendering" | "Done" | "Failed" | "Cancelled";
   queuedAt: string;
   error?: string;
   startedAt?: string;

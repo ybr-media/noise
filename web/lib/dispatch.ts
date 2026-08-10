@@ -67,7 +67,7 @@ const STATUSES: Record<string, QueueJob["status"]> = {
 
 function statusOf(run: WorkflowRun): QueueJob["status"] {
   if (run.status !== "completed") return STATUSES[run.status] ?? "Queued";
-  return run.conclusion === "success" ? "Done" : "Failed";
+  return run.conclusion === "success" ? "Done" : run.conclusion === "cancelled" ? "Cancelled" : "Failed";
 }
 
 // The workflow sets its run name to the requested variants, which is the only

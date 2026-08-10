@@ -21,7 +21,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LibraryTrack, QueueJob, Release, ReleaseTrack, Variant } from "@/lib/types";
-import { absoluteTime, attemptNumber, batchMembersForJob, batchMissingMastersSummary, hasRepeatedVariant, isSuperseded, knownVariantId, partitionFailedJobs, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
+import { absoluteTime, batchMembersForJob, batchMissingMastersSummary, knownVariantId, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
+import { groupCompletedByDay, partitionRenderJobs, type RenderJob } from "@/lib/render-jobs";
 import { formatBatchLabel, formatVariantLabel, isBatchVariantId, OPTIONS } from "@/lib/variant-labels";
 import type { DerivedRelease } from "@/lib/releases";
 import { toReleaseDocument } from "@/lib/release-document";
@@ -545,7 +546,7 @@ export default function NoiseLab() {
   const retryInFlight = useRef(false);
   const tabsRef = useRef<HTMLElement>(null);
   const lensRef = useRef<HTMLDivElement>(null);
-  const queueCount = jobs.filter((job) => job.status !== "Done" && job.status !== "Failed").length;
+  const queueCount = jobs.filter((job) => job.status === "Queued" || job.status === "Rendering").length;
   const libraryCount = tracks.filter((track) => track.exists).length;
   const releaseCount = releases.filter((release) => release.ladder.ready && !release.ladder.submitted).length;
   const selected = useMemo(() => variants.find((variant) => variant.color === selection.color && variant.band === selection.band && variant.motion === selection.motion && variant.balance === selection.balance), [selection, variants]);
@@ -1178,8 +1179,8 @@ function Queue({ jobs, initialLoad, mode, stats, variants, tracks, onRefresh, re
     : `Renders every variant in config/variants.yaml, regardless of what's selected on the Design tab. (${matrixCount} variants)`;
   const pilotMembers = variants.filter((variant) => variant.pilot !== null).map((variant) => variant.variantId);
   const fullMembers = variants.map((variant) => variant.variantId);
-  const { actionable: failedJobs, superseded: supersededJobs } = partitionFailedJobs(jobs, pilotMembers, fullMembers);
-  const completedJobs = jobs.filter((job) => job.status === "Done");
+  const partition = partitionRenderJobs(jobs, pilotMembers, fullMembers);
+  const completedBuckets = groupCompletedByDay(partition.completed);
   useEffect(() => {
     if (!confirmingFull) return;
     const timer = setTimeout(() => setConfirmingFull(false), 8000);
@@ -1191,99 +1192,76 @@ function Queue({ jobs, initialLoad, mode, stats, variants, tracks, onRefresh, re
     return () => clearTimeout(timer);
   }, [confirmingRetryId]);
   const elapsed = (job: QueueJob) => job.startedAt ? (Date.now() - new Date(job.startedAt).getTime()) / 1000 : 0;
-  const activeCopy = (job: QueueJob) => {
-    if (mode === "local") {
-      return job.status === "Queued" ? queueAheadLabel(queuedJobsAhead(job.id, jobs)) : "Worker is rendering";
-    }
-    return job.status === "Rendering"
+  const activeCopy = (job: QueueJob) => mode === "local"
+    ? job.status === "Queued" ? queueAheadLabel(queuedJobsAhead(job.id, jobs)) : "Worker is rendering"
+    : job.status === "Rendering"
       ? `${renderEstimate(stats.medianRenderSeconds, stats.sampleSize, elapsed(job))} left`
       : stats.sampleSize ? `Typically ${renderEstimate(stats.medianRenderSeconds, stats.sampleSize)} once started` : renderEstimate(null, 0);
-  };
   const renderingCount = activeJobs.filter((job) => job.status === "Rendering").length;
   const queuedCount = activeJobs.filter((job) => job.status === "Queued").length;
   const summary = initialLoad
     ? "Checking the queue…"
     : activeJobs.length
-    ? [
-      renderingCount ? `${renderingCount} rendering` : "",
-      queuedCount ? `${queuedCount} queued` : "",
-      mode === "dispatch" ? `${renderEstimate(stats.medianRenderSeconds, stats.sampleSize, Math.max(...activeJobs.map(elapsed), 0))} remaining` : "",
-    ].filter(Boolean).join(" · ")
-    : "Queue idle";
-  const row = (job: QueueJob) => {
-    const done = job.status === "Done";
-    const variant = done ? knownVariantId(job.variantId, variants) : null;
-    const batch = isBatchVariantId(job.variantId);
-    const name = batch ? formatBatchLabel(job.variantId, { pilot: pilotCount, full: matrixCount }) : formatVariantLabel(job.variantId, variants);
-    const batchMembers = batchMembersForJob(job, pilotMembers, fullMembers);
-    const superseded = isSuperseded(job, jobs, batchMembers);
-    const alreadyRetried = retried.has(job.id) || superseded;
-    const attempt = attemptNumber(job, jobs);
-    const attemptLabel = hasRepeatedVariant(job, jobs) ? ` · Attempt ${attempt}` : "";
+      ? [renderingCount ? `${renderingCount} rendering` : "", queuedCount ? `${queuedCount} queued` : "", mode === "dispatch" ? `${renderEstimate(stats.medianRenderSeconds, stats.sampleSize, Math.max(...activeJobs.map(elapsed), 0))} remaining` : ""].filter(Boolean).join(" · ")
+      : "Queue idle";
+  const nameFor = (job: QueueJob) => isBatchVariantId(job.variantId)
+    ? formatBatchLabel(job.variantId, { pilot: pilotCount, full: matrixCount })
+    : formatVariantLabel(job.variantId, variants);
+  const attempts = (job: RenderJob) => job.attempts.map((attempt) => (
+    <div className="queue-attempt" key={attempt.id}>
+      <span className={`status-dot ${attempt.status.toLowerCase()}`} />
+      <span>{attempt.status}</span>
+      <time className="queue-time" title={absoluteTime(attempt.queuedAt)}>{relativeTime(attempt.queuedAt)}</time>
+      {attempt.logsUrl && <a href={attempt.logsUrl} target="_blank" rel="noopener" className="queue-link queue-logs">View logs</a>}
+    </div>
+  ));
+  const card = (job: RenderJob, history = false) => {
+    const latest = job.latest;
+    const done = latest.status === "Done";
+    const attention = latest.status === "Failed" || latest.status === "Cancelled";
+    const batch = isBatchVariantId(latest.variantId);
+    const name = nameFor(latest);
+    const batchMembers = batchMembersForJob(latest, pilotMembers, fullMembers);
     const missingMasters = batchMissingMastersSummary(batchMembers, tracks);
+    const failureVerb = latest.status === "Cancelled" ? "cancelled" : "failed";
     const failureCopy = !batch
-      ? job.error ?? "Render failed"
+      ? latest.error ?? (latest.status === "Cancelled" ? "Render cancelled" : "Render failed")
       : missingMasters
         ? missingMasters.missingVariantIds.length
-          ? `${name} render failed — ${missingMasters.missingVariantIds.length} of ${missingMasters.total} have no master yet`
-          : `${name} render failed — all ${missingMasters.total} batch variants have masters; a full retry likely isn't needed`
-        : `${name} render failed — see logs for which variant(s)`;
+          ? `${name} render ${failureVerb} — ${missingMasters.missingVariantIds.length} of ${missingMasters.total} have no master yet`
+          : `${name} render ${failureVerb} — all ${missingMasters.total} batch variants have masters; a full retry likely isn't needed`
+        : `${name} render ${failureVerb} — see logs for which variant(s)`;
     const retry = async () => {
-      if (await onRetry(job)) {
-        setRetried((old) => new Set(old).add(job.id));
+      if (await onRetry(latest)) {
+        setRetried((old) => new Set(old).add(latest.id));
         setConfirmingRetryId(null);
       }
     };
-    const retryControl = mode !== "unavailable" && (
-      confirmingRetryId === job.id ? (
+    const alreadyRetried = retried.has(latest.id);
+    const retryControl = !history && attention && mode !== "unavailable" && (
+      latest.variantId === "full" && confirmingRetryId === job.variantId ? (
         <>
-          <button type="button" className="queue-link queue-retry" disabled={queueing} aria-label={batch ? `Confirm re-rendering the entire ${name}` : `Confirm retrying ${name}`} onClick={() => void retry()}>{batch ? `Re-render entire ${name}` : "Confirm retry"}</button>
+          <button type="button" className="queue-link queue-retry" disabled={queueing} aria-label={`Confirm retrying ${name}`} onClick={() => void retry()}>Re-render entire {name}</button>
           <button type="button" className="queue-link queue-cancel" onClick={() => setConfirmingRetryId(null)} aria-label={`Cancel retrying ${name}`}>Cancel</button>
         </>
       ) : (
-        <button type="button" disabled={queueing || alreadyRetried} onClick={() => {
-          setConfirmingRetryId(job.id);
-        }} className="queue-link queue-retry" aria-label={alreadyRetried ? `${name} was already retried` : `Retry ${name}`}>{alreadyRetried ? "Retried ✓" : "Retry"}</button>
+        <button type="button" disabled={queueing || alreadyRetried} onClick={() => latest.variantId === "full" ? setConfirmingRetryId(job.variantId) : void retry()} className="queue-link queue-retry" aria-label={alreadyRetried ? `${name} was already retried` : `Retry ${name}`}>{alreadyRetried ? "Retried ✓" : "Retry"}</button>
       )
     );
-    const content = <><span className={`status-dot ${job.status.toLowerCase()}`} /><div className="queue-body"><div className="queue-name" title={`${job.variantId} · Run ${job.id}`}>{name}{attemptLabel}</div><div className="queue-sub" title={job.error}>{done ? variant ? "Master ready · Open in Library ›" : "Masters ready · Open Library ›" : job.status === "Failed" ? <>{failureCopy}{missingMasters?.missingVariantIds.length ? <details className="queue-missing"><summary>Show variants</summary><ul>{missingMasters.missingVariantIds.map((variantId) => <li key={variantId}>{formatVariantLabel(variantId, variants)}</li>)}</ul></details> : null}</> : activeCopy(job)}</div>{job.status === "Failed" && <div className="queue-actions">{job.logsUrl && <a href={job.logsUrl} target="_blank" rel="noopener" className="queue-link queue-logs">View logs</a>}{retryControl}</div>}</div><time className="queue-time" title={absoluteTime(job.queuedAt)}>{relativeTime(job.queuedAt)}</time></>;
-    return done ? <button type="button" key={job.id} className="queue-item queue-link-row" onClick={() => onDone(job)}>{content}</button> : <div key={job.id} className="queue-item">{content}</div>;
+    const displayTime = done ? latest.finishedAt ?? latest.queuedAt : latest.queuedAt;
+    const content = <><span className={`status-dot ${latest.status.toLowerCase()}`} /><div className="queue-body"><div className="queue-name" title={`${latest.variantId} · Run ${latest.id}`}>{name}{history ? ` · ${latest.status}` : ""}</div><div className="queue-sub" title={latest.error}>{done ? "Master ready · Open in Library ›" : attention ? <>{failureCopy}{missingMasters?.missingVariantIds.length ? <details className="queue-missing"><summary>Show variants</summary><ul>{missingMasters.missingVariantIds.map((variantId) => <li key={variantId}>{formatVariantLabel(variantId, variants)}</li>)}</ul></details> : null}</> : activeCopy(latest)}</div>{attention && <div className="queue-actions">{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener" className="queue-link queue-logs">View logs</a>}{retryControl}</div>}{job.attempts.length > 1 && <details className="queue-attempts"><summary>{job.attempts.length} attempts ›</summary>{attempts(job)}</details>}</div><time className="queue-time" title={absoluteTime(displayTime)}>{relativeTime(displayTime)}</time></>;
+    if (history) return <div className="queue-item queue-history-job" key={job.variantId}>{content}</div>;
+    return done ? <button type="button" key={job.variantId} className="queue-item queue-link-row" onClick={() => onDone(latest)}>{content}</button> : <div key={job.variantId} className="queue-item">{content}</div>;
   };
-  const group = (title: string, entries: QueueJob[], empty: string) => <section className="queue-group"><div className="section-title">{title}</div><div className="soft-card queue-card">{entries.length === 0 ? <div className="empty-state">{empty}</div> : entries.map(row)}</div></section>;
+  const group = (title: string, entries: RenderJob[], empty: string) => <section className="queue-group"><div className="section-title">{title}</div><div className="soft-card queue-card">{entries.length === 0 ? <div className="empty-state">{empty}</div> : entries.map((job) => card(job))}</div></section>;
   return (
     <section className="panel-section">
-      <div className="panel-heading">
-        <div><div className="queue-heading-line"><h2>Render queue</h2><span className="mode-chip">{mode === "dispatch" ? "GitHub Actions" : mode === "local" ? "Local worker" : "Browse only"}</span></div><p className="queue-summary" aria-live="polite">{summary}</p></div>
-        <div className="panel-heading-actions"><button type="button" onClick={onRefresh} disabled={refreshing} aria-busy={refreshing} className={`round-action ${refreshing || initialLoad ? "is-refreshing" : ""}`} aria-label="Refresh queue"><RefreshCw size={14} /></button></div>
-      </div>
+      <div className="panel-heading"><div><div className="queue-heading-line"><h2>Render queue</h2><span className="mode-chip">{mode === "dispatch" ? "GitHub Actions" : mode === "local" ? "Local worker" : "Browse only"}</span></div><p className="queue-summary" aria-live="polite">{summary}</p></div><div className="panel-heading-actions"><button type="button" onClick={onRefresh} disabled={refreshing} aria-busy={refreshing} className={`round-action ${refreshing || initialLoad ? "is-refreshing" : ""}`} aria-label="Refresh queue"><RefreshCw size={14} /></button></div></div>
       {initialLoad && <QueueSkeleton />}
-      {failedJobs.length > 0 && group("Needs attention", failedJobs, "Nothing needs attention")}
-      {supersededJobs.length > 0 && <details className="queue-history"><summary>Superseded attempts ({supersededJobs.length})</summary><div className="soft-card queue-card">{supersededJobs.map(row)}</div></details>}
-      {!initialLoad && <>
-        {group("Active", activeJobs, "No active renders — open Start renders below")}
-        {group("Completed today", completedJobs, "No completed renders yet")}
-      </>}
-      <details className="start-renders">
-        <summary>Start renders <span>· pilot ({pilotCount}) or full matrix ({matrixCount})</span></summary>
-        <div className="bulk-actions">
-          <div className="bulk-action">
-            <button type="button" onClick={onQueuePilot} disabled={mode === "unavailable" || queueing} className="queue-secondary" title={pilotActionTitle} aria-label={pilotActionTitle}><Layers size={14} /> {pilotActionLabel}</button>
-            <p className="bulk-action-caption">All {pilotCount} pilot variants, ignores Design selection</p>
-          </div>
-          <div className="bulk-action">
-            {confirmingFull ? (
-              <div className="bulk-confirm">
-                <button type="button" onClick={() => { setConfirmingFull(false); onQueueFull(); }} disabled={queueing} className="queue-primary" aria-label={`Confirm rendering all ${matrixCount} variants`}>Confirm {matrixCount} renders</button>
-                <button type="button" onClick={() => setConfirmingFull(false)} className="queue-secondary">Cancel</button>
-              </div>
-            ) : (
-              <button type="button" onClick={() => setConfirmingFull(true)} disabled={mode === "unavailable" || matrixCount === 0 || queueing} className="queue-secondary" title={fullActionTitle} aria-label={fullActionTitle}><Grid3x3 size={14} /> {fullActionLabel}</button>
-            )}
-            <p className="bulk-action-caption">{confirmingFull ? `Tap confirm to dispatch all ${matrixCount} renders.` : `All ${matrixCount} variants, ignores Design selection`}</p>
-          </div>
-        </div>
-        <p className="queue-note">{QUEUE_NOTES[mode]}</p>
-      </details>
+      {partition.needsAttention.length > 0 && group("Needs attention", partition.needsAttention, "Nothing needs attention")}
+      {partition.history.length > 0 && <details className="queue-history"><summary>History ({partition.history.length})</summary><div className="soft-card queue-card">{partition.history.map((job) => card(job, true))}</div></details>}
+      {!initialLoad && <>{group("Active", partition.active, "No active renders — open Start renders below")}{completedBuckets.map((bucket) => <section className="queue-group" key={bucket.label}><div className="section-title">{bucket.label}</div><div className="soft-card queue-card">{bucket.jobs.map((job) => card(job))}</div></section>)}</>}
+      <details className="start-renders"><summary>Start renders <span>· pilot ({pilotCount}) or full matrix ({matrixCount})</span></summary><div className="bulk-actions"><div className="bulk-action"><button type="button" onClick={onQueuePilot} disabled={mode === "unavailable" || queueing} className="queue-secondary" title={pilotActionTitle} aria-label={pilotActionTitle}><Layers size={14} /> {pilotActionLabel}</button><p className="bulk-action-caption">All {pilotCount} pilot variants, ignores Design selection</p></div><div className="bulk-action">{confirmingFull ? <div className="bulk-confirm"><button type="button" onClick={() => { setConfirmingFull(false); onQueueFull(); }} disabled={queueing} className="queue-primary" aria-label={`Confirm rendering all ${matrixCount} variants`}>Confirm {matrixCount} renders</button><button type="button" onClick={() => setConfirmingFull(false)} className="queue-secondary">Cancel</button></div> : <button type="button" onClick={() => setConfirmingFull(true)} disabled={mode === "unavailable" || matrixCount === 0 || queueing} className="queue-secondary" title={fullActionTitle} aria-label={fullActionTitle}><Grid3x3 size={14} /> {fullActionLabel}</button>}<p className="bulk-action-caption">{confirmingFull ? `Tap confirm to dispatch all ${matrixCount} renders.` : `All ${matrixCount} variants, ignores Design selection`}</p></div></div><p className="queue-note">{QUEUE_NOTES[mode]}</p></details>
     </section>
   );
 }
