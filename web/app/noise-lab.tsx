@@ -39,30 +39,190 @@ const C = {
   blue: "#007AFF",
 };
 
-function Segmented({ options, value, onChange, label }: {
+const SWATCH_FILLS: Record<string, string> = {
+  white: "#F6F6F4",
+  green: "#3FAE62",
+  pink: "#F0A3C0",
+  brown: "#7A4A2B",
+};
+
+const DARK_CHECK_SWATCHES = new Set(["white", "pink"]);
+
+const PARAM_CAPTIONS: Record<string, string> = {
+  white: "White · 0 dB/oct",
+  green: "Green · mid-weighted",
+  pink: "Pink · −3 dB/oct",
+  brown: "Brown · −6 dB/oct",
+  "low-mid": "Low-mid — low-mid texture",
+  mid: "Mid — mid texture",
+  high: "High — high texture",
+  broad: "Broad — full spectrum",
+  still: "Still — static",
+  drift: "Drift — drift modulation",
+  breathing: "Breathing — breathing modulation",
+  "bed-forward": "Bed — bed-forward mix",
+  balanced: "Even — even mix",
+  "texture-forward": "Texture — texture-forward mix",
+};
+
+const PARAM_ARIA_LABELS: Record<string, string> = {
+  "bed-forward": "Bed",
+  balanced: "Even",
+  "texture-forward": "Texture",
+};
+
+function ParamIcon({ option }: { option: string }) {
+  switch (option) {
+    case "low-mid":
+      return (
+        <svg viewBox="0 0 20 20" width={20} height={20} fill="none" aria-hidden="true">
+          <rect x="3" y="6" width="3" height="9" rx="1.2" fill="currentColor" />
+          <rect x="8.5" y="10" width="3" height="5" rx="1.2" fill="currentColor" opacity=".4" />
+          <rect x="14" y="12" width="3" height="3" rx="1.2" fill="currentColor" opacity=".4" />
+        </svg>
+      );
+    case "mid":
+      return (
+        <svg viewBox="0 0 20 20" width={20} height={20} fill="none" aria-hidden="true">
+          <rect x="3" y="11" width="3" height="4" rx="1.2" fill="currentColor" opacity=".4" />
+          <rect x="8.5" y="5" width="3" height="10" rx="1.2" fill="currentColor" />
+          <rect x="14" y="11" width="3" height="4" rx="1.2" fill="currentColor" opacity=".4" />
+        </svg>
+      );
+    case "high":
+      return (
+        <svg viewBox="0 0 20 20" width={20} height={20} fill="none" aria-hidden="true">
+          <rect x="3" y="12" width="3" height="3" rx="1.2" fill="currentColor" opacity=".4" />
+          <rect x="8.5" y="10" width="3" height="5" rx="1.2" fill="currentColor" opacity=".4" />
+          <rect x="14" y="5" width="3" height="10" rx="1.2" fill="currentColor" />
+        </svg>
+      );
+    case "broad":
+      return (
+        <svg viewBox="0 0 20 20" width={20} height={20} fill="none" aria-hidden="true">
+          <rect x="3" y="7" width="3" height="8" rx="1.2" fill="currentColor" />
+          <rect x="8.5" y="7" width="3" height="8" rx="1.2" fill="currentColor" />
+          <rect x="14" y="7" width="3" height="8" rx="1.2" fill="currentColor" />
+        </svg>
+      );
+    case "still":
+      return (
+        <svg viewBox="0 0 20 20" width={20} height={20} fill="none" aria-hidden="true">
+          <path d="M3 10h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      );
+    case "drift":
+      return (
+        <svg viewBox="0 0 20 20" width={20} height={20} fill="none" aria-hidden="true">
+          <path d="M3 13C7 12 12 8 17 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      );
+    case "breathing":
+      return (
+        <svg viewBox="0 0 20 20" width={20} height={20} fill="none" aria-hidden="true">
+          <path d="M3 10c2.3-5 4.7-5 7 0s4.7 5 7 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      );
+    case "bed-forward":
+      return (
+        <svg viewBox="0 0 20 20" width={20} height={20} fill="none" aria-hidden="true">
+          <rect x="3" y="11" width="14" height="4" rx="1.5" fill="currentColor" />
+          <rect x="5" y="5" width="10" height="4" rx="1.5" fill="currentColor" opacity=".35" />
+        </svg>
+      );
+    case "balanced":
+      return (
+        <svg viewBox="0 0 20 20" width={20} height={20} fill="none" aria-hidden="true">
+          <rect x="3" y="5" width="14" height="4" rx="1.5" fill="currentColor" />
+          <rect x="3" y="11" width="14" height="4" rx="1.5" fill="currentColor" />
+        </svg>
+      );
+    case "texture-forward":
+      return (
+        <svg viewBox="0 0 20 20" width={20} height={20} fill="none" aria-hidden="true">
+          <rect x="3" y="11" width="14" height="4" rx="1.5" fill="currentColor" opacity=".35" />
+          <circle cx="6" cy="7" r="1.6" fill="currentColor" />
+          <circle cx="11" cy="5.5" r="1.6" fill="currentColor" />
+          <circle cx="15" cy="8" r="1.6" fill="currentColor" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+function radioArrowHandler(options: readonly (readonly [string, string])[], value: string, onChange: (value: string) => void) {
+  return (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const delta = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
+    if (!delta) return;
+    event.preventDefault();
+    const index = options.findIndex(([id]) => id === value);
+    const [nextId] = options[(index + delta + options.length) % options.length];
+    fireSelectionHaptic();
+    onChange(nextId);
+    const next = event.currentTarget.querySelector<HTMLButtonElement>(`[data-option="${nextId}"]`);
+    next?.focus();
+  };
+}
+
+function fireSelectionHaptic() {
+  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+    try { navigator.vibrate(10); } catch {}
+  }
+}
+
+function GlyphSegmented({ options, value, onChange, label }: {
   options: readonly (readonly [string, string])[];
   value: string;
   onChange: (value: string) => void;
   label: string;
 }) {
   return (
-    <div className="mini-segmented" role="radiogroup" aria-label={label}>
+    <div className="glyph-segmented" role="radiogroup" aria-label={label} onKeyDown={radioArrowHandler(options, value, onChange)}>
       {options.map(([id, name]) => (
-        <button key={id} type="button" onClick={() => onChange(id)} aria-checked={value === id} role="radio"
-          className={`mini-segment ${value === id ? "is-selected" : ""}`}>
-          {name}
+        <button key={id} type="button" role="radio" aria-checked={value === id} tabIndex={value === id ? 0 : -1} data-option={id}
+          aria-label={PARAM_ARIA_LABELS[id] ?? name}
+          onClick={() => { if (value !== id) fireSelectionHaptic(); onChange(id); }}
+          className={`glyph-segment ${value === id ? "is-selected" : ""}`}>
+          <ParamIcon option={id} />
         </button>
       ))}
     </div>
   );
 }
 
-function Row({ label, hint, children }: { label: string; hint: string; children: React.ReactNode }) {
+function SwatchRow({ options, value, onChange, label }: {
+  options: readonly (readonly [string, string])[];
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+}) {
   return (
-    <div className="design-row">
-      <div>
-        <div className="design-label">{label}</div>
-        <div className="design-hint">{hint}</div>
+    <div className="swatch-row" role="radiogroup" aria-label={label} onKeyDown={radioArrowHandler(options, value, onChange)}>
+      {options.map(([id, name]) => (
+        <button key={id} type="button" role="radio" aria-checked={value === id} tabIndex={value === id ? 0 : -1} data-option={id} aria-label={name}
+          onClick={() => { if (value !== id) fireSelectionHaptic(); onChange(id); }}
+          className={`swatch ${id === "white" ? "swatch-white" : ""} ${value === id ? "is-selected" : ""}`}
+          style={{ background: SWATCH_FILLS[id] }}>
+          {value === id && (
+            <svg viewBox="0 0 14 14" width={14} height={14} aria-hidden="true">
+              <path d="M3 7.5l2.5 2.5L11 4.5" stroke={DARK_CHECK_SWATCHES.has(id) ? "#1D1D1F" : "#FFFFFF"} strokeWidth="2" fill="none" strokeLinecap="round" />
+            </svg>
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ParamRow({ label, caption, children }: { label: string; caption: string; children: React.ReactNode }) {
+  return (
+    <div className="param-row">
+      <div className="param-row-heading">
+        <div className="param-title">{label}</div>
+        <div className="param-caption" aria-live="polite">
+          <span key={caption} className="param-caption-text">{caption}</span>
+        </div>
       </div>
       {children}
     </div>
@@ -106,9 +266,9 @@ function DesignSkeleton() {
         </div>
         <section className="soft-card controls-card">
           {["color", "band", "motion", "balance"].map((row) => (
-            <div key={row} className="design-row">
-              <div><Skeleton width={68} height={15} /><Skeleton className="mt-2" width="80%" height={11} /></div>
-              <Skeleton height={40} radius={12} />
+            <div key={row} className="param-row">
+              <div className="param-row-heading"><Skeleton width={68} height={15} /><Skeleton width={120} height={11} /></div>
+              <Skeleton height={48} radius={16} />
             </div>
           ))}
         </section>
@@ -607,10 +767,10 @@ export default function NoiseLab() {
               </button>
             </div>
             <section className="soft-card controls-card">
-              <Row label="Color" hint={selected.spectrum.bell ? "+6 dB bell @ 500 Hz" : `${selected.spectrum.tiltDbPerOct} dB/oct`}><Segmented options={OPTIONS.color} value={selection.color} onChange={(value) => setSelection((old) => ({ ...old, color: value }))} label="Color" /></Row>
-              <Row label="Band" hint={`${selected.band} texture`}><Segmented options={OPTIONS.band} value={selection.band} onChange={(value) => setSelection((old) => ({ ...old, band: value }))} label="Band" /></Row>
-              <Row label="Motion" hint={`${selected.motion} modulation`}><Segmented options={OPTIONS.motion} value={selection.motion} onChange={(value) => setSelection((old) => ({ ...old, motion: value }))} label="Motion" /></Row>
-              <Row label="Balance" hint={`${selected.balance} mix`}><Segmented options={OPTIONS.balance} value={selection.balance} onChange={(value) => setSelection((old) => ({ ...old, balance: value }))} label="Balance" /></Row>
+              <ParamRow label="Color" caption={PARAM_CAPTIONS[selection.color]}><SwatchRow options={OPTIONS.color} value={selection.color} onChange={(value) => setSelection((old) => ({ ...old, color: value }))} label="Color" /></ParamRow>
+              <ParamRow label="Band" caption={PARAM_CAPTIONS[selection.band]}><GlyphSegmented options={OPTIONS.band} value={selection.band} onChange={(value) => setSelection((old) => ({ ...old, band: value }))} label="Band" /></ParamRow>
+              <ParamRow label="Motion" caption={PARAM_CAPTIONS[selection.motion]}><GlyphSegmented options={OPTIONS.motion} value={selection.motion} onChange={(value) => setSelection((old) => ({ ...old, motion: value }))} label="Motion" /></ParamRow>
+              <ParamRow label="Balance" caption={PARAM_CAPTIONS[selection.balance]}><GlyphSegmented options={OPTIONS.balance} value={selection.balance} onChange={(value) => setSelection((old) => ({ ...old, balance: value }))} label="Balance" /></ParamRow>
             </section>
             <section className="soft-card variant-card">
               <div className="variant-id">{selected.variantId}</div>
