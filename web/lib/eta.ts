@@ -1,4 +1,4 @@
-import type { QueueJob, Variant } from "./types";
+import type { LibraryTrack, QueueJob, Variant } from "./types";
 
 export const DEFAULT_RENDER_ESTIMATE_RANGE = "5–10 min";
 
@@ -68,6 +68,41 @@ export function isSuperseded(job: QueueJob, jobs: QueueJob[], batchMembers?: str
       candidate.id !== job.id &&
       isNewer(candidate, job),
   );
+}
+
+export function batchMembersForJob(job: QueueJob, pilotMembers: string[], fullMembers: string[]): string[] | undefined {
+  return job.variantId === "pilot" ? pilotMembers : job.variantId === "full" ? fullMembers : undefined;
+}
+
+export function partitionFailedJobs(jobs: QueueJob[], pilotMembers: string[], fullMembers: string[]): {
+  actionable: QueueJob[];
+  superseded: QueueJob[];
+} {
+  return jobs.filter((job) => job.status === "Failed").reduce(
+    (partition, job) => {
+      const members = batchMembersForJob(job, pilotMembers, fullMembers);
+      (isSuperseded(job, jobs, members) ? partition.superseded : partition.actionable).push(job);
+      return partition;
+    },
+    { actionable: [], superseded: [] } as { actionable: QueueJob[]; superseded: QueueJob[] },
+  );
+}
+
+export type BatchMissingMastersSummary = {
+  total: number;
+  missingVariantIds: string[];
+};
+
+export function batchMissingMastersSummary(
+  batchMembers: string[] | undefined,
+  tracks: LibraryTrack[],
+): BatchMissingMastersSummary | null {
+  if (!batchMembers || batchMembers.length === 0 || tracks.length === 0) return null;
+  const byId = new Map(tracks.map((track) => [track.variantId, track]));
+  return {
+    total: batchMembers.length,
+    missingVariantIds: batchMembers.filter((member) => !byId.get(member)?.exists),
+  };
 }
 
 export function knownVariantId(variantId: string, variants: Variant[]): string | null {
