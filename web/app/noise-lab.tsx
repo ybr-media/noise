@@ -79,6 +79,112 @@ function Toast({ message, error, onClose }: { message: string; error?: boolean; 
   );
 }
 
+function Skeleton({ width, height, radius, className }: { width?: number | string; height?: number | string; radius?: number | string; className?: string }) {
+  return <span aria-hidden="true" className={`skeleton ${className ?? ""}`} style={{ width, height, borderRadius: radius }} />;
+}
+
+function SkeletonPanel({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="skeleton-panel" role="status" aria-busy="true" aria-live="polite">
+      <span className="sr-only">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function DesignSkeleton() {
+  return (
+    <SkeletonPanel label="Loading design controls…">
+      <div className="design-stack">
+        <section className="soft-card spectrum-card">
+          <Skeleton height={150} radius={16} />
+          <div className="spectrum-ticks">{["30", "500", "2k", "16k"].map((tick) => <Skeleton key={tick} width={34} />)}</div>
+        </section>
+        <div className="action-row">
+          <Skeleton className="skeleton-fixed" width={88} height={88} radius="50%" />
+          <Skeleton className="skeleton-grow" height={52} radius={999} />
+        </div>
+        <section className="soft-card controls-card">
+          {["color", "band", "motion", "balance"].map((row) => (
+            <div key={row} className="design-row">
+              <div><Skeleton width={68} height={15} /><Skeleton className="mt-2" width="80%" height={11} /></div>
+              <Skeleton height={40} radius={12} />
+            </div>
+          ))}
+        </section>
+        <section className="soft-card variant-card">
+          <Skeleton width="66%" height={14} />
+          <div className="variant-meta mt-4"><Skeleton width={104} /><Skeleton width={74} /></div>
+        </section>
+      </div>
+    </SkeletonPanel>
+  );
+}
+
+function SkeletonRows({ rows }: { rows: number }) {
+  return (
+    <div className="soft-card queue-card">
+      {Array.from({ length: rows }, (_, index) => (
+        <div key={index} className="skeleton-row">
+          <Skeleton className="skeleton-fixed" width={10} height={10} radius="50%" />
+          <div className="skeleton-row-body"><Skeleton width="58%" height={14} /><Skeleton width="38%" height={11} /></div>
+          <Skeleton className="skeleton-fixed" width={44} height={11} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LibrarySkeleton() {
+  return (
+    <SkeletonPanel label="Loading rendered masters…">
+      <div className="soft-card library-summary"><Skeleton width="52%" height={14} /><Skeleton className="mt-2" width="76%" height={10} /></div>
+      <div className="library-list">
+        {[0, 1, 2].map((card) => (
+          <article key={card} className="soft-card track-card">
+            <Skeleton width="46%" height={12} />
+            <Skeleton className="mt-3" width="64%" height={15} />
+            <Skeleton className="mt-3" height={38} radius={12} />
+            <Skeleton className="mt-3" height={62} radius={12} />
+            <div className="mt-3 flex gap-2"><Skeleton height={40} radius={12} /><Skeleton height={40} radius={12} /></div>
+          </article>
+        ))}
+      </div>
+    </SkeletonPanel>
+  );
+}
+
+function QueueSkeleton() {
+  return (
+    <SkeletonPanel label="Loading render queue…">
+      {["Active", "Completed today"].map((group) => (
+        <section key={group} className="queue-group">
+          <div className="section-title">{group}</div>
+          <SkeletonRows rows={group === "Active" ? 2 : 3} />
+        </section>
+      ))}
+    </SkeletonPanel>
+  );
+}
+
+function ReleasesSkeleton() {
+  return (
+    <SkeletonPanel label="Loading releases…">
+      <div className="release-list">
+        {[0, 1, 2].map((card) => (
+          <article key={card} className="soft-card release-card">
+            <div className="release-card-heading">
+              <div className="min-w-0 flex-1"><Skeleton width={72} height={10} /><Skeleton className="mt-2" width="58%" height={18} /><Skeleton className="mt-2" width="42%" height={11} /></div>
+              <Skeleton className="skeleton-fixed" width={58} height={20} radius={999} />
+            </div>
+            <div className="release-checklist"><Skeleton width={64} height={11} /><Skeleton width={48} height={11} /><Skeleton width={56} height={11} /><Skeleton width="70%" height={11} /></div>
+          </article>
+        ))}
+      </div>
+    </SkeletonPanel>
+  );
+}
+
 function formatDuration(seconds: number): string {
   const total = Math.max(0, Math.round(seconds));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
@@ -484,6 +590,7 @@ export default function NoiseLab() {
         <h1 className="sr-only">Noise Lab</h1>
 
         <div id="panel-design" role="tabpanel" aria-labelledby="tab-design" className={`panel ${tab === "design" ? "panel-show" : ""}`} hidden={tab !== "design"}>
+          {loading && !selected && <DesignSkeleton />}
           {selected && (
           <div className="design-stack">
             <section className="soft-card spectrum-card">
@@ -514,7 +621,7 @@ export default function NoiseLab() {
           )}
         </div>
         <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} onRefresh={() => void refresh()} onToast={setToast} /></div>
-        <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onQueuePilot={() => void queue([], "pilot")} onQueueFull={() => void queue([], "full")} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
+        <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} loading={loading} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onQueuePilot={() => void queue([], "pilot")} onQueueFull={() => void queue([], "full")} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
         <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} loading={loading} onRefresh={() => void refresh()} onToast={setToast} /></div>
       </div>
       <div className={`current-tab-title ${tabTitleVisible ? "" : "is-hidden"}`} aria-hidden={tabTitleVisible ? undefined : true}>
@@ -556,13 +663,20 @@ export default function NoiseLab() {
 }
 
 function Library({ tracks, loading, onRefresh, onToast }: { tracks: LibraryTrack[]; loading: boolean; onRefresh: () => void; onToast: (toast: { message: string; error?: boolean }) => void }) {
+  if (loading && tracks.length === 0) {
+    return (
+      <section className="panel-section">
+        <div className="panel-heading"><div><h2>Library</h2><p>Rendered masters and QA evidence</p></div><button type="button" disabled aria-busy="true" className="round-action is-refreshing" aria-label="Refresh library"><RefreshCw size={14} /></button></div>
+        <LibrarySkeleton />
+      </section>
+    );
+  }
   return (
     <section className="panel-section">
       <div className="panel-heading"><div><h2>Library</h2><p>Rendered masters and QA evidence</p></div><button type="button" onClick={onRefresh} disabled={loading} aria-busy={loading} className={`round-action ${loading ? "is-refreshing" : ""}`} aria-label="Refresh library"><RefreshCw size={14} /></button></div>
       <div className="section-title">Masters · {tracks.filter((track) => track.exists).length}</div>
       <div className="soft-card library-summary"><div className="font-medium">{tracks.filter((track) => track.exists).length} of {tracks.length} variants rendered</div><div className="mt-1 break-all font-mono text-[10px] text-[color:var(--secondary-text)]">Reading {tracks[0]?.path.replace(/\/[^/]+$/, "") ?? "configured render directory"}</div></div>
       <div className="library-list">
-        {loading && <div className="soft-card empty-state">Loading render directory…</div>}
         {!loading && tracks.filter((track) => track.exists).length === 0 && <div className="soft-card empty-state">No rendered files found in the directory above.</div>}
         {tracks.filter((track) => track.exists).map((track) => <TrackCard key={track.variantId} track={track} onToast={onToast} />)}
       </div>
@@ -636,8 +750,9 @@ function ReleaseList({ releases, loading, onRefresh }: { releases: DerivedReleas
         <div><h2>Releases</h2><p>Prepare rendered masters for distribution</p></div>
         <button type="button" onClick={onRefresh} disabled={loading} aria-busy={loading} className={`round-action ${loading ? "is-refreshing" : ""}`} aria-label="Refresh releases"><RefreshCw size={14} /></button>
       </div>
+      {loading && releases.length === 0 && <ReleasesSkeleton />}
       <div className="release-list">
-        {releases.length === 0 && <div className="soft-card empty-state">No releases yet.</div>}
+        {!loading && releases.length === 0 && <div className="soft-card empty-state">No releases yet.</div>}
         {releases.map((release) => (
           <article key={release.id} className="soft-card release-card" tabIndex={0} role="button" onClick={() => { window.location.hash = `releases/${encodeURIComponent(release.id)}`; }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") window.location.hash = `releases/${encodeURIComponent(release.id)}`; }}>
             <div className="release-card-heading"><div className="min-w-0 text-left"><div className="release-kicker">{release.unsaved ? "Suggested preset" : release.type.toUpperCase()}</div><h3>{release.title}</h3><p>{release.artist} · {release.tracks.length} tracks</p></div><span className={`release-state release-state-${release.state.toLowerCase()}`}>{release.state}</span></div>
@@ -873,7 +988,7 @@ const QUEUE_NOTES: Record<string, string> = {
   unavailable: "This deployment has no renderer configured, so it browses published masters only.",
 };
 
-function Queue({ jobs, mode, stats, variants, tracks, onRefresh, refreshing, onQueuePilot, onQueueFull, onRetry, onDone, queueing, pilotCount, matrixCount }: { jobs: QueueJob[]; mode: "local" | "dispatch" | "unavailable"; stats: { medianRenderSeconds: number | null; sampleSize: number }; variants: Variant[]; tracks: LibraryTrack[]; onRefresh: () => void; refreshing: boolean; onQueuePilot: () => void; onQueueFull: () => void; onRetry: (job: QueueJob) => Promise<boolean>; onDone: (job: QueueJob) => void; queueing: boolean; pilotCount: number; matrixCount: number }) {
+function Queue({ jobs, loading, mode, stats, variants, tracks, onRefresh, refreshing, onQueuePilot, onQueueFull, onRetry, onDone, queueing, pilotCount, matrixCount }: { jobs: QueueJob[]; loading: boolean; mode: "local" | "dispatch" | "unavailable"; stats: { medianRenderSeconds: number | null; sampleSize: number }; variants: Variant[]; tracks: LibraryTrack[]; onRefresh: () => void; refreshing: boolean; onQueuePilot: () => void; onQueueFull: () => void; onRetry: (job: QueueJob) => Promise<boolean>; onDone: (job: QueueJob) => void; queueing: boolean; pilotCount: number; matrixCount: number }) {
   const activeJobs = jobs.filter((job) => job.status === "Queued" || job.status === "Rendering");
   const [retried, setRetried] = useState<Set<string>>(new Set());
   const [confirmingFull, setConfirmingFull] = useState(false);
@@ -911,7 +1026,9 @@ function Queue({ jobs, mode, stats, variants, tracks, onRefresh, refreshing, onQ
   };
   const renderingCount = activeJobs.filter((job) => job.status === "Rendering").length;
   const queuedCount = activeJobs.filter((job) => job.status === "Queued").length;
-  const summary = activeJobs.length
+  const summary = loading && jobs.length === 0
+    ? "Checking the queue…"
+    : activeJobs.length
     ? [
       renderingCount ? `${renderingCount} rendering` : "",
       queuedCount ? `${queuedCount} queued` : "",
@@ -962,12 +1079,15 @@ function Queue({ jobs, mode, stats, variants, tracks, onRefresh, refreshing, onQ
     <section className="panel-section">
       <div className="panel-heading">
         <div><div className="queue-heading-line"><h2>Render queue</h2><span className="mode-chip">{mode === "dispatch" ? "GitHub Actions" : mode === "local" ? "Local worker" : "Browse only"}</span></div><p className="queue-summary" aria-live="polite">{summary}</p></div>
-        <div className="panel-heading-actions"><button type="button" onClick={onRefresh} disabled={refreshing} aria-busy={refreshing} className={`round-action ${refreshing ? "is-refreshing" : ""}`} aria-label="Refresh queue"><RefreshCw size={14} /></button></div>
+        <div className="panel-heading-actions"><button type="button" onClick={onRefresh} disabled={refreshing} aria-busy={refreshing} className={`round-action ${refreshing || (loading && jobs.length === 0) ? "is-refreshing" : ""}`} aria-label="Refresh queue"><RefreshCw size={14} /></button></div>
       </div>
+      {loading && jobs.length === 0 && <QueueSkeleton />}
       {failedJobs.length > 0 && group("Needs attention", failedJobs, "Nothing needs attention")}
       {supersededJobs.length > 0 && <details className="queue-history"><summary>Superseded attempts ({supersededJobs.length})</summary><div className="soft-card queue-card">{supersededJobs.map(row)}</div></details>}
-      {group("Active", activeJobs, "No active renders — open Start renders below")}
-      {group("Completed today", completedJobs, "No completed renders yet")}
+      {!(loading && jobs.length === 0) && <>
+        {group("Active", activeJobs, "No active renders — open Start renders below")}
+        {group("Completed today", completedJobs, "No completed renders yet")}
+      </>}
       <details className="start-renders">
         <summary>Start renders <span>· pilot ({pilotCount}) or full matrix ({matrixCount})</span></summary>
         <div className="bulk-actions">
