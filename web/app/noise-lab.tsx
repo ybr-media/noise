@@ -1169,7 +1169,16 @@ function DistroHandoff({ release, tracks, onBack, onCopy, onSubmit, mode }: {
 function SwipeCard({ children, className, dismissible, dismissLabel, onDismiss }: { children: React.ReactNode; className?: string; dismissible: boolean; dismissLabel: string; onDismiss: () => void }) {
   const start = useRef<{ x: number; y: number } | null>(null);
   const moved = useRef(false);
-  return <div className={className} onPointerDown={(event) => {
+  const [offset, setOffset] = useState(0);
+  const finish = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!start.current) return;
+    const dx = event.clientX - start.current.x;
+    const dy = event.clientY - start.current.y;
+    start.current = null;
+    if (moved.current && dx < -80 && Math.abs(dx) > Math.abs(dy) * 1.3) onDismiss();
+    setOffset(0);
+  };
+  return <div className="swipe-shell"><div className="swipe-backdrop" aria-hidden="true">{queueStrings.dismiss.dismiss}</div><div className={className} style={{ transform: `translateX(${offset}px)` }} onPointerDown={(event) => {
     if (!dismissible || (event.target as HTMLElement).closest("button,a,summary,input,details")) return;
     start.current = { x: event.clientX, y: event.clientY };
     moved.current = false;
@@ -1178,14 +1187,11 @@ function SwipeCard({ children, className, dismissible, dismissLabel, onDismiss }
     const dx = event.clientX - start.current.x;
     const dy = event.clientY - start.current.y;
     if (Math.abs(dy) > Math.abs(dx)) { start.current = null; return; }
-    if (Math.abs(dx) > 12) moved.current = true;
-  }} onPointerUp={(event) => {
-    if (!start.current) return;
-    const dx = event.clientX - start.current.x;
-    const dy = event.clientY - start.current.y;
-    start.current = null;
-    if (moved.current && dx < -80 && Math.abs(dx) > Math.abs(dy) * 1.3) onDismiss();
-  }}>{children}{dismissible && <button type="button" className="queue-dismiss" aria-label={dismissLabel} onClick={onDismiss}>{queueStrings.dismiss.dismiss}</button>}</div>;
+    if (Math.abs(dx) > 12) {
+      moved.current = true;
+      setOffset(Math.max(-112, Math.min(0, dx)));
+    }
+  }} onPointerUp={finish} onPointerCancel={() => { start.current = null; setOffset(0); }}>{children}{dismissible && <button type="button" className="queue-dismiss" aria-label={dismissLabel} onClick={onDismiss}><X size={16} aria-hidden="true" /><span className="sr-only">{queueStrings.dismiss.dismiss}</span></button>}</div></div>;
 }
 
 function Queue({ jobs, initialLoad, mode, stats, variants, tracks, onRefresh, refreshing, onQueuePilot, onQueueFull, onRetry, onDone, onToast, queueing, pilotCount, matrixCount }: { jobs: QueueJob[]; initialLoad: boolean; mode: "local" | "dispatch" | "unavailable"; stats: { medianRenderSeconds: number | null; sampleSize: number }; variants: Variant[]; tracks: LibraryTrack[]; onRefresh: () => void; refreshing: boolean; onQueuePilot: () => void; onQueueFull: () => void; onRetry: (job: QueueJob) => Promise<boolean>; onDone: (job: QueueJob) => void; onToast: (toast: ToastState) => void; queueing: boolean; pilotCount: number; matrixCount: number }) {
@@ -1207,13 +1213,14 @@ function Queue({ jobs, initialLoad, mode, stats, variants, tracks, onRefresh, re
     dismissalReady.current = true;
   }, []);
   useEffect(() => {
-    if (!dismissalReady.current) return;
+    // Queue state must be present before pruning; cold launch initially has no fetched jobs.
+    if (!dismissalReady.current || initialLoad || jobs.length === 0) return;
     const pruned = filterDismissedJobs(allGrouped, dismissedIds).dismissedIds;
     const hidden = new Set([...hiddenHistoryIds].filter((id) => pruned.has(id)));
     if (pruned.size !== dismissedIds.size) setDismissedIds(pruned);
     if (hidden.size !== hiddenHistoryIds.size) setHiddenHistoryIds(hidden);
     localStorage.setItem("noise.queue.dismissals", JSON.stringify({ dismissed: [...pruned], hidden: [...hidden] }));
-  }, [allGrouped, dismissedIds, hiddenHistoryIds]);
+  }, [allGrouped, dismissedIds, hiddenHistoryIds, initialLoad, jobs.length]);
   const rawPartition = partitionRenderJobs(jobs, pilotMembers, fullMembers);
   const visible = (entries: RenderJob[]) => entries.filter((job) => !dismissedIds.has(job.latest.id) && !hiddenHistoryIds.has(job.latest.id));
   const partition = {
@@ -1265,24 +1272,23 @@ function Queue({ jobs, initialLoad, mode, stats, variants, tracks, onRefresh, re
     };
     onToast({ message: queueStrings.dismiss.removed, action: { label: queueStrings.dismiss.undo, onClick: restore } });
   };
-  const attempts = (job: RenderJob) => job.attempts.map((attempt) => <div className="queue-attempt" key={attempt.id}><span className={`attempt-status ${attempt.status.toLowerCase()}`}>{queueStrings.statusLabel(attempt.status)}</span><time className="queue-time" title={absoluteTime(attempt.queuedAt)}>{relativeTime(attempt.queuedAt)}</time>{attempt.logsUrl && <a href={attempt.logsUrl} target="_blank" rel="noopener" className="queue-link queue-logs">{queueStrings.logs}</a>}</div>);
+  const attempts = (job: RenderJob) => job.attempts.map((attempt) => <div className="queue-attempt" key={attempt.id}><span className={`attempt-status ${attempt.status.toLowerCase()}`}>{queueStrings.statusLabel(attempt.status)}</span>{attempt.error && <span className="queue-attempt-error">{attempt.error}</span>}<time className="queue-time" title={absoluteTime(attempt.queuedAt)}>{relativeTime(attempt.queuedAt)}</time>{attempt.logsUrl && <a href={attempt.logsUrl} target="_blank" rel="noopener" className="queue-link queue-logs">{queueStrings.logs}</a>}</div>);
   const card = (job: RenderJob, history = false) => {
     const latest = job.latest;
     const done = latest.status === "Done";
     const attention = latest.status === "Failed" || latest.status === "Cancelled";
     const name = nameFor(latest);
     const missing = batchMissingMastersSummary(batchMembersForJob(latest, pilotMembers, fullMembers), tracks);
-    const failureCopy = queueStrings.failure(name, latest.status, missing?.missingVariantIds.length ?? null, missing?.total ?? null, latest.status === "Cancelled" ? undefined : latest.error);
+    const failureCopy = queueStrings.failure(name, latest.status, missing?.missingVariantIds.length ?? null, missing?.total ?? null);
     const retry = async () => { if (await onRetry(latest)) { setRetried((old) => new Set(old).add(latest.id)); setConfirmingRetryId(null); } };
     const alreadyRetried = retried.has(latest.id);
     const retryControl = !history && attention && mode !== "unavailable" && (latest.variantId === "full" && confirmingRetryId === job.variantId
       ? <><button type="button" className="queue-link queue-retry" disabled={queueing} aria-label={queueStrings.fullRetry(name)} onClick={() => void retry()}>{queueStrings.fullRetry(name)}</button><button type="button" className="queue-link queue-cancel" onClick={() => setConfirmingRetryId(null)} aria-label={queueStrings.cancelRetry(name)}>{queueStrings.retry.cancel}</button></>
       : <button type="button" disabled={queueing || alreadyRetried} onClick={() => latest.variantId === "full" ? setConfirmingRetryId(job.variantId) : void retry()} className="queue-link queue-retry" aria-label={alreadyRetried ? queueStrings.alreadyRetried(name) : queueStrings.retryLabel(name)}>{alreadyRetried ? queueStrings.retry.retried : queueStrings.retry.retry}</button>);
     const displayTime = done ? latest.finishedAt ?? latest.queuedAt : latest.queuedAt;
-    const content = <div className="queue-row-main"><div className="queue-body"><div className="queue-title-row"><div className="queue-name" title={`${latest.variantId} · Run ${latest.id}`}>{name}{history ? ` · ${queueStrings.statusLabel(latest.status)}` : ""}</div><StatusPill status={latest.status} /></div><div className="queue-sub" title={attention ? failureCopy : undefined}>{done ? queueStrings.library : attention ? <>{failureCopy}{missing?.missingVariantIds.length ? <details className="queue-missing"><summary>{queueStrings.missingVariants}</summary><ul>{missing.missingVariantIds.map((variantId) => <li key={variantId}>{formatVariantLabel(variantId, variants)}</li>)}</ul></details> : null}</> : activeCopy(latest)}</div><div className="queue-meta"><time className="queue-time" title={absoluteTime(displayTime)}>{relativeTime(displayTime)}</time></div>{attention && <div className="queue-actions">{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener" className="queue-link queue-logs">{queueStrings.logs}</a>}{retryControl}</div>}{job.attempts.length > 1 && <details className="queue-attempts"><summary>{queueStrings.attempts(job.attempts.length)}</summary>{attempts(job)}</details>}</div></div>;
+    const content = <div className="queue-row-main"><div className="queue-body"><div className="queue-title-row"><div className="queue-name" title={`${latest.variantId} · Run ${latest.id}`}>{name}{history ? ` · ${queueStrings.statusLabel(latest.status)}` : ""}</div><StatusPill status={latest.status} /></div><div className="queue-sub" title={attention ? failureCopy : undefined}>{done ? <button type="button" className="queue-open-library" onClick={() => onDone(latest)}>{queueStrings.library}</button> : attention ? <>{failureCopy}{missing?.missingVariantIds.length ? <details className="queue-missing"><summary>{queueStrings.missingVariants}</summary><ul>{missing.missingVariantIds.map((variantId) => <li key={variantId}>{formatVariantLabel(variantId, variants)}</li>)}</ul></details> : null}</> : activeCopy(latest)}</div><div className="queue-meta"><time className="queue-time" title={absoluteTime(displayTime)}>{relativeTime(displayTime)}</time></div>{attention && <div className="queue-actions">{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener" className="queue-link queue-logs">{queueStrings.logs}</a>}{retryControl}</div>}{job.attempts.length > 1 && <details className="queue-attempts"><summary>{queueStrings.attempts(job.attempts.length)}</summary>{attempts(job)}</details>}</div></div>;
     const dismissible = done || history || attention;
-    const row = done && !history ? <button type="button" className="queue-link-row" onClick={() => onDone(latest)}>{content}</button> : content;
-    return <SwipeCard key={job.variantId} className={`queue-item ${history ? "queue-history-job" : ""}`} dismissible={dismissible} dismissLabel={queueStrings.dismissLabel(name)} onDismiss={() => dismiss(job, history)}>{row}</SwipeCard>;
+    return <SwipeCard key={job.variantId} className={`queue-item ${history ? "queue-history-job" : ""}`} dismissible={dismissible} dismissLabel={queueStrings.dismissLabel(name)} onDismiss={() => dismiss(job, history)}>{content}</SwipeCard>;
   };
   const start = (compact: boolean) => <div className={`start-renders ${compact ? "start-renders-compact" : "start-renders-promoted"}`}><div className="bulk-actions"><div className="bulk-action"><button type="button" onClick={onQueuePilot} disabled={mode === "unavailable" || queueing} className="queue-primary" title={mode === "unavailable" ? queueStrings.noRenderer : queueStrings.start.pilotTitle(pilotCount)} aria-label={queueStrings.start.pilotTitle(pilotCount)}><Layers size={14} /> {queueStrings.start.pilot(pilotCount)}</button><p className="bulk-action-caption">{queueStrings.start.pilotCaption(pilotCount)}</p></div><div className="bulk-action">{confirmingFull ? <div className="bulk-confirm"><button type="button" onClick={() => { setConfirmingFull(false); onQueueFull(); }} disabled={queueing} className="queue-primary" aria-label={queueStrings.start.confirm(matrixCount)}>{queueStrings.start.confirm(matrixCount)}</button><button type="button" onClick={() => setConfirmingFull(false)} className="queue-secondary">{queueStrings.retry.cancel}</button></div> : <button type="button" onClick={() => setConfirmingFull(true)} disabled={mode === "unavailable" || matrixCount === 0 || queueing} className="queue-secondary" title={mode === "unavailable" ? queueStrings.noRenderer : queueStrings.start.fullTitle(matrixCount)} aria-label={mode === "unavailable" ? queueStrings.noRenderer : queueStrings.start.fullTitle(matrixCount)}><Grid3x3 size={14} /> {queueStrings.start.full(matrixCount)}</button>}<p className="bulk-action-caption">{confirmingFull ? queueStrings.start.confirmCaption(matrixCount) : queueStrings.start.fullCaption(matrixCount)}</p></div></div><p className="queue-note">{queueStrings.queueNote[mode]}</p></div>;
   const group = (title: string, entries: RenderJob[], empty: string) => <section className="queue-group"><div className="section-title">{title}</div><div className="soft-card queue-card">{entries.length ? entries.map((job) => card(job)) : <div className="empty-state">{empty}</div>}</div></section>;
