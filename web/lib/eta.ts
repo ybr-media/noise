@@ -78,7 +78,7 @@ export function partitionFailedJobs(jobs: QueueJob[], pilotMembers: string[], fu
   actionable: QueueJob[];
   superseded: QueueJob[];
 } {
-  return jobs.filter((job) => job.status === "Failed").reduce(
+  return jobs.filter((job) => job.status === "Failed" || job.status === "Cancelled").reduce(
     (partition, job) => {
       const members = batchMembersForJob(job, pilotMembers, fullMembers);
       (isSuperseded(job, jobs, members) ? partition.superseded : partition.actionable).push(job);
