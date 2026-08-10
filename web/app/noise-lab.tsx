@@ -873,11 +873,6 @@ const QUEUE_NOTES: Record<string, string> = {
 
 function Queue({ jobs, mode, stats, variants, tracks, onRefresh, refreshing, onQueuePilot, onQueueFull, onRetry, onDone, queueing, pilotCount, matrixCount }: { jobs: QueueJob[]; mode: "local" | "dispatch" | "unavailable"; stats: { medianRenderSeconds: number | null; sampleSize: number }; variants: Variant[]; tracks: LibraryTrack[]; onRefresh: () => void; refreshing: boolean; onQueuePilot: () => void; onQueueFull: () => void; onRetry: (job: QueueJob) => Promise<boolean>; onDone: (job: QueueJob) => void; queueing: boolean; pilotCount: number; matrixCount: number }) {
   const activeJobs = jobs.filter((job) => job.status === "Queued" || job.status === "Rendering");
-  const [failedJobs, supersededJobs] = (() => {
-    const partition = partitionFailedJobs(jobs, variants.filter((variant) => variant.pilot !== null).map((variant) => variant.variantId), variants.map((variant) => variant.variantId));
-    return [partition.actionable, partition.superseded];
-  })();
-  const completedJobs = jobs.filter((job) => job.status === "Done");
   const [retried, setRetried] = useState<Set<string>>(new Set());
   const [confirmingFull, setConfirmingFull] = useState(false);
   const [confirmingRetryId, setConfirmingRetryId] = useState<string | null>(null);
@@ -891,15 +886,18 @@ function Queue({ jobs, mode, stats, variants, tracks, onRefresh, refreshing, onQ
     : `Renders every variant in config/variants.yaml, regardless of what's selected on the Design tab. (${matrixCount} variants)`;
   const pilotMembers = variants.filter((variant) => variant.pilot !== null).map((variant) => variant.variantId);
   const fullMembers = variants.map((variant) => variant.variantId);
+  const { actionable: failedJobs, superseded: supersededJobs } = partitionFailedJobs(jobs, pilotMembers, fullMembers);
+  const completedJobs = jobs.filter((job) => job.status === "Done");
   useEffect(() => {
-    if (!confirmingFull && confirmingRetryId === null) return;
+    if (!confirmingFull) return;
     const timer = setTimeout(() => setConfirmingFull(false), 8000);
-    const retryTimer = confirmingRetryId === null ? undefined : setTimeout(() => setConfirmingRetryId(null), 8000);
-    return () => {
-      clearTimeout(timer);
-      if (retryTimer) clearTimeout(retryTimer);
-    };
-  }, [confirmingFull, confirmingRetryId]);
+    return () => clearTimeout(timer);
+  }, [confirmingFull]);
+  useEffect(() => {
+    if (confirmingRetryId === null) return;
+    const timer = setTimeout(() => setConfirmingRetryId(null), 8000);
+    return () => clearTimeout(timer);
+  }, [confirmingRetryId]);
   const elapsed = (job: QueueJob) => job.startedAt ? (Date.now() - new Date(job.startedAt).getTime()) / 1000 : 0;
   const activeCopy = (job: QueueJob) => {
     if (mode === "local") {
@@ -933,8 +931,8 @@ function Queue({ jobs, mode, stats, variants, tracks, onRefresh, refreshing, onQ
       ? job.error ?? "Render failed"
       : missingMasters
         ? missingMasters.missingVariantIds.length
-          ? `${missingMasters.missingVariantIds.length} of ${missingMasters.total} have no master yet`
-          : `All ${missingMasters.total} batch variants have masters — a full retry likely isn't needed`
+          ? `${name} render failed — ${missingMasters.missingVariantIds.length} of ${missingMasters.total} have no master yet`
+          : `${name} render failed — all ${missingMasters.total} batch variants have masters; a full retry likely isn't needed`
         : `${name} render failed — see logs for which variant(s)`;
     const retry = async () => {
       if (await onRetry(job)) {

@@ -173,7 +173,8 @@ button:disabled { cursor: not-allowed; }
 .queue-history { margin-top: 22px; }
 .queue-history summary { padding: 12px 0; color: var(--secondary-text); cursor: pointer; font-size: 13px; font-weight: 600; }
 .queue-missing { margin-top: 5px; font-size: 12px; }
-.queue-missing summary { display: inline-block; color: #005bb5; cursor: pointer; }
+.queue-missing summary { position: relative; display: inline-block; color: #005bb5; cursor: pointer; }
+.queue-missing summary::after { position: absolute; top: 50%; left: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); content: ""; }
 .queue-missing ul { margin: 5px 0 0 18px; padding: 0; }
 .queue-link-row { width: 100%; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
 .track-highlight { animation: track-highlight 2s ease-out; }
