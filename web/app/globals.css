@@ -223,17 +223,17 @@ button:disabled { cursor: not-allowed; }
 .queue-sync-caption { display: flex; align-items: center; gap: 7px; margin: 0 2px 18px; color: #9a9aa5; font-size: 12px; }
 .queue-sync-dot { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: #1f9d4d; }
 .queue-sync-dot.is-active { background: #2f5bd7; animation: pulse-blue 1.4s ease-in-out infinite; }
-.queue-redesign-list { display: grid; gap: 14px; }
-.queue-redesign-card { display: block; padding: 18px; border-radius: 24px; background: #fff; box-shadow: 0 8px 24px rgba(40,40,70,.08); }
-.queue-redesign-card .queue-name { color: #16161a; font-size: 17px; font-weight: 600; overflow-wrap: normal; word-break: normal; }
-.queue-redesign-card .queue-title-row { align-items: center; }
+.queue-job-list { display: grid; gap: 14px; }
+.queue-job-card { display: block; padding: 18px; border-radius: 24px; background: #fff; box-shadow: 0 8px 24px rgba(40,40,70,.08); }
+.queue-job-card .queue-name { color: #16161a; font-size: 17px; font-weight: 600; overflow-wrap: normal; word-break: normal; }
+.queue-job-card .queue-title-row { align-items: center; }
 .queue-section .section-title { margin-top: 26px; color: #9a9aa5; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 .queue-ready-chip { padding: 5px 10px; border-radius: 8px; color: #1f9d4d; background: #ecf9ef; font-size: 12px; font-weight: 700; }
 .queue-status-active { padding: 5px 10px; border-radius: 8px; color: #6b6b76; background: #f1f1f5; font-size: 12px; font-weight: 700; }
 .queue-active-copy { margin-top: 9px; color: #6b6b76; font-size: 12px; }
 .queue-meta { margin-top: 10px; color: #9a9aa5; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
 .queue-retry-confirmed { color: #1f9d4d !important; background: #ecf9ef !important; }
-.queue-redesign-card .queue-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 13px; }
+.queue-job-card .queue-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 13px; }
 .queue-chip, .queue-status-failed { padding: 5px 10px; border-radius: 8px; color: #6b6b76; background: #f1f1f5; font-size: 12px; }
 .queue-status-failed { color: #c4392b; background: #fdf0ee; font-weight: 700; }
 .queue-detail-strip { margin-top: 13px; padding: 0 14px 12px; border-radius: 14px; font-size: 13px; }
