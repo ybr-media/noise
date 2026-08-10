@@ -157,7 +157,7 @@ button:disabled { cursor: not-allowed; }
 .queue-group { min-width: 0; }
 .queue-group .section-title { margin-top: 0; }
 .queue-item { display: flex; align-items: center; gap: 14px; padding: 16px 0; }
-.queue-item + .queue-item { border-top: 1px solid rgba(0,0,0,.06); }
+.queue-item + .queue-item, .swipe-shell + .swipe-shell .queue-item { border-top: 1px solid rgba(0,0,0,.06); }
 .queue-row-main { display: block; flex: 1; min-width: 0; text-align: left; }
 .swipe-shell { position: relative; overflow: hidden; }
 .swipe-backdrop { position: absolute; inset: 0; display: flex; align-items: center; justify-content: flex-end; padding-right: 24px; color: #fff; background: #e5483c; font-size: 12px; font-weight: 700; pointer-events: none; }
