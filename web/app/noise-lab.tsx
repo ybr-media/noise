@@ -3,6 +3,8 @@
 import {
   AlertCircle,
   Check,
+  ChevronDown,
+  ChevronUp,
   Clipboard,
   Download,
   Grid3x3,
@@ -15,6 +17,7 @@ import {
   Save,
   ChevronLeft,
   LibraryBig,
+  MoreHorizontal,
   Rocket,
   SlidersHorizontal,
   X,
@@ -24,11 +27,12 @@ import type { LibraryTrack, QueueJob, Release, ReleaseTrack, Variant } from "@/l
 import { absoluteTime, batchMembersForJob, batchMissingMastersSummary, knownVariantId, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
 import { filterDismissedJobs, groupCompletedByDay, groupJobs, partitionRenderJobs, type RenderJob } from "@/lib/render-jobs";
 import { queueStrings } from "@/lib/queue-strings";
-import { formatBatchLabel, formatVariantLabel, isBatchVariantId, OPTIONS } from "@/lib/variant-labels";
+import { formatBatchLabel, formatDisplayName, formatVariantLabel, isBatchVariantId, OPTIONS } from "@/lib/variant-labels";
 import type { DerivedRelease } from "@/lib/releases";
 import { toReleaseDocument } from "@/lib/release-document";
 import { mulberry32, renderCoverArt, type CoverArtDimensions } from "@/lib/cover-art";
 import { lintNames } from "@/lib/name-lint";
+import { formatBytes } from "@/lib/format";
 import { BellMark } from "./bell-mark";
 
 const TAB_ICONS = {
@@ -318,7 +322,7 @@ function LibrarySkeleton() {
   return (
     <SkeletonPanel label="Loading rendered masters…">
       <div className="section-title"><Skeleton width={96} height={11} /></div>
-      <div className="soft-card library-summary"><Skeleton width="52%" height={14} /><Skeleton className="mt-2" width="76%" height={10} /></div>
+      <Skeleton className="library-sync-skeleton" width={92} height={10} />
       <div className="library-list">
         {[0, 1, 2].map((card) => (
           <article key={card} className="soft-card track-card">
@@ -543,6 +547,9 @@ export default function NoiseLab() {
   const [selection, setSelection] = useState({ color: "white", band: "mid", motion: "drift", balance: "balanced" });
   const [toast, setToast] = useState<ToastState | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lastLibrarySync, setLastLibrarySync] = useState<string | null>(null);
+  const [librarySyncFailed, setLibrarySyncFailed] = useState(false);
+  const [seenLibraryIds, setSeenLibraryIds] = useState<Set<string>>(new Set());
   const [everLoaded, setEverLoaded] = useState(false);
   const [queueRefreshing, setQueueRefreshing] = useState(false);
   const [queueing, setQueueing] = useState(false);
@@ -555,7 +562,7 @@ export default function NoiseLab() {
   const tabsRef = useRef<HTMLElement>(null);
   const lensRef = useRef<HTMLDivElement>(null);
   const queueCount = jobs.filter((job) => job.status === "Queued" || job.status === "Rendering").length;
-  const libraryCount = tracks.filter((track) => track.exists).length;
+  const libraryCount = tracks.filter((track) => track.exists && !seenLibraryIds.has(track.variantId)).length;
   const releaseCount = releases.filter((release) => release.ladder.ready && !release.ladder.submitted).length;
   const selected = useMemo(() => variants.find((variant) => variant.color === selection.color && variant.band === selection.band && variant.motion === selection.motion && variant.balance === selection.balance), [selection, variants]);
   const pilotCount = variants.filter((variant) => variant.pilot !== null).length;
@@ -567,8 +574,11 @@ export default function NoiseLab() {
     setLoading(true);
     try {
       const [variantResponse, libraryResponse, queueResponse, releasesResponse] = await Promise.all([fetch("/api/variants"), fetch("/api/library"), fetch("/api/queue"), fetch("/api/releases")]);
+      if (![variantResponse, libraryResponse, queueResponse, releasesResponse].every((response) => response.ok)) throw new Error("Refresh failed");
       setVariants((await variantResponse.json()).variants);
       setTracks((await libraryResponse.json()).tracks);
+      setLastLibrarySync(new Date().toISOString());
+      setLibrarySyncFailed(false);
       const queuePayload = (await queueResponse.json()) as { jobs: QueueJob[]; mode?: "local" | "dispatch" | "unavailable"; stats?: typeof queueStats };
       setJobs(queuePayload.jobs);
       setQueueStats(queuePayload.stats ?? { medianRenderSeconds: null, sampleSize: 0 });
@@ -576,7 +586,7 @@ export default function NoiseLab() {
       const releasesPayload = (await releasesResponse.json()) as { releases: DerivedRelease[]; mode?: "local" | "dispatch" | "unavailable" };
       setReleases(releasesPayload.releases);
       if (releasesPayload.mode) setReleaseMode(releasesPayload.mode);
-    } catch { setToast({ message: "Could not load engine data.", error: true }); }
+    } catch { setLibrarySyncFailed(true); setToast({ message: "Could not load engine data.", error: true }); }
     finally { setLoading(false); setEverLoaded(true); }
   }, []);
   const refreshQueue = useCallback(async (showBusy = false) => {
@@ -597,6 +607,21 @@ export default function NoiseLab() {
     }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("noise.library.seen") ?? "[]") as unknown;
+      if (Array.isArray(saved)) setSeenLibraryIds(new Set(saved.filter((id): id is string => typeof id === "string")));
+    } catch { /* ignore malformed view state */ }
+  }, []);
+  useEffect(() => {
+    if (tab !== "library" || !tracks.length) return;
+    const existing = tracks.filter((track) => track.exists).map((track) => track.variantId);
+    setSeenLibraryIds((previous) => {
+      const next = new Set([...previous, ...existing]);
+      try { localStorage.setItem("noise.library.seen", JSON.stringify([...next])); } catch { /* ignore storage failures */ }
+      return next;
+    });
+  }, [tab, tracks]);
   useEffect(() => {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reducedMotion) {
@@ -802,7 +827,7 @@ export default function NoiseLab() {
           </div>
           )}
         </div>
-        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} /></div>
+        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} lastSync={lastLibrarySync} syncFailed={librarySyncFailed} /></div>
         <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} initialLoad={initialLoad} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onQueuePilot={() => void queue([], "pilot")} onQueueFull={() => void queue([], "full")} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} onToast={setToast} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
         <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} /></div>
       </div>
@@ -845,22 +870,65 @@ export default function NoiseLab() {
   );
 }
 
-function Library({ tracks, loading, initialLoad, onRefresh, onToast }: { tracks: LibraryTrack[]; loading: boolean; initialLoad: boolean; onRefresh: () => void; onToast: (toast: { message: string; error?: boolean }) => void }) {
+function Library({ tracks, loading, initialLoad, onRefresh, onToast, lastSync, syncFailed }: { tracks: LibraryTrack[]; loading: boolean; initialLoad: boolean; onRefresh: () => void; onToast: (toast: { message: string; error?: boolean }) => void; lastSync: string | null; syncFailed: boolean }) {
+  const [, setSyncTick] = useState(0);
+  const [pullDistance, setPullDistance] = useState(0);
+  const pullStart = useRef<number | null>(null);
+  const pullDistanceRef = useRef(0);
+  const refreshShellRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const timer = window.setInterval(() => setSyncTick((tick) => tick + 1), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const syncCaption = syncFailed ? "Sync failed — retry" : loading ? "Syncing…" : lastSync ? `Synced ${relativeTime(lastSync)}` : "Syncing…";
+  useEffect(() => {
+    const shell = refreshShellRef.current;
+    if (!shell) return;
+    const touchStart = (event: TouchEvent) => {
+      if (window.scrollY > 0 || (event.target as HTMLElement).closest("input,button,a,audio")) return;
+      pullStart.current = event.touches[0]?.clientY ?? null;
+    };
+    const touchMove = (event: TouchEvent) => {
+      if (pullStart.current === null || window.scrollY > 0) return;
+      const distance = (event.touches[0]?.clientY ?? 0) - pullStart.current;
+      if (distance <= 0) return;
+      event.preventDefault();
+      const nextDistance = Math.min(76, distance);
+      pullDistanceRef.current = nextDistance;
+      setPullDistance(nextDistance);
+    };
+    const touchEnd = () => {
+      if (pullDistanceRef.current >= 56 && !loading) void onRefresh();
+      pullStart.current = null;
+      pullDistanceRef.current = 0;
+      setPullDistance(0);
+    };
+    const options: AddEventListenerOptions = { passive: false };
+    shell.addEventListener("touchstart", touchStart, options);
+    shell.addEventListener("touchmove", touchMove, options);
+    shell.addEventListener("touchend", touchEnd, options);
+    shell.addEventListener("touchcancel", touchEnd, options);
+    return () => {
+      shell.removeEventListener("touchstart", touchStart, options);
+      shell.removeEventListener("touchmove", touchMove, options);
+      shell.removeEventListener("touchend", touchEnd, options);
+      shell.removeEventListener("touchcancel", touchEnd, options);
+    };
+  }, [loading, onRefresh]);
   if (initialLoad) {
     return (
       <section className="panel-section">
-        <div className="panel-heading"><div><h2>Library</h2><p>Rendered masters and QA evidence</p></div><button type="button" disabled aria-busy="true" className="round-action is-refreshing" aria-label="Refresh library"><RefreshCw size={14} /></button></div>
         <LibrarySkeleton />
       </section>
     );
   }
   return (
-    <section className="panel-section">
-      <div className="panel-heading"><div><h2>Library</h2><p>Rendered masters and QA evidence</p></div><button type="button" onClick={onRefresh} disabled={loading} aria-busy={loading} className={`round-action ${loading ? "is-refreshing" : ""}`} aria-label="Refresh library"><RefreshCw size={14} /></button></div>
+    <section ref={refreshShellRef} className="panel-section library-refresh-shell">
+      {pullDistance > 0 && <div className={`pull-refresh-indicator ${pullDistance >= 56 ? "is-ready" : ""}`} aria-live="polite" style={{ height: pullDistance }}>{pullDistance >= 56 ? "Release to refresh" : "Pull to refresh"}</div>}
       <div className="section-title">Masters · {tracks.filter((track) => track.exists).length}</div>
-      <div className="soft-card library-summary"><div className="font-medium">{tracks.filter((track) => track.exists).length} of {tracks.length} variants rendered</div><div className="mt-1 break-all font-mono text-[10px] text-[color:var(--secondary-text)]">Reading {tracks[0]?.path.replace(/\/[^/]+$/, "") ?? "configured render directory"}</div></div>
+      {syncFailed ? <button type="button" className="library-sync-caption is-failed" onClick={onRefresh} disabled={loading}>{syncCaption}</button> : <div className="library-sync-caption" aria-live="polite">{syncCaption}</div>}
       <div className="library-list">
-        {tracks.filter((track) => track.exists).length === 0 && <div className="soft-card empty-state">No rendered files found in the directory above.</div>}
+        {tracks.filter((track) => track.exists).length === 0 && <div className="soft-card empty-state">No rendered files found.</div>}
         {tracks.filter((track) => track.exists).map((track) => <TrackCard key={track.variantId} track={track} onToast={onToast} />)}
       </div>
     </section>
@@ -870,7 +938,26 @@ function Library({ tracks, loading, initialLoad, onRefresh, onToast }: { tracks:
 function TrackCard({ track, onToast }: { track: LibraryTrack; onToast: (toast: { message: string; error?: boolean }) => void }) {
   const [suggestion, setSuggestion] = useState<{ title: string; description: string; prompt: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [downloadBusy, setDownloadBusy] = useState(false);
   const [candidate, setCandidate] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [duration, setDuration] = useState(track.durationSeconds);
+  const [qaOpen, setQaOpen] = useState(false);
+  const [menu, setMenu] = useState<"overflow" | "download" | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const qaId = `qa-${track.variantId}`;
+  const title = track.title ?? formatDisplayName(track);
+  useEffect(() => {
+    const close = (event: MouseEvent) => { if (!(event.target as HTMLElement).closest(".track-menu-wrap, .download-menu-wrap")) setMenu(null); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") setMenu(null); };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, []);
   async function generate() {
     setBusy(true);
     const response = await fetch("/api/names/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ variantId: track.variantId, candidate }) });
@@ -894,17 +981,35 @@ function TrackCard({ track, onToast }: { track: LibraryTrack; onToast: (toast: {
     setBusy(false);
     onToast(response.ok ? { message: "Name approved in sidecar metadata." } : { message: "Could not approve name.", error: true });
   }
+  const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) void audio.play(); else audio.pause();
+  };
+  const download = (url = track.downloadUrl, filename = track.filename) => {
+    setDownloadBusy(true);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    setMenu(null);
+    window.setTimeout(() => setDownloadBusy(false), 900);
+  };
+  const seek = (value: number) => { if (audioRef.current) audioRef.current.currentTime = value; setElapsed(value); };
+  const copyUrl = async () => {
+    await navigator.clipboard?.writeText(track.path);
+    onToast({ message: "Master URL copied." });
+    setMenu(null);
+  };
+  const metricClass = track.qaVerdict === "PASS" ? "qa-strip qa-pass" : track.qaVerdict === "FAIL" ? "qa-strip qa-fail" : "qa-strip";
   return (
     <article id={`track-${track.variantId}`} className="soft-card track-card">
-      <div>
-        <div className="flex items-start justify-between gap-3"><div className="min-w-0"><div className="truncate font-mono text-[11px]">{track.variantId}</div>{track.title && <div className="mt-1 truncate text-[15px] font-semibold">{track.title}{track.titleApproved && <span className="ml-1 text-[10px] font-normal text-[#187a35]">approved</span>}</div>}<div className="mt-1 text-[12px] text-[color:var(--secondary-text)]">Matrix {track.matrixIndex} · {formatDuration(track.durationSeconds)} · {track.color} / {track.band} / {track.motion}</div></div><span className={`rounded-full px-2 py-1 font-mono text-[10px] font-semibold ${track.qaVerdict === "PASS" ? "bg-green-50 text-[#187a35]" : track.qaVerdict === "FAIL" ? "bg-red-50 text-[#b42318]" : "bg-gray-100 text-[color:var(--secondary-text)]"}`}>{track.qaVerdict}</span></div>
-        <audio className="mt-3 w-full" controls preload="none" src={track.audioUrl} />
-        <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-[#f2f2f7] p-3 text-xs"><div><span className="text-[color:var(--secondary-text)]">LUFS</span><div className="mt-0.5 font-mono font-semibold">{track.measuredLufs ?? "—"}</div></div><div><span className="text-[color:var(--secondary-text)]">True peak</span><div className="mt-0.5 font-mono font-semibold">{track.measuredTruePeak ?? "—"}</div></div></div>
-        <details className="mt-3"><summary className="cursor-pointer text-xs font-medium text-[#005bb5]">Show QA checks</summary><div className="mt-2 space-y-1">{track.qaChecks.map((check) => <div key={check.name} className="flex justify-between gap-2 border-t border-[#d8d8dc] py-1.5 text-[11px]"><span>{check.passed ? "✓" : "×"} {check.name}</span><span className="font-mono text-[color:var(--secondary-text)]">{check.measured}</span></div>)}</div></details>
-        <div className="mt-3 flex gap-2"><a href={track.downloadUrl} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#e9e9eb] py-2.5 text-xs font-medium"><Download size={14} /> Download master</a><button type="button" onClick={() => void generate()} disabled={busy} className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#1c1c1e] py-2.5 text-xs font-medium text-white"><Sparkles size={14} /> {busy ? "Thinking…" : "Suggest SEO name"}</button></div>
-        {Boolean(track.stems.length) && <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]"><span className="text-[color:var(--secondary-text)]">Stems</span>{track.stems.map((stem) => stem.exists ? <a key={stem.filename} href={stem.downloadUrl} className="rounded-lg bg-[#f2f2f7] px-2 py-1 font-medium">{stem.number}. {stem.stem}</a> : <span key={stem.filename} className="rounded-lg px-2 py-1 text-[color:var(--secondary-text)]">{stem.number}. {stem.stem} —</span>)}</div>}
+      <div className="track-card-heading"><div className="track-card-title" title={title}>{title}{track.titleApproved && <span className="approved-marker">approved</span>}</div><div className="track-menu-wrap"><button type="button" className="icon-action" aria-label="More track actions" aria-haspopup="menu" aria-expanded={menu === "overflow"} onClick={() => setMenu(menu === "overflow" ? null : "overflow")}><MoreHorizontal size={19} /></button>{menu === "overflow" && <div className="track-menu" role="menu"><button type="button" role="menuitem" onClick={togglePlay}>{playing ? "Pause" : "Play"}</button><button type="button" role="menuitem" onClick={() => { setMenu(null); void generate(); }}><Sparkles size={14} /> Suggest SEO name</button><button type="button" role="menuitem" onClick={() => { setQaOpen(true); setMenu(null); document.getElementById(qaId)?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>View QA report</button><button type="button" role="menuitem" onClick={() => void copyUrl()}>Copy file URL <span className="developer-label">(developer)</span></button></div>}</div></div>
+      <div className="track-chips"><span className="track-chip">Matrix {track.matrixIndex}</span><span className="track-chip">{track.color}</span><span className="track-chip">{track.band}</span><span className="track-chip">{track.motion}</span></div>
+      <div className="custom-player"><audio ref={audioRef} preload="none" src={track.audioUrl} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onTimeUpdate={(event) => setElapsed(event.currentTarget.currentTime)} onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : track.durationSeconds)} /><button type="button" className="player-play" aria-label={playing ? "Pause track" : "Play track"} onClick={togglePlay}>{playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}</button><span className="player-time">{formatDuration(elapsed)}</span><input className="player-scrubber" type="range" min={0} max={duration} step={0.1} value={Math.min(elapsed, duration)} aria-label="Seek track" onChange={(event) => seek(Number(event.target.value))} /><span className="player-time">{formatDuration(duration)}</span></div>
+      <div className={metricClass}><button id={qaId} type="button" className="qa-header" aria-expanded={qaOpen} aria-controls={`${qaId}-checks`} onClick={() => setQaOpen((open) => !open)}><span><span className="qa-metric-label">LUFS</span><strong>{track.measuredLufs ?? "—"}</strong></span><span><span className="qa-metric-label">True peak</span><strong>{track.measuredTruePeak ?? "—"}</strong></span><span className="qa-verdict">{track.qaVerdict}</span>{qaOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>{qaOpen && <div id={`${qaId}-checks`} className="qa-checks">{track.qaChecks.length ? track.qaChecks.map((check) => <span key={check.name}><span>{check.passed ? "✓" : "×"} {check.name}</span><b>{check.measured}</b></span>) : "No QA checks available."}</div>}</div>
+      <div className="download-menu-wrap"><div className="download-split"><button type="button" onClick={() => download()} disabled={downloadBusy} className="download-main"><Download size={15} /> {downloadBusy ? "Preparing…" : "Download"}</button><button type="button" className="download-chevron" aria-label="Download options" aria-haspopup="menu" aria-expanded={menu === "download"} onClick={() => setMenu(menu === "download" ? null : "download")}><ChevronDown size={15} /></button></div>{menu === "download" && <div className="track-menu download-menu" role="menu"><button type="button" role="menuitem" onClick={() => download()}><span>Master</span><small>{formatBytes(track.sizeBytes)}</small></button>{track.stems.filter((stem) => stem.exists).map((stem) => <button type="button" role="menuitem" key={stem.filename} onClick={() => download(stem.downloadUrl, stem.filename)}><span>Stem {stem.number} — {stem.stem}</span><small>{formatBytes(stem.sizeBytes)}</small></button>)}<div className="menu-separator" /><button type="button" role="menuitem" onClick={() => download(`/api/bundle/${encodeURIComponent(track.variantId)}`, `${track.variantId}.zip`)}><span>All as .zip</span><small>{formatBytes(track.sizeBytes + track.stems.filter((stem) => stem.exists).reduce((total, stem) => total + stem.sizeBytes, 0))}</small></button></div>}</div>
         {suggestion && <div className="mt-3 rounded-xl border border-[#d8d8dc] p-3"><div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--secondary-text)]">Review before approval</div><input value={suggestion.title} onChange={(event) => setSuggestion({ ...suggestion, title: event.target.value })} className="w-full border-b border-[#d8d8dc] pb-1 text-sm font-semibold outline-none" /><textarea value={suggestion.description} onChange={(event) => setSuggestion({ ...suggestion, description: event.target.value })} className="mt-2 h-16 w-full resize-none text-xs leading-4 outline-none" /><div className="mt-2 flex justify-end gap-2"><button type="button" onClick={() => void regenerate()} disabled={busy} className="rounded-lg px-2 py-1.5 text-xs text-[#005bb5] disabled:text-[color:var(--secondary-text)]">Regenerate</button><button type="button" onClick={() => void approve()} disabled={busy} className="rounded-lg bg-[#34c759] px-3 py-1.5 text-xs font-semibold text-white disabled:bg-[#c7c7cc]">{busy ? "Approving…" : "Approve"}</button></div></div>}
-      </div>
     </article>
   );
 }

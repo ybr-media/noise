@@ -20,6 +20,7 @@ function stemsOf(sidecar: Sidecar | null, index: ArtifactIndex): TrackStem[] {
     const role = `stem_${position + 1}`;
     return [{
       filename,
+      sizeBytes: index.artifacts.get(filename)?.sizeBytes ?? 0,
       number: position + 1,
       stem: typeof roles[role] === "string" ? (roles[role] as string) : role,
       exists: index.artifacts.has(filename),
@@ -51,6 +52,7 @@ export async function libraryTracks(releaseTitles: Map<string, { title: string; 
     return {
       ...resolved,
       path: artifactUrl(variant.filename),
+      sizeBytes: artifact?.sizeBytes ?? 0,
       ...audioUrls(variant.filename),
       exists: Boolean(artifact),
       stems: stemsOf(sidecar, index),
@@ -76,4 +78,10 @@ export async function audioAsset(filename: string): Promise<AudioAsset | undefin
     if (stem) return { filename, exists: stem.exists, isMaster: false };
   }
   return undefined;
+}
+
+export async function bundleAssets(variantId: string): Promise<(LibraryTrack | TrackStem)[] | undefined> {
+  const track = (await libraryTracks()).find((candidate) => candidate.variantId === variantId);
+  if (!track?.exists) return undefined;
+  return [track, ...track.stems.filter((stem) => stem.exists)];
 }

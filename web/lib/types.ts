@@ -39,6 +39,7 @@ export type QaCheck = {
 // order. Stems are downloadable assets, not library tracks of their own.
 export type TrackStem = {
   filename: string;
+  sizeBytes: number;
   number: number;
   stem: string;
   audioUrl: string;
@@ -48,6 +49,7 @@ export type TrackStem = {
 
 export type LibraryTrack = Variant & {
   path: string;
+  sizeBytes: number;
   audioUrl: string;
   downloadUrl: string;
   exists: boolean;
