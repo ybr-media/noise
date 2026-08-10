@@ -74,6 +74,7 @@ export type QueueJob = {
   finishedAt?: string;
   durationSeconds?: number;
   logsUrl?: string;
+  failure?: { step?: string; exitCode?: number | null; durationSeconds?: number; runner?: string | null };
 };
 
 export type ReleaseType = "single" | "ep" | "album";

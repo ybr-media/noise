@@ -7,7 +7,6 @@ import {
   ChevronUp,
   Clipboard,
   Download,
-  Grid3x3,
   Info,
   Layers,
   Pause,
@@ -24,10 +23,11 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LibraryTrack, QueueJob, Release, ReleaseTrack, Variant } from "@/lib/types";
-import { absoluteTime, batchMembersForJob, batchMissingMastersSummary, knownVariantId, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
-import { filterDismissedJobs, groupCompletedByDay, groupJobs, partitionRenderJobs, type RenderJob } from "@/lib/render-jobs";
+import { absoluteTime, batchMembersForJob, knownVariantId, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
+import { groupCompletedByDay, partitionRenderJobs, type RenderJob } from "@/lib/render-jobs";
 import { queueStrings } from "@/lib/queue-strings";
-import { formatBatchLabel, formatDisplayName, formatVariantLabel, isBatchVariantId, OPTIONS } from "@/lib/variant-labels";
+import { formatDisplayName, formatQueueDisplayName, OPTIONS } from "@/lib/variant-labels";
+import { usePullRefresh } from "@/lib/use-pull-refresh";
 import type { DerivedRelease } from "@/lib/releases";
 import { toReleaseDocument } from "@/lib/release-document";
 import { mulberry32, renderCoverArt, type CoverArtDimensions } from "@/lib/cover-art";
@@ -304,20 +304,6 @@ function DesignSkeleton() {
   );
 }
 
-function SkeletonRows({ rows }: { rows: number }) {
-  return (
-    <div className="soft-card queue-card">
-      {Array.from({ length: rows }, (_, index) => (
-        <div key={index} className="skeleton-row">
-          <Skeleton className="skeleton-fixed" width={10} height={10} radius="50%" />
-          <div className="skeleton-row-body"><Skeleton width="58%" height={14} /><Skeleton width="38%" height={11} /></div>
-          <Skeleton className="skeleton-fixed" width={44} height={11} />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function LibrarySkeleton() {
   return (
     <SkeletonPanel label="Loading rendered masters…">
@@ -341,10 +327,10 @@ function LibrarySkeleton() {
 function QueueSkeleton() {
   return (
     <SkeletonPanel label="Loading render queue…">
-      {["Active", "Completed today"].map((group) => (
+      {["Active", "Today", "This week"].map((group) => (
         <section key={group} className="queue-group">
           <div className="section-title">{group}</div>
-          <SkeletonRows rows={group === "Active" ? 2 : 3} />
+          <div className="queue-job-list">{[0, 1].map((card) => <article className="queue-job-card" key={card}><Skeleton width="58%" height={17} /><div className="mt-3 flex gap-2"><Skeleton width={62} height={24} radius={8} /><Skeleton width={52} height={24} radius={8} /><Skeleton width={64} height={24} radius={8} /></div><Skeleton className="mt-3" width="34%" height={11} /><Skeleton className="mt-3" height={42} radius={999} /></article>)}</div>
         </section>
       ))}
     </SkeletonPanel>
@@ -372,6 +358,11 @@ function ReleasesSkeleton() {
 function formatDuration(seconds: number): string {
   const total = Math.max(0, Math.round(seconds));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+}
+
+function formatQueueDuration(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  return `${Math.floor(total / 60)}m ${String(total % 60).padStart(2, "0")}s`;
 }
 
 function Spectrum({ analyser, playing }: { analyser: AnalyserNode | null; playing: boolean }) {
@@ -548,6 +539,7 @@ export default function NoiseLab() {
   const [toast, setToast] = useState<ToastState | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastLibrarySync, setLastLibrarySync] = useState<string | null>(null);
+  const [lastQueueSync, setLastQueueSync] = useState<string | null>(null);
   const [librarySyncFailed, setLibrarySyncFailed] = useState(false);
   const [seenLibraryIds, setSeenLibraryIds] = useState<Set<string>>(new Set());
   const [everLoaded, setEverLoaded] = useState(false);
@@ -581,6 +573,7 @@ export default function NoiseLab() {
       setLibrarySyncFailed(false);
       const queuePayload = (await queueResponse.json()) as { jobs: QueueJob[]; mode?: "local" | "dispatch" | "unavailable"; stats?: typeof queueStats };
       setJobs(queuePayload.jobs);
+      setLastQueueSync(new Date().toISOString());
       setQueueStats(queuePayload.stats ?? { medianRenderSeconds: null, sampleSize: 0 });
       if (queuePayload.mode) setRenderMode(queuePayload.mode);
       const releasesPayload = (await releasesResponse.json()) as { releases: DerivedRelease[]; mode?: "local" | "dispatch" | "unavailable" };
@@ -598,6 +591,7 @@ export default function NoiseLab() {
       if (!response.ok) return;
       const payload = (await response.json()) as { jobs: QueueJob[]; mode?: "local" | "dispatch" | "unavailable"; stats?: typeof queueStats };
       setJobs(payload.jobs);
+      setLastQueueSync(new Date().toISOString());
       setQueueStats(payload.stats ?? { medianRenderSeconds: null, sampleSize: 0 });
       if (payload.mode) setRenderMode(payload.mode);
     } catch {
@@ -828,15 +822,15 @@ export default function NoiseLab() {
           )}
         </div>
         <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} lastSync={lastLibrarySync} syncFailed={librarySyncFailed} /></div>
-        <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} initialLoad={initialLoad} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onQueuePilot={() => void queue([], "pilot")} onQueueFull={() => void queue([], "full")} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} onToast={setToast} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
+        <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} initialLoad={initialLoad} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} onToast={setToast} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} lastSync={lastQueueSync} /></div>
         <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} /></div>
       </div>
       <div className={`current-tab-title ${tabTitleVisible ? "" : "is-hidden"}`} aria-hidden={tabTitleVisible ? undefined : true}>
-        <span key={tab}>{tab === "queue" ? "Render" : tab[0].toUpperCase() + tab.slice(1)}</span>
-        <button type="button" className="info-button current-tab-title-info" tabIndex={tabTitleVisible ? 0 : -1} aria-label={`How to use ${tab === "queue" ? "Render" : tab[0].toUpperCase() + tab.slice(1)}`} aria-expanded={tabInfoOpen} aria-controls="current-tab-tooltip" onClick={() => setTabInfoOpen((open) => !open)}><Info size={16} /></button>
+        <span key={tab}>{tab === "queue" ? "Queue" : tab[0].toUpperCase() + tab.slice(1)}</span>
+        <button type="button" className="info-button current-tab-title-info" tabIndex={tabTitleVisible ? 0 : -1} aria-label={tab === "queue" ? "How rendering works" : `How to use ${tab[0].toUpperCase() + tab.slice(1)}`} aria-expanded={tabInfoOpen} aria-controls="current-tab-tooltip" onClick={() => setTabInfoOpen((open) => !open)}><Info size={16} /></button>
         {tabInfoOpen && <p id="current-tab-tooltip" role="note" className="current-tab-tooltip">{{
           design: "Dial in a variant, audition it, and queue the render.",
-          queue: "Review queued and rendering jobs, retry failures, or open a finished master.",
+          queue: <><strong>How rendering works</strong><br />{queueStrings.queueNote[renderMode]}</>,
           library: "Browse rendered masters and their QA evidence.",
           releases: "Assemble and ship releases from your rendered masters.",
         }[tab]}</p>}
@@ -845,7 +839,7 @@ export default function NoiseLab() {
         <div ref={lensRef} className="tab-lens" aria-hidden="true" />
         {(["design", "queue", "library", "releases"] as const).map((item) => {
           const count = item === "queue" ? queueCount : item === "library" ? libraryCount : item === "releases" ? releaseCount : 0;
-          const label = item === "queue" ? "Render" : item[0].toUpperCase() + item.slice(1);
+          const label = item === "queue" ? "Queue" : item[0].toUpperCase() + item.slice(1);
           const Icon = TAB_ICONS[item];
           return <button key={item} id={`tab-${item}`} type="button" data-tab={item} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${label}${count ? `, ${count}` : ""}`} title={label} onClick={() => {
             if (item === "library") {
@@ -872,49 +866,12 @@ export default function NoiseLab() {
 
 function Library({ tracks, loading, initialLoad, onRefresh, onToast, lastSync, syncFailed }: { tracks: LibraryTrack[]; loading: boolean; initialLoad: boolean; onRefresh: () => void; onToast: (toast: { message: string; error?: boolean }) => void; lastSync: string | null; syncFailed: boolean }) {
   const [, setSyncTick] = useState(0);
-  const [pullDistance, setPullDistance] = useState(0);
-  const pullStart = useRef<number | null>(null);
-  const pullDistanceRef = useRef(0);
-  const refreshShellRef = useRef<HTMLElement | null>(null);
+  const { pullDistance, refreshShellRef } = usePullRefresh(loading, onRefresh);
   useEffect(() => {
     const timer = window.setInterval(() => setSyncTick((tick) => tick + 1), 30_000);
     return () => window.clearInterval(timer);
   }, []);
   const syncCaption = syncFailed ? "Sync failed — retry" : loading ? "Syncing…" : lastSync ? `Synced ${relativeTime(lastSync)}` : "Syncing…";
-  useEffect(() => {
-    const shell = refreshShellRef.current;
-    if (!shell) return;
-    const touchStart = (event: TouchEvent) => {
-      if (window.scrollY > 0 || (event.target as HTMLElement).closest("input,button,a,audio")) return;
-      pullStart.current = event.touches[0]?.clientY ?? null;
-    };
-    const touchMove = (event: TouchEvent) => {
-      if (pullStart.current === null || window.scrollY > 0) return;
-      const distance = (event.touches[0]?.clientY ?? 0) - pullStart.current;
-      if (distance <= 0) return;
-      event.preventDefault();
-      const nextDistance = Math.min(76, distance);
-      pullDistanceRef.current = nextDistance;
-      setPullDistance(nextDistance);
-    };
-    const touchEnd = () => {
-      if (pullDistanceRef.current >= 56 && !loading) void onRefresh();
-      pullStart.current = null;
-      pullDistanceRef.current = 0;
-      setPullDistance(0);
-    };
-    const options: AddEventListenerOptions = { passive: false };
-    shell.addEventListener("touchstart", touchStart, options);
-    shell.addEventListener("touchmove", touchMove, options);
-    shell.addEventListener("touchend", touchEnd, options);
-    shell.addEventListener("touchcancel", touchEnd, options);
-    return () => {
-      shell.removeEventListener("touchstart", touchStart, options);
-      shell.removeEventListener("touchmove", touchMove, options);
-      shell.removeEventListener("touchend", touchEnd, options);
-      shell.removeEventListener("touchcancel", touchEnd, options);
-    };
-  }, [loading, onRefresh]);
   if (initialLoad) {
     return (
       <section className="panel-section">
@@ -1271,136 +1228,80 @@ function DistroHandoff({ release, tracks, onBack, onCopy, onSubmit, mode }: {
   </section>;
 }
 
-function SwipeCard({ children, className, dismissible, dismissLabel, onDismiss }: { children: React.ReactNode; className?: string; dismissible: boolean; dismissLabel: string; onDismiss: () => void }) {
-  const start = useRef<{ x: number; y: number } | null>(null);
-  const moved = useRef(false);
-  const [offset, setOffset] = useState(0);
-  const finish = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!start.current) return;
-    const dx = event.clientX - start.current.x;
-    const dy = event.clientY - start.current.y;
-    start.current = null;
-    if (moved.current && dx < -80 && Math.abs(dx) > Math.abs(dy) * 1.3) onDismiss();
-    setOffset(0);
-  };
-  return <div className="swipe-shell">{dismissible && <div className="swipe-backdrop" aria-hidden="true">{queueStrings.dismiss.dismiss}</div>}<div className={className} style={{ transform: `translateX(${offset}px)` }} onPointerDown={(event) => {
-    if (!dismissible || (event.target as HTMLElement).closest("button,a,summary,input,details")) return;
-    start.current = { x: event.clientX, y: event.clientY };
-    moved.current = false;
-  }} onPointerMove={(event) => {
-    if (!start.current) return;
-    const dx = event.clientX - start.current.x;
-    const dy = event.clientY - start.current.y;
-    if (Math.abs(dy) > Math.abs(dx)) { start.current = null; return; }
-    if (Math.abs(dx) > 12) {
-      moved.current = true;
-      setOffset(Math.max(-112, Math.min(0, dx)));
-    }
-  }} onPointerUp={finish} onPointerCancel={() => { start.current = null; setOffset(0); }}>{children}{dismissible && <button type="button" className="queue-dismiss" aria-label={dismissLabel} onClick={onDismiss}><X size={16} aria-hidden="true" /><span className="sr-only">{queueStrings.dismiss.dismiss}</span></button>}</div></div>;
-}
-
-function Queue({ jobs, initialLoad, mode, stats, variants, tracks, onRefresh, refreshing, onQueuePilot, onQueueFull, onRetry, onDone, onToast, queueing, pilotCount, matrixCount }: { jobs: QueueJob[]; initialLoad: boolean; mode: "local" | "dispatch" | "unavailable"; stats: { medianRenderSeconds: number | null; sampleSize: number }; variants: Variant[]; tracks: LibraryTrack[]; onRefresh: () => void; refreshing: boolean; onQueuePilot: () => void; onQueueFull: () => void; onRetry: (job: QueueJob) => Promise<boolean>; onDone: (job: QueueJob) => void; onToast: (toast: ToastState) => void; queueing: boolean; pilotCount: number; matrixCount: number }) {
+function Queue({ jobs, initialLoad, mode, stats, variants, tracks, onRefresh, refreshing, onRetry, onDone, onToast, queueing, pilotCount, matrixCount, lastSync }: { jobs: QueueJob[]; initialLoad: boolean; mode: "local" | "dispatch" | "unavailable"; stats: { medianRenderSeconds: number | null; sampleSize: number }; variants: Variant[]; tracks: LibraryTrack[]; onRefresh: () => void; refreshing: boolean; onRetry: (job: QueueJob) => Promise<boolean>; onDone: (job: QueueJob) => void; onToast: (toast: ToastState) => void; queueing: boolean; pilotCount: number; matrixCount: number; lastSync: string | null }) {
+  const [, setSyncTick] = useState(0);
+  const { pullDistance, refreshShellRef } = usePullRefresh(refreshing, onRefresh);
+  const [menu, setMenu] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<RenderJob | null>(null);
   const [retried, setRetried] = useState<Set<string>>(new Set());
-  const [confirmingFull, setConfirmingFull] = useState(false);
-  const [confirmingRetryId, setConfirmingRetryId] = useState<string | null>(null);
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-  const [hiddenHistoryIds, setHiddenHistoryIds] = useState<Set<string>>(new Set());
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
   const dismissalReady = useRef(false);
   const pilotMembers = variants.filter((variant) => variant.pilot !== null).map((variant) => variant.variantId);
   const fullMembers = variants.map((variant) => variant.variantId);
-  const allGrouped = groupJobs(jobs);
+  const partition = partitionRenderJobs(jobs, pilotMembers, fullMembers);
+  useEffect(() => { const timer = window.setInterval(() => setSyncTick((tick) => tick + 1), 30_000); return () => window.clearInterval(timer); }, []);
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("noise.queue.dismissals") ?? "{}") as { dismissed?: string[]; hidden?: string[] };
-      setDismissedIds(new Set(saved.dismissed ?? []));
-      setHiddenHistoryIds(new Set(saved.hidden ?? []));
-    } catch { /* ignore malformed view state */ }
+      setDismissed(new Set(saved.dismissed ?? [])); setHidden(new Set(saved.hidden ?? []));
+    } catch { /* ignore malformed storage */ }
     dismissalReady.current = true;
   }, []);
   useEffect(() => {
-    // Queue state must be present before pruning; cold launch initially has no fetched jobs.
-    if (!dismissalReady.current || initialLoad || jobs.length === 0) return;
-    const pruned = filterDismissedJobs(allGrouped, dismissedIds).dismissedIds;
-    const hidden = new Set([...hiddenHistoryIds].filter((id) => pruned.has(id)));
-    if (pruned.size !== dismissedIds.size) setDismissedIds(pruned);
-    if (hidden.size !== hiddenHistoryIds.size) setHiddenHistoryIds(hidden);
-    localStorage.setItem("noise.queue.dismissals", JSON.stringify({ dismissed: [...pruned], hidden: [...hidden] }));
-  }, [allGrouped, dismissedIds, hiddenHistoryIds, initialLoad, jobs.length]);
-  const rawPartition = partitionRenderJobs(jobs, pilotMembers, fullMembers);
-  const visible = (entries: RenderJob[]) => entries.filter((job) => !dismissedIds.has(job.latest.id) && !hiddenHistoryIds.has(job.latest.id));
-  const partition = {
-    needsAttention: visible(rawPartition.needsAttention),
-    active: visible(rawPartition.active),
-    completed: visible(rawPartition.completed),
-    history: visible(rawPartition.history),
-  };
-  const acknowledged = rawPartition.needsAttention.filter((job) => dismissedIds.has(job.latest.id) && !hiddenHistoryIds.has(job.latest.id));
-  const historyJobs = [...partition.history, ...acknowledged];
-  const completedBuckets = groupCompletedByDay(partition.completed);
-  const activeJobs = jobs.filter((job) => job.status === "Queued" || job.status === "Rendering");
-  const idle = activeJobs.length === 0;
+    if (!dismissalReady.current) return;
+    try { localStorage.setItem("noise.queue.dismissals", JSON.stringify({ dismissed: [...dismissed], hidden: [...hidden] })); } catch { /* ignore storage failures */ }
+  }, [dismissed, hidden]);
   useEffect(() => {
-    if (!confirmingFull) return;
-    const timer = setTimeout(() => setConfirmingFull(false), 8000);
-    return () => clearTimeout(timer);
-  }, [confirmingFull]);
+    const close = (event: MouseEvent) => { if (!(event.target as HTMLElement).closest(".queue-menu-wrap")) setMenu(null); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
   useEffect(() => {
-    if (confirmingRetryId === null) return;
-    const timer = setTimeout(() => setConfirmingRetryId(null), 8000);
-    return () => clearTimeout(timer);
-  }, [confirmingRetryId]);
-  const nameFor = (job: QueueJob) => isBatchVariantId(job.variantId) ? formatBatchLabel(job.variantId, { pilot: pilotCount, full: matrixCount }) : formatVariantLabel(job.variantId, variants);
-  const elapsed = (job: QueueJob) => job.startedAt ? (Date.now() - new Date(job.startedAt).getTime()) / 1000 : 0;
-  const activeCopy = (job: QueueJob) => mode === "local"
-    ? job.status === "Queued" ? queueAheadLabel(queuedJobsAhead(job.id, jobs)) : queueStrings.rendering
-    : job.status === "Rendering" ? queueStrings.left(renderEstimate(stats.medianRenderSeconds, stats.sampleSize, elapsed(job))) : stats.sampleSize ? queueStrings.typically(renderEstimate(stats.medianRenderSeconds, stats.sampleSize)) : renderEstimate(null, 0);
-  const renderingCount = activeJobs.filter((job) => job.status === "Rendering").length;
-  const queuedCount = activeJobs.filter((job) => job.status === "Queued").length;
-  const summary = initialLoad ? queueStrings.loading : activeJobs.length ? [renderingCount ? queueStrings.renderingCount(renderingCount) : "", queuedCount ? queueStrings.queuedCount(queuedCount) : "", mode === "dispatch" ? queueStrings.remaining(renderEstimate(stats.medianRenderSeconds, stats.sampleSize, Math.max(...activeJobs.map(elapsed), 0))) : ""].filter(Boolean).join(" · ") : queueStrings.idle;
-  const dismiss = (job: RenderJob, permanent = false) => {
-    const id = job.latest.id;
-    setDismissedIds((old) => new Set(old).add(id));
-    if (permanent) setHiddenHistoryIds((old) => new Set(old).add(id));
-    const restore = () => {
-      setDismissedIds((old) => { const next = new Set(old); next.delete(id); return next; });
-      setHiddenHistoryIds((old) => { const next = new Set(old); next.delete(id); return next; });
-      onToast({ message: queueStrings.dismiss.restored });
-    };
-    onToast({ message: queueStrings.dismiss.removed, action: { label: queueStrings.dismiss.undo, onClick: restore } });
+    const close = (event: KeyboardEvent) => { if (event.key === "Escape") { setMenu(null); setConfirmRemove(null); } };
+    window.addEventListener("keydown", close);
+    return () => window.removeEventListener("keydown", close);
+  }, []);
+  const visible = (items: RenderJob[]) => items.filter((item) => !dismissed.has(item.latest.id) && !hidden.has(item.latest.id));
+  const attention = visible(partition.needsAttention);
+  const active = visible(partition.active);
+  const completed = visible(partition.completed);
+  const history = visible(partition.history);
+  const activeCount = jobs.filter((job) => job.status === "Rendering").length;
+  const queuedCount = jobs.filter((job) => job.status === "Queued").length;
+  const status = activeCount ? queueStrings.statusCaption.rendering(activeCount) : queuedCount ? queueStrings.statusCaption.queued : queueStrings.statusCaption.idle;
+  const caption = `${status} · ${queueStrings.synced(lastSync ? relativeTime(lastSync) : "—")}${!activeCount && !queuedCount ? " · pull to refresh" : ""}`;
+  const nameFor = (id: string) => formatQueueDisplayName(id, variants, { pilot: pilotCount, full: matrixCount });
+  const chipsFor = (id: string) => { const variant = variants.find((candidate) => candidate.variantId === id); return variant ? [`Matrix ${variant.matrixIndex}`, variant.color, variant.band, variant.motion] : []; };
+  const activeCopy = (job: RenderJob) => {
+    if (mode === "local") return job.latest.status === "Queued" ? `${queuedJobsAhead(job.latest.id, jobs)} jobs ahead` : queueStrings.rendering;
+    const elapsed = job.latest.startedAt ? (Date.now() - new Date(job.latest.startedAt).getTime()) / 1000 : 0;
+    return job.latest.status === "Rendering" ? `${renderEstimate(stats.medianRenderSeconds, stats.sampleSize, elapsed)} left` : stats.sampleSize ? `Typically ${renderEstimate(stats.medianRenderSeconds, stats.sampleSize)} once started` : renderEstimate(null, 0);
   };
-  const dismissMany = (entries: RenderJob[]) => {
-    const ids = entries.map((entry) => entry.latest.id);
-    setDismissedIds((old) => new Set([...old, ...ids]));
-    const restore = () => {
-      setDismissedIds((old) => new Set([...old].filter((id) => !ids.includes(id))));
-      onToast({ message: queueStrings.dismiss.restored });
-    };
-    onToast({ message: queueStrings.dismiss.removed, action: { label: queueStrings.dismiss.undo, onClick: restore } });
+  const hasArtifacts = (job: RenderJob) => {
+    const ids = batchMembersForJob(job.latest, pilotMembers, fullMembers) ?? [job.latest.variantId];
+    return ids.some((id) => tracks.some((track) => track.variantId === id && track.exists));
   };
-  const attempts = (job: RenderJob) => job.attempts.map((attempt) => <div className="queue-attempt" key={attempt.id}><span className={`attempt-status ${attempt.status.toLowerCase()}`}>{queueStrings.statusLabel(attempt.status)}</span>{attempt.error && <span className="queue-attempt-error">{attempt.error}</span>}<time className="queue-time" title={absoluteTime(attempt.queuedAt)}>{relativeTime(attempt.queuedAt)}</time>{attempt.logsUrl && <a href={attempt.logsUrl} target="_blank" rel="noopener" className="queue-link queue-logs">{queueStrings.logs}</a>}</div>);
-  const card = (job: RenderJob, history = false) => {
-    const latest = job.latest;
-    const done = latest.status === "Done";
-    const attention = latest.status === "Failed" || latest.status === "Cancelled";
-    const name = nameFor(latest);
-    const missing = batchMissingMastersSummary(batchMembersForJob(latest, pilotMembers, fullMembers), tracks);
-    const failureCopy = queueStrings.failure(name, latest.status, missing?.missingVariantIds.length ?? null, missing?.total ?? null);
-    const retry = async () => { if (await onRetry(latest)) { setRetried((old) => new Set(old).add(latest.id)); setConfirmingRetryId(null); } };
-    const alreadyRetried = retried.has(latest.id);
-    const retryControl = !history && attention && mode !== "unavailable" && (latest.variantId === "full" && confirmingRetryId === job.variantId
-      ? <><button type="button" className="queue-link queue-retry" disabled={queueing} aria-label={queueStrings.fullRetry(name)} onClick={() => void retry()}>{queueStrings.fullRetry(name)}</button><button type="button" className="queue-link queue-cancel" onClick={() => setConfirmingRetryId(null)} aria-label={queueStrings.cancelRetry(name)}>{queueStrings.retry.cancel}</button></>
-      : <button type="button" disabled={queueing || alreadyRetried} onClick={() => latest.variantId === "full" ? setConfirmingRetryId(job.variantId) : void retry()} className="queue-link queue-retry" aria-label={alreadyRetried ? queueStrings.alreadyRetried(name) : queueStrings.retryLabel(name)}>{alreadyRetried ? queueStrings.retry.retried : queueStrings.retry.retry}</button>);
-    const displayTime = done ? latest.finishedAt ?? latest.queuedAt : latest.queuedAt;
-    const content = <div className="queue-row-main"><div className="queue-body"><div className="queue-title-row"><div className="queue-name" title={`${latest.variantId} · Run ${latest.id}`}>{name}{history ? ` · ${queueStrings.statusLabel(latest.status)}` : ""}</div><StatusPill status={latest.status} /></div><div className="queue-sub" title={attention ? failureCopy : undefined}>{done ? <button type="button" className="queue-open-library" onClick={() => onDone(latest)}>{queueStrings.library}</button> : attention ? <>{failureCopy}{missing?.missingVariantIds.length ? <details className="queue-missing"><summary>{queueStrings.missingVariants}</summary><ul>{missing.missingVariantIds.map((variantId) => <li key={variantId}>{formatVariantLabel(variantId, variants)}</li>)}</ul></details> : null}</> : activeCopy(latest)}</div><div className="queue-meta"><time className="queue-time" title={absoluteTime(displayTime)}>{relativeTime(displayTime)}</time></div>{attention && <div className="queue-actions">{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener" className="queue-link queue-logs">{queueStrings.logs}</a>}{retryControl}</div>}{job.attempts.length > 1 && <details className="queue-attempts"><summary>{queueStrings.attempts(job.attempts.length)}</summary>{attempts(job)}</details>}</div></div>;
-    const dismissible = done || history || attention;
-    return <SwipeCard key={job.variantId} className={`queue-item ${history ? "queue-history-job" : ""}`} dismissible={dismissible} dismissLabel={queueStrings.dismissLabel(name)} onDismiss={() => dismiss(job, history)}>{content}</SwipeCard>;
+  const remove = (job: RenderJob) => { setDismissed((old) => new Set(old).add(job.latest.id)); setHidden((old) => new Set(old).add(job.latest.id)); setConfirmRemove(null); setMenu(null); onToast({ message: queueStrings.dismiss.removed }); };
+  const retry = async (job: RenderJob) => {
+    if (confirm !== job.latest.id) { setConfirm(job.latest.id); window.setTimeout(() => setConfirm((current) => current === job.latest.id ? null : current), 3000); return; }
+    if (await onRetry(job.latest)) { setRetried((old) => new Set(old).add(job.latest.id)); setConfirm(null); }
   };
-  const start = (compact: boolean) => <div className={`start-renders ${compact ? "start-renders-compact" : "start-renders-promoted"}`}><div className="bulk-actions"><div className="bulk-action"><button type="button" onClick={onQueuePilot} disabled={mode === "unavailable" || queueing} className="queue-primary" title={mode === "unavailable" ? queueStrings.noRenderer : queueStrings.start.pilotTitle(pilotCount)} aria-label={queueStrings.start.pilotTitle(pilotCount)}><Layers size={14} /> {queueStrings.start.pilot(pilotCount)}</button><p className="bulk-action-caption">{queueStrings.start.pilotCaption(pilotCount)}</p></div><div className="bulk-action">{confirmingFull ? <div className="bulk-confirm"><button type="button" onClick={() => { setConfirmingFull(false); onQueueFull(); }} disabled={queueing} className="queue-primary" aria-label={queueStrings.start.confirm(matrixCount)}>{queueStrings.start.confirm(matrixCount)}</button><button type="button" onClick={() => setConfirmingFull(false)} className="queue-secondary">{queueStrings.retry.cancel}</button></div> : <button type="button" onClick={() => setConfirmingFull(true)} disabled={mode === "unavailable" || matrixCount === 0 || queueing} className="queue-secondary" title={mode === "unavailable" ? queueStrings.noRenderer : queueStrings.start.fullTitle(matrixCount)} aria-label={mode === "unavailable" ? queueStrings.noRenderer : queueStrings.start.fullTitle(matrixCount)}><Grid3x3 size={14} /> {queueStrings.start.full(matrixCount)}</button>}<p className="bulk-action-caption">{confirmingFull ? queueStrings.start.confirmCaption(matrixCount) : queueStrings.start.fullCaption(matrixCount)}</p></div></div><p className="queue-note">{queueStrings.queueNote[mode]}</p></div>;
-  const group = (title: string, entries: RenderJob[], empty: string, className = "") => <section className={`queue-group ${className}`}><div className="section-title">{title}</div><div className="soft-card queue-card">{entries.length ? entries.map((job) => card(job)) : <div className={`empty-state ${className ? `${className}-empty` : ""}`}>{empty}</div>}</div></section>;
-  return <section className="panel-section"><div className="panel-heading"><div><div className="queue-heading-line"><h2>{queueStrings.title}</h2><span className="mode-chip">{queueStrings.mode[mode]}</span><span className="queue-status-chip">{idle ? queueStrings.queueStatus.idle : queueStrings.queueStatus.running(activeJobs.length)}</span></div><p className="queue-summary" aria-live="polite">{summary}</p></div><div className="panel-heading-actions"><button type="button" onClick={onRefresh} disabled={refreshing} aria-busy={refreshing} className={`round-action ${refreshing || initialLoad ? "is-refreshing" : ""}`} aria-label={queueStrings.refresh}><RefreshCw size={14} /></button></div></div>{idle && !initialLoad && start(false)}{initialLoad && <QueueSkeleton />}{partition.needsAttention.length > 0 && group(queueStrings.sections.attention, partition.needsAttention, queueStrings.empty.attention)}{historyJobs.length > 0 && <details className="queue-history"><summary>{queueStrings.historyCount(historyJobs.length)}</summary><div className="soft-card queue-card">{historyJobs.map((job) => card(job, true))}</div></details>}{!initialLoad && <>{group(queueStrings.sections.active, partition.active, queueStrings.empty.active, "queue-active")}{completedBuckets.map((bucket) => <section className="queue-group" key={bucket.label}><div className="section-title"><span>{bucket.label}</span>{bucket.jobs.length > 3 && <button type="button" className="queue-clear" onClick={() => dismissMany(bucket.jobs)}>{queueStrings.clearAll}</button>}</div><div className="soft-card queue-card">{bucket.jobs.map((job) => card(job))}</div></section>)}</>}{!idle && start(true)}</section>;
-}
-
-function StatusPill({ status }: { status: QueueJob["status"] }) {
-  const tone = status === "Done" ? "ready" : status === "Failed" ? "failed" : status === "Cancelled" ? "cancelled" : "running";
-  return <span className={`status-pill ${tone}`}>{queueStrings.statusLabel(status)}</span>;
+  const card = (job: RenderJob) => {
+    const latest = job.latest; const failed = latest.status === "Failed" || latest.status === "Cancelled"; const done = latest.status === "Done"; const activeItem = latest.status === "Queued" || latest.status === "Rendering";
+    const name = nameFor(latest.variantId); const failure = latest.failure?.step ? queueStrings.failedAt(latest.failure.step, latest.failure.exitCode) : latest.error ?? queueStrings.failure(name, latest.status); const displayTime = latest.finishedAt ?? latest.queuedAt;
+    return <article className="queue-job-card" key={job.variantId}>
+      <div className="queue-title-row"><div className="queue-name" title={name === "Unknown variant" ? latest.variantId : undefined}>{name}</div>{done ? <span className="queue-ready-chip">{queueStrings.status.done}</span> : failed && <div className="track-menu-wrap queue-menu-wrap"><button type="button" className="icon-action queue-overflow" aria-label="More queue actions" aria-haspopup="menu" aria-expanded={menu === latest.id} onClick={() => setMenu(menu === latest.id ? null : latest.id)}><MoreHorizontal size={19} /></button>{menu === latest.id && <div className="track-menu" role="menu">{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener" role="menuitem">{queueStrings.logs}</a>}<button type="button" role="menuitem" onClick={() => hasArtifacts(job) ? setConfirmRemove(job) : remove(job)}>Remove from history</button></div>}</div>}</div>
+      <div className="queue-chips">{failed && <span className="queue-status-failed">{queueStrings.status.failed}</span>}{activeItem && <span className="queue-status-active">{latest.status === "Rendering" ? queueStrings.status.rendering : queueStrings.status.queued}</span>}{chipsFor(latest.variantId).map((chip) => <span className="queue-chip" key={chip}>{chip}</span>)}</div>
+      {activeItem && <div className="queue-active-copy">{activeCopy(job)}</div>}
+      {failed && <details className="queue-detail-strip queue-failure-strip"><summary>{failure}<ChevronDown size={15} /></summary><div className="queue-diagnostics"><div>Failed step · {latest.failure?.step ?? "Unavailable"}</div><div>Exit code · {latest.failure?.exitCode ?? "—"}</div><div>Duration · {latest.failure?.durationSeconds ? formatQueueDuration(latest.failure.durationSeconds) : latest.durationSeconds ? formatQueueDuration(latest.durationSeconds) : "—"}</div><div>Runner · {latest.failure?.runner ?? (mode === "local" ? "Local worker" : "—")}</div>{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener">{queueStrings.logs} →</a>}</div></details>}
+      {job.attempts.length > 1 && <details className="queue-detail-strip queue-history-strip"><summary>{queueStrings.runHistory(job.attempts.length)}<ChevronDown size={15} /></summary><div className="queue-diagnostics">{job.attempts.map((attempt, index) => <div key={attempt.id}><span>{queueStrings.attempt(index + 1, relativeTime(attempt.queuedAt))}</span> <span className={attempt.status === "Done" ? "duration-good" : "duration-bad"}>{attempt.status === "Done" ? "✓" : "✗"} {attempt.durationSeconds ? formatQueueDuration(attempt.durationSeconds) : "—"}</span></div>)}</div></details>}
+      <div className="queue-meta"><time title={absoluteTime(displayTime)}>{relativeTime(displayTime)}</time>{failed && ` · ${job.attempts.length} attempts`}</div>
+      <div className="queue-card-actions">{done ? <button type="button" className="queue-primary" onClick={() => onDone(latest)}>{queueStrings.library}</button> : failed && <><button type="button" className={`queue-primary ${retried.has(latest.id) ? "queue-retry-confirmed" : ""}`} disabled={queueing || retried.has(latest.id)} onClick={() => void retry(job)}>{retried.has(latest.id) ? "Queued ✓" : confirm === latest.id ? `Dispatch Actions run (${stats.sampleSize ? renderEstimate(stats.medianRenderSeconds, stats.sampleSize) : "~6 min"})?` : "Re-run render"}</button><button type="button" className="queue-secondary" onClick={() => hasArtifacts(job) ? setConfirmRemove(job) : remove(job)}>Remove</button></>}</div>
+    </article>;
+  };
+  const section = (label: string, items: RenderJob[]) => items.length ? <section className="queue-group queue-section" key={label}><div className="section-title">{label} · {items.length}</div><div className="queue-job-list">{items.map(card)}</div></section> : null;
+  const buckets = groupCompletedByDay(completed);
+  return <section ref={refreshShellRef} className="panel-section queue-refresh-shell queue-section">{pullDistance > 0 && <div className={`pull-refresh-indicator ${pullDistance >= 56 ? "is-ready" : ""}`} style={{ height: pullDistance }}>{pullDistance >= 56 ? "Release to refresh" : "Pull to refresh"}</div>}<div className="queue-sync-caption" aria-live="polite"><span className={`queue-sync-dot ${activeCount ? "is-active" : ""}`} />{caption}</div>{initialLoad ? <QueueSkeleton /> : <>{section(queueStrings.sections.attention, attention)}{section(queueStrings.sections.active, active)}{buckets.map((bucket) => section(bucket.label, bucket.jobs))}{history.length > 0 && <details className="queue-history"><summary>{queueStrings.historyCount(history.length)}</summary><div className="queue-job-list">{history.map(card)}</div></details>}</>}{confirmRemove && <div className="queue-confirm-backdrop" role="presentation" onClick={() => setConfirmRemove(null)}><div className="queue-confirm-sheet" role="dialog" aria-modal="true" aria-labelledby="queue-remove-title" onClick={(event) => event.stopPropagation()}><h2 id="queue-remove-title">Remove from history?</h2><p>This removes only the queue history entry. It will not delete the rendered or published output.</p><div className="queue-card-actions"><button type="button" className="queue-secondary" onClick={() => setConfirmRemove(null)}>Cancel</button><button type="button" className="queue-primary" onClick={() => remove(confirmRemove)}>Remove history entry</button></div></div></div>}</section>;
 }
