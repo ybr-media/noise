@@ -679,8 +679,8 @@ export default function NoiseLab() {
       const variantId = match ? decodeURIComponent(match[1]) : undefined;
       window.requestAnimationFrame(() => {
         const target = variantId ? document.getElementById(`track-${variantId}`) : null;
-        (target ?? document.getElementById("panel-library"))?.scrollIntoView({ behavior: "smooth", block: "start" });
         if (target) {
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
           target.classList.remove("track-highlight");
           void target.offsetWidth;
           target.classList.add("track-highlight");
