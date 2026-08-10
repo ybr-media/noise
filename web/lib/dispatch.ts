@@ -70,6 +70,13 @@ function statusOf(run: WorkflowRun): QueueJob["status"] {
   return run.conclusion === "success" ? "Done" : run.conclusion === "cancelled" ? "Cancelled" : "Failed";
 }
 
+function errorForConclusion(conclusion: string | null): string {
+  if (conclusion === "cancelled") return "Cancelled";
+  if (conclusion === "failure") return "Render failed";
+  if (conclusion === "timed_out") return "Timed out";
+  return "Render did not complete";
+}
+
 // The workflow sets its run name to the requested variants, which is the only
 // place GitHub surfaces dispatch inputs back to an API caller.
 export async function dispatchedQueue(): Promise<{ jobs: QueueJob[]; stats: { medianRenderSeconds: number | null; sampleSize: number } }> {
@@ -91,7 +98,7 @@ export async function dispatchedQueue(): Promise<{ jobs: QueueJob[]; stats: { me
       variantId: run.display_title.replace(/^Render\s+/i, ""),
       status: statusOf(run),
       queuedAt: run.created_at,
-      error: failed ? `Workflow ${run.conclusion}` : undefined,
+      error: failed ? errorForConclusion(run.conclusion) : undefined,
       logsUrl: failed ? runUrl(run.id) : undefined,
       startedAt,
       finishedAt,
