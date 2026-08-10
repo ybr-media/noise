@@ -14,6 +14,9 @@ import {
   Sparkles,
   Save,
   ChevronLeft,
+  LibraryBig,
+  Rocket,
+  SlidersHorizontal,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -25,6 +28,13 @@ import { toReleaseDocument } from "@/lib/release-document";
 import { mulberry32, renderCoverArt, type CoverArtDimensions } from "@/lib/cover-art";
 import { lintNames } from "@/lib/name-lint";
 import { BellMark } from "./bell-mark";
+
+const TAB_ICONS = {
+  design: SlidersHorizontal,
+  queue: Layers,
+  library: LibraryBig,
+  releases: Rocket,
+} as const;
 
 const C = {
   page: "#F2F2F7",
@@ -802,7 +812,8 @@ export default function NoiseLab() {
         {(["design", "queue", "library", "releases"] as const).map((item) => {
           const count = item === "queue" ? queueCount : item === "library" ? libraryCount : item === "releases" ? releaseCount : 0;
           const label = item === "queue" ? "Render" : item[0].toUpperCase() + item.slice(1);
-          return <button key={item} id={`tab-${item}`} type="button" data-tab={item} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${label}${count ? `, ${count}` : ""}`} onClick={() => {
+          const Icon = TAB_ICONS[item];
+          return <button key={item} id={`tab-${item}`} type="button" data-tab={item} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${label}${count ? `, ${count}` : ""}`} title={label} onClick={() => {
             if (item === "library") {
               libraryReturnTab.current = tab === "library" ? "queue" : tab;
               window.location.hash = "library";
@@ -817,7 +828,7 @@ export default function NoiseLab() {
               setTab(item);
             }
             window.scrollTo({ top: 0, behavior: "smooth" });
-          }} className={`dock-tab ${tab === item ? "is-active" : ""}`}>{label}{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</button>;
+          }} className={`dock-tab ${tab === item ? "is-active" : ""}`}><span className="dock-tab-icon" aria-hidden="true"><Icon size={22} strokeWidth={2.1} />{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</span></button>;
         })}
       </nav></div>
       {toast && <Toast message={toast.message} error={toast.error} onClose={() => setToast(null)} />}
