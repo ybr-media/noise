@@ -25,6 +25,8 @@ test("all top-level queue strings avoid restricted implementation terms", () => 
     queueStrings.loading,
     queueStrings.idle,
     queueStrings.rendering,
+    queueStrings.queueStatus.idle,
+    queueStrings.queueStatus.running(2),
     queueStrings.refresh,
     queueStrings.left("5 min"),
     queueStrings.typically("5 min"),

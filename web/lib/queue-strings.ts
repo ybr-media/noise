@@ -23,6 +23,10 @@ export const queueStrings = {
   loading: "Checking the queue…",
   idle: "Queue idle",
   rendering: "Worker is rendering",
+  queueStatus: {
+    idle: "Idle",
+    running: (count: number) => `Running ${count}`,
+  },
   refresh: "Refresh queue",
   left: (value: string) => `${value} left`,
   typically: (value: string) => `Typically ${value} once started`,
