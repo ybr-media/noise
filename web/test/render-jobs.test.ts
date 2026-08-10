@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { groupCompletedByDay, groupJobs, partitionRenderJobs } from "../lib/render-jobs";
+import { filterDismissedJobs, groupCompletedByDay, groupJobs, partitionRenderJobs } from "../lib/render-jobs";
 import type { QueueJob } from "../lib/types";
 
 const job = (id: string, variantId: string, queuedAt: string, status: QueueJob["status"], extra: Partial<QueueJob> = {}): QueueJob => ({
@@ -41,4 +41,18 @@ test("groups completed jobs by local calendar day without contradictory labels",
   const buckets = groupCompletedByDay(groupJobs(jobs), now);
   assert.deepEqual(buckets.map((bucket) => bucket.label), ["Today", "Yesterday", "This week", "Earlier"]);
   assert.deepEqual(buckets.map((bucket) => bucket.jobs.map((item) => item.variantId)), [["today"], ["yesterday"], ["week"], ["earlier"]]);
+});
+
+test("filters dismissed jobs, restores them on undo, resurfaces new attempts, and prunes unknown ids", () => {
+  const old = groupJobs([job("old", "same", "2026-08-09T12:00:00Z", "Failed")]);
+  const filtered = filterDismissedJobs(old, new Set(["old", "unknown"]));
+  assert.equal(filtered.jobs.length, 0);
+  assert.deepEqual([...filtered.dismissedIds], ["old"]);
+  assert.equal(filterDismissedJobs(old, new Set()).jobs.length, 1);
+  const newer = groupJobs([
+    job("new", "same", "2026-08-09T13:00:00Z", "Failed"),
+    job("old", "same", "2026-08-09T12:00:00Z", "Failed"),
+  ]);
+  assert.equal(filterDismissedJobs(newer, new Set(["old"])).jobs.length, 1);
+  assert.equal(filterDismissedJobs(newer, new Set(["old"])).jobs[0].latest.id, "new");
 });
