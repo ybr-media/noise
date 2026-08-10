@@ -58,25 +58,29 @@ const baseRelease = (id: string, type: ReleaseType, title: string, tracks: Relea
   submitted: { at: null, storeUrl: null },
 });
 
-function presetTracks(variants: ReturnType<typeof loadVariants>): ReleaseTrack[] {
-  return variants.sort((a, b) => a.matrixIndex - b.matrixIndex).map((variant) => ({
+function presetTracks(variants: ReturnType<typeof loadVariants>, tracks?: LibraryTrack[]): ReleaseTrack[] {
+  const rendered = tracks && new Set(tracks.filter((track) => track.exists).map((track) => track.variantId));
+  return variants
+    .filter((variant) => !rendered || rendered.has(variant.variantId))
+    .sort((a, b) => a.matrixIndex - b.matrixIndex)
+    .map((variant) => ({
     variantId: variant.variantId,
     title: "",
     description: "",
     approvedAt: null,
-  }));
+    }));
 }
 
-export function pilotRelease(): Release {
-  return baseRelease("pilot-ep", "ep", "Pilot EP", presetTracks(loadPilotVariants()));
+export function pilotRelease(tracks?: LibraryTrack[]): Release {
+  return baseRelease("pilot-ep", "ep", "Pilot EP", presetTracks(loadPilotVariants(), tracks));
 }
 
-export function colorAlbum(color: Color): Release {
-  return baseRelease(`${color}-album`, "album", `${color[0].toUpperCase()}${color.slice(1)} Noise`, presetTracks(loadVariants().filter((variant) => variant.color === color)));
+export function colorAlbum(color: Color, tracks?: LibraryTrack[]): Release {
+  return baseRelease(`${color}-album`, "album", `${color[0].toUpperCase()}${color.slice(1)} Noise`, presetTracks(loadVariants().filter((variant) => variant.color === color), tracks));
 }
 
-function presets(): Release[] {
-  return [pilotRelease(), ...dimensionValues("color").map((color) => colorAlbum(color as Color))];
+function presets(tracks: LibraryTrack[]): Release[] {
+  return [pilotRelease(tracks), ...dimensionValues("color").map((color) => colorAlbum(color as Color, tracks))].filter((release) => release.tracks.length > 0);
 }
 
 function titleState(tracks: ReleaseTrack[]): { missing: number; duplicate: number } {
@@ -111,8 +115,8 @@ function derived(release: Release, tracks: LibraryTrack[]): DerivedRelease {
 export async function releaseList(): Promise<DerivedRelease[]> {
   const saved = await loadReleases();
   const byId = new Map(saved.map((release) => [release.id, release]));
-  const suggestions = presets().filter((release) => !byId.has(release.id)).map((release) => ({ ...release, unsaved: true }));
   const tracks = await libraryTracks();
+  const suggestions = presets(tracks).filter((release) => !byId.has(release.id)).map((release) => ({ ...release, unsaved: true }));
   return [...saved.map((release) => derived(release, tracks)), ...suggestions.map((release) => derived(release, tracks))];
 }
 
