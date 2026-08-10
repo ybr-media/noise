@@ -5,6 +5,8 @@ import path from "node:path";
 import { test } from "node:test";
 import { absoluteTime, attemptNumber, formatMinutes, hasRepeatedVariant, isSuperseded, knownVariantId, median, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "../lib/eta";
 import { formatBatchLabel, formatVariantLabel } from "../lib/variant-labels";
+import { formatBytes } from "../lib/format";
+import { createZip, crc32 } from "../lib/zip";
 
 const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "noise-lab-web-test-"));
 const renderDir = path.join(fixtureDir, "renders");
@@ -183,20 +185,23 @@ test("assembles rendered and missing library tracks with QA evidence", async () 
   assert.equal(tracks[0].exists, true);
   assert.equal(tracks[0].durationSeconds, 245);
   assert.equal(tracks[0].measuredLufs, "-20.000 LUFS");
+  assert.equal(tracks[0].sizeBytes, 11);
   assert.equal(tracks[0].qaVerdict, "PASS");
   assert.equal(tracks[1].exists, false);
   assert.equal(tracks[1].qaVerdict, "UNAVAILABLE");
   assert.deepEqual(tracks[1].qaChecks, []);
+  assert.equal(tracks[1].sizeBytes, 0);
 });
 
 test("groups the stems with their master and serves every file as audio", async () => {
-  const [, { libraryTracks, audioAsset }] = await modulesPromise;
+  const [, { libraryTracks, audioAsset, bundleAssets }] = await modulesPromise;
   const [master, missing] = await libraryTracks();
   assert.deepEqual(master.stems.map((stem) => [stem.number, stem.stem, stem.exists]), [
     [1, "bed", true],
     [2, "texture", true],
     [3, "motion", false],
   ]);
+  assert.deepEqual(master.stems.map((stem) => stem.sizeBytes), [8, 8, 0]);
   assert.equal(master.stems[0].audioUrl, "/api/audio/present_stem_1.wav");
   assert.equal(master.stems[0].downloadUrl, "/api/audio/present_stem_1.wav?download=1");
   // A variant that was never rendered has no stems to offer.
@@ -217,6 +222,40 @@ test("groups the stems with their master and serves every file as audio", async 
     isMaster: false,
   });
   assert.equal(await audioAsset("not_a_render.wav"), undefined);
+  assert.deepEqual((await bundleAssets("wn_white_mid_drift_balanced"))?.map((asset) => asset.filename), [
+    "present_master.wav", "present_stem_1.wav", "present_stem_2.wav",
+  ]);
+  assert.equal(await bundleAssets("wn_white_mid_drift_texture-forward"), undefined);
+});
+
+test("formats artifact sizes with decimal units", () => {
+  assert.equal(formatBytes(999), "999 B");
+  assert.equal(formatBytes(1_000_000), "1.0 MB");
+  assert.equal(formatBytes(40_200_000), "40.2 MB");
+  assert.equal(formatBytes(1_000_000_000), "1.0 GB");
+});
+
+test("writes stored ZIP entries with CRCs and expected sizes", async () => {
+  assert.equal(crc32(new TextEncoder().encode("123456789")), 0xcbf43926);
+  const bytes = await createZip([
+    { name: "master.wav", data: (async function* () { yield new TextEncoder().encode("RIFF"); })() },
+    { name: "stem_1.wav", data: (async function* () { yield new TextEncoder().encode("stem"); })() },
+  ]);
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const names: string[] = [];
+  const sizes: number[] = [];
+  let offset = 0;
+  while (view.getUint32(offset, true) === 0x04034b50) {
+    const nameLength = view.getUint16(offset + 26, true);
+    const extraLength = view.getUint16(offset + 28, true);
+    const size = view.getUint32(offset + 18, true);
+    names.push(new TextDecoder().decode(bytes.slice(offset + 30, offset + 30 + nameLength)));
+    sizes.push(size);
+    offset += 30 + nameLength + extraLength + size;
+  }
+  assert.deepEqual(names, ["master.wav", "stem_1.wav"]);
+  assert.deepEqual(sizes, [4, 4]);
+  assert.equal(view.getUint32(offset, true), 0x02014b50);
 });
 
 test("only a master can be named", async () => {
