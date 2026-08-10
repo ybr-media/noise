@@ -33,7 +33,7 @@ test("partitions grouped failures and keeps superseded jobs in history", () => {
 test("groups completed jobs by local calendar day without contradictory labels", () => {
   const now = new Date(2026, 7, 10, 15, 30);
   const jobs = [
-    job("today", "today", "2026-08-10T01:00:00Z", "Done", { finishedAt: "2026-08-10T09:00:00Z" }),
+    job("today", "today", "2026-08-09T23:00:00Z", "Done", { finishedAt: "2026-08-10T09:00:00Z" }),
     job("yesterday", "yesterday", "2026-08-09T01:00:00Z", "Done", { finishedAt: "2026-08-09T23:59:00Z" }),
     job("week", "week", "2026-08-06T01:00:00Z", "Done", { finishedAt: "2026-08-06T09:00:00Z" }),
     job("earlier", "earlier", "2026-08-01T01:00:00Z", "Done", { finishedAt: "2026-08-01T09:00:00Z" }),

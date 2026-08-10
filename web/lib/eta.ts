@@ -74,20 +74,6 @@ export function batchMembersForJob(job: QueueJob, pilotMembers: string[], fullMe
   return job.variantId === "pilot" ? pilotMembers : job.variantId === "full" ? fullMembers : undefined;
 }
 
-export function partitionFailedJobs(jobs: QueueJob[], pilotMembers: string[], fullMembers: string[]): {
-  actionable: QueueJob[];
-  superseded: QueueJob[];
-} {
-  return jobs.filter((job) => job.status === "Failed" || job.status === "Cancelled").reduce(
-    (partition, job) => {
-      const members = batchMembersForJob(job, pilotMembers, fullMembers);
-      (isSuperseded(job, jobs, members) ? partition.superseded : partition.actionable).push(job);
-      return partition;
-    },
-    { actionable: [], superseded: [] } as { actionable: QueueJob[]; superseded: QueueJob[] },
-  );
-}
-
 export type BatchMissingMastersSummary = {
   total: number;
   missingVariantIds: string[];
