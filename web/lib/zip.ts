@@ -30,28 +30,6 @@ export function crc32(data: Uint8Array): number {
 
 type Central = { name: Uint8Array; crc: number; size: number; offset: number };
 
-export async function createZip(entries: ZipEntry[]): Promise<Uint8Array> {
-  const chunks: Uint8Array[] = [];
-  const central: Central[] = [];
-  let offset = 0;
-  for (const entry of entries) {
-    const name = encoder.encode(entry.name);
-    const body: Uint8Array[] = [];
-    let size = 0;
-    let crc = 0xffffffff;
-    for await (const chunk of entry.data) { body.push(chunk); size += chunk.length; crc = crc32Update(chunk, crc); }
-    crc = (crc ^ 0xffffffff) >>> 0;
-    const local = join([u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0), u32(crc), u32(size), u32(size), u16(name.length), u16(0), name]);
-    chunks.push(local, ...body);
-    central.push({ name, crc, size, offset });
-    offset += local.length + size;
-  }
-  const directory = central.map((entry) => join([u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0), u32(entry.crc), u32(entry.size), u32(entry.size), u16(entry.name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(entry.offset), entry.name]));
-  const centralBytes = join(directory);
-  chunks.push(centralBytes, join([u32(0x06054b50), u16(0), u16(0), u16(central.length), u16(central.length), u32(centralBytes.length), u32(offset), u16(0)]));
-  return join(chunks);
-}
-
 export function streamZip(entries: ZipEntry[]): ReadableStream<Uint8Array> {
   const iterator = (async function* () {
     const central: Central[] = [];
@@ -75,7 +53,7 @@ export function streamZip(entries: ZipEntry[]): ReadableStream<Uint8Array> {
       central.push({ name, crc, size, offset });
       offset += 30 + name.length + size + 16;
     }
-    const directory = central.map((entry) => join([u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0), u32(entry.crc), u32(entry.size), u32(entry.size), u16(entry.name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(entry.offset), entry.name]));
+    const directory = central.map((entry) => join([u32(0x02014b50), u16(20), u16(20), u16(8), u16(0), u16(0), u16(0), u32(entry.crc), u32(entry.size), u32(entry.size), u16(entry.name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(entry.offset), entry.name]));
     const centralBytes = join(directory);
     yield centralBytes;
     yield join([u32(0x06054b50), u16(0), u16(0), u16(central.length), u16(central.length), u32(centralBytes.length), u32(offset), u16(0)]);

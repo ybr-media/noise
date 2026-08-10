@@ -25,6 +25,10 @@ export function formatVariantLabel(variantId: string, variants: Variant[]): stri
   return [variant.color, variant.band, variant.motion, variant.balance].map((value) => labels[value]).join(" · ");
 }
 
+export function formatDisplayName(variant: Variant): string {
+  return `${labels[variant.color]} ${labels[variant.band]} ${labels[variant.motion]} — ${labels[variant.balance]}`;
+}
+
 export function isBatchVariantId(variantId: string): boolean {
   return variantId === "pilot" || variantId === "full";
 }

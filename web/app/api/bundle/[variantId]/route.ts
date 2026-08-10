@@ -30,7 +30,6 @@ export async function GET(_request: Request, context: { params: Promise<{ varian
     headers: {
       "Content-Type": "application/zip",
       "Content-Disposition": `attachment; filename="${variantId}.zip"`,
-      "Transfer-Encoding": "chunked",
     },
   });
 }
