@@ -57,6 +57,25 @@ type WorkflowRun = {
   updated_at?: string | null;
 };
 
+export type ActionsJob = {
+  name?: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  runner_name?: string | null;
+  conclusion?: string | null;
+  steps?: { name?: string; conclusion?: string | null; completed_at?: string | null }[];
+};
+
+export function parseFailureDetails(jobs: ActionsJob[]): QueueJob["failure"] {
+  const failedJob = jobs.find((job) => job.conclusion === "failure" || job.conclusion === "cancelled") ?? jobs[0];
+  if (!failedJob) return undefined;
+  const failedStep = failedJob.steps?.find((step) => step.conclusion === "failure" || step.conclusion === "cancelled");
+  const durationSeconds = failedJob.started_at && failedJob.completed_at
+    ? Math.max(0, (new Date(failedJob.completed_at).getTime() - new Date(failedJob.started_at).getTime()) / 1000)
+    : undefined;
+  return { step: failedStep?.name, exitCode: null, durationSeconds, runner: failedJob.runner_name };
+}
+
 const STATUSES: Record<string, QueueJob["status"]> = {
   queued: "Queued",
   requested: "Queued",
@@ -86,7 +105,7 @@ export async function dispatchedQueue(): Promise<{ jobs: QueueJob[]; stats: { me
   );
   if (!response.ok) return { jobs: [], stats: { medianRenderSeconds: null, sampleSize: 0 } };
   const body = (await response.json()) as { workflow_runs?: WorkflowRun[] };
-  const jobs = (body.workflow_runs ?? []).map((run) => {
+  const jobs: QueueJob[] = (body.workflow_runs ?? []).map((run) => {
     const startedAt = run.run_started_at ?? undefined;
     const finishedAt = run.status === "completed" ? run.updated_at ?? undefined : undefined;
     const durationSeconds = startedAt && finishedAt
@@ -105,6 +124,16 @@ export async function dispatchedQueue(): Promise<{ jobs: QueueJob[]; stats: { me
       durationSeconds,
     };
   });
+  await Promise.all(jobs.filter((job) => job.status === "Failed" || job.status === "Cancelled").slice(0, 5).map(async (job) => {
+    try {
+      const response = await fetch(`${API}/repos/${DISPATCH_REPO}/actions/runs/${job.id}/jobs`, { headers: headers(), cache: "no-store" });
+      if (!response.ok) return;
+      const body = (await response.json()) as { jobs?: ActionsJob[] };
+      job.failure = parseFailureDetails(body.jobs ?? []);
+    } catch {
+      // Details are supplemental; the queue itself remains usable.
+    }
+  }));
   const durations = jobs.filter((job) => job.status === "Done" && job.durationSeconds !== undefined).map((job) => job.durationSeconds!);
   return {
     jobs,

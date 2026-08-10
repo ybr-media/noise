@@ -25,6 +25,14 @@ export function formatVariantLabel(variantId: string, variants: Variant[]): stri
   return [variant.color, variant.band, variant.motion, variant.balance].map((value) => labels[value]).join(" · ");
 }
 
+export function formatQueueDisplayName(variantId: string, variants: Variant[], counts: { pilot: number; full: number }): string {
+  if (isBatchVariantId(variantId)) return formatBatchLabel(variantId, counts);
+  const ids = variantId.split(",").map((id) => id.trim()).filter(Boolean);
+  if (ids.length > 1) return `${ids.length} variants`;
+  const variant = variants.find((candidate) => candidate.variantId === variantId);
+  return variant ? formatDisplayName(variant) : "Unknown variant";
+}
+
 export function formatDisplayName(variant: Variant): string {
   return `${labels[variant.color]} ${labels[variant.band]} ${labels[variant.motion]} — ${labels[variant.balance]}`;
 }

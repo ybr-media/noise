@@ -1,7 +1,7 @@
 import type { QueueJob } from "./types";
 
 export const queueStrings = {
-  title: "Render queue",
+  title: "Queue",
   mode: { dispatch: "GitHub Actions", local: "Local worker", unavailable: "Browse only" },
   sections: { attention: "Needs attention", active: "Active", history: "History", today: "Today", yesterday: "Yesterday", week: "This week", earlier: "Earlier" },
   empty: { active: "Nothing rendering right now", attention: "Nothing needs attention" },
@@ -19,7 +19,7 @@ export const queueStrings = {
     confirmCaption: (count: number) => `Tap confirm to dispatch all ${count} renders.`,
   },
   logs: "View logs",
-  library: "Open in Library ›",
+  library: "Open in Library",
   loading: "Checking the queue…",
   idle: "Queue idle",
   rendering: "Worker is rendering",
@@ -48,6 +48,12 @@ export const queueStrings = {
   dismissLabel: (name: string) => `Dismiss ${name}`,
   statusLabel: (status: QueueJob["status"]) => status === "Done" ? "Ready" : status === "Rendering" ? "Running" : status,
   attempts: (count: number) => `${count} attempts ›`,
+  runHistory: (count: number) => `Run history · ${count}`,
+  synced: (value: string) => `synced ${value}`,
+  statusCaption: { idle: "Idle", queued: "Queued · waiting for runner", rendering: (count: number) => `Rendering · ${count} running` },
+  failureSummary: (reason: string) => reason,
+  failedAt: (step: string, exitCode?: number | null) => `Failed at step: ${step}${exitCode === null || exitCode === undefined ? "" : ` (exit ${exitCode})`}`,
+  attempt: (number: number, time: string) => `Attempt ${number} · ${time} ago`,
   missingVariants: "Show variants",
   failure: (name: string, status: QueueJob["status"], missing: number | null, total: number | null) => {
     if (status === "Cancelled") return "Cancelled";
