@@ -58,24 +58,24 @@ const baseRelease = (id: string, type: ReleaseType, title: string, tracks: Relea
   submitted: { at: null, storeUrl: null },
 });
 
-function presetTracks(variants: ReturnType<typeof loadVariants>, tracks?: LibraryTrack[]): ReleaseTrack[] {
-  const rendered = tracks && new Set(tracks.filter((track) => track.exists).map((track) => track.variantId));
+function presetTracks(variants: ReturnType<typeof loadVariants>, tracks: LibraryTrack[]): ReleaseTrack[] {
+  const rendered = new Set(tracks.filter((track) => track.exists).map((track) => track.variantId));
   return variants
-    .filter((variant) => !rendered || rendered.has(variant.variantId))
+    .filter((variant) => rendered.has(variant.variantId))
     .sort((a, b) => a.matrixIndex - b.matrixIndex)
     .map((variant) => ({
-    variantId: variant.variantId,
-    title: "",
-    description: "",
-    approvedAt: null,
+      variantId: variant.variantId,
+      title: "",
+      description: "",
+      approvedAt: null,
     }));
 }
 
-export function pilotRelease(tracks?: LibraryTrack[]): Release {
+export function pilotRelease(tracks: LibraryTrack[]): Release {
   return baseRelease("pilot-ep", "ep", "Pilot EP", presetTracks(loadPilotVariants(), tracks));
 }
 
-export function colorAlbum(color: Color, tracks?: LibraryTrack[]): Release {
+export function colorAlbum(color: Color, tracks: LibraryTrack[]): Release {
   return baseRelease(`${color}-album`, "album", `${color[0].toUpperCase()}${color.slice(1)} Noise`, presetTracks(loadVariants().filter((variant) => variant.color === color), tracks));
 }
 

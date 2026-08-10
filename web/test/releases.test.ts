@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import type { Release } from "../lib/types";
 
 const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "noise-lab-releases-test-"));
 const configPath = path.join(fixtureDir, "variants.yaml");
@@ -66,12 +67,28 @@ test("suggested presets contain only rendered variants and omit empty colors", a
 });
 
 test("derived preset and saved releases narrow to valid documents", async () => {
-  const [{ pilotRelease, releaseList, releasePayload, validateRelease }, { toReleaseDocument }] = await modulesPromise;
+  const [{ releaseList, releasePayload, validateRelease }, { toReleaseDocument }] = await modulesPromise;
   const preset = (await releaseList()).find((release) => release.unsaved);
   assert.ok(preset);
   assert.deepEqual(validateRelease(toReleaseDocument(preset)), toReleaseDocument(preset));
 
-  const saved = (await releasePayload({ ...pilotRelease(), id: "saved-ep" })).release;
+  const savedFixture: Release = {
+    id: "saved-ep",
+    type: "ep",
+    artist: "Noise Lab",
+    title: "Saved EP",
+    genre: "New Age",
+    secondaryGenre: "Ambient",
+    releaseDate: "",
+    artSeed: null,
+    songwriter: "",
+    tracks: [
+      { variantId: whiteRendered.variant_id, title: "", description: "", approvedAt: null },
+      { variantId: brownUnrendered.variant_id, title: "", description: "", approvedAt: null },
+    ],
+    submitted: { at: null, storeUrl: null },
+  };
+  const saved = (await releasePayload(savedFixture)).release;
   assert.equal(saved.unsaved, undefined);
   assert.equal(saved.tracks.length, 2);
   assert.deepEqual(validateRelease(toReleaseDocument(saved)), toReleaseDocument(saved));
