@@ -776,7 +776,7 @@ export default function NoiseLab() {
               </button>
               <button type="button" onClick={() => void queue([selected.variantId], "one")} disabled={queueing} className="queue-primary" title="Queues only the currently selected variant." aria-label={`Queue only the currently selected variant, variant #${selected.matrixIndex} of ${variants.length}`}>
                 <Layers size={16} />
-                <span>{queueing ? "Queueing…" : "Queue this render"}</span>
+                <span>{queueing ? "Creating…" : "Create track"}</span>
               </button>
             </div>
             <section className="soft-card controls-card">
