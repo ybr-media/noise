@@ -37,6 +37,10 @@ DEFAULT_OUTPUT_DIR = Path("out")
 #: Filtering and normalising four minutes of noise takes far longer than a
 #: trivial scripting command, so the per-command deadline is generous.
 DEFAULT_TIMEOUT_SECONDS = 300.0
+
+#: A headless Audacity occasionally hangs before its first response or fails a
+#: command it normally accepts, so each variant is retried in a fresh process.
+DEFAULT_RETRIES = 2
 ROOT = Path(__file__).resolve().parent
 
 
@@ -407,6 +411,10 @@ def _render_variant(
     output_paths = tuple(Path(path) for path in plan.track_paths)
     if aup3_serializer:
         project = master_path.with_suffix(".aup3")
+        # A failed attempt keeps its project as evidence; clear it so this
+        # attempt saves into a fresh file rather than a stale one.
+        for path in (project, *(Path(f"{project}{tail}") for tail in ("-wal", "-shm"))):
+            path.unlink(missing_ok=True)
         send(f'SaveProject2: Filename="{project}"')
         samples, sample_rate = read_stereo_track(
             project, project_xml, MASTER_TRACK_INDEX
@@ -451,10 +459,16 @@ def render_batch(
     dry_run: bool = False,
     aup3_serializer: bool = False,
     project_xml: Path | None = None,
+    retries: int = DEFAULT_RETRIES,
     transport_factory: TransportFactory = default_transport,
     process_factory: ProcessFactory = _launch,
 ) -> int:
-    """Render all requested variants, returning the number of failures."""
+    """Render all requested variants, returning the number of failures.
+
+    A failed variant is retried up to ``retries`` further times, each in a
+    fresh Audacity process; every attempt is logged, and later log entries
+    supersede earlier ones for the same variant.
+    """
     output_row, rows = _load_matrix(variants_file)
     if limit is not None:
         rows = rows[:limit]
@@ -472,63 +486,67 @@ def render_batch(
             if not isinstance(filename, str) or not filename:
                 raise ValueError(f"{variant_id}: missing filename")
             plan = build_plan(row, output_row, str(output_dir / filename))
-            started = time.monotonic()
-            commands: list[str] = []
-            responses: list[str] = []
-            exit_state = "dry-run" if dry_run else "success"
-            process: ProcessHandle | None = None
-            transport: Transport | None = None
-            try:
-                if not dry_run:
-                    process = process_factory(audacity_bin)
-                    transport = transport_factory(timeout)
-                    gain_db = _render_variant(
-                        plan,
-                        transport,
-                        timeout,
-                        aup3_serializer,
-                        project_xml,
-                        commands,
-                        responses,
-                    )
-                    for path, sidecar in _output_sidecars(plan, gain_db).items():
-                        path.with_suffix(".json").write_text(
-                            json.dumps(sidecar, indent=2) + "\n",
-                            encoding="utf-8",
-                        )
-            except (
-                AudacityPipeError,
-                OSError,
-                RuntimeError,
-                TimeoutError,
-                ValueError,
-            ) as exc:
-                failures += 1
-                exit_state = f"failure: {exc}"
-            finally:
+            for attempt in range(max(0, retries) + 1):
+                started = time.monotonic()
+                commands: list[str] = []
+                responses: list[str] = []
+                exit_state = "dry-run" if dry_run else "success"
+                process: ProcessHandle | None = None
+                transport: Transport | None = None
                 try:
-                    if transport is not None:
-                        transport.close()
+                    if not dry_run:
+                        process = process_factory(audacity_bin)
+                        transport = transport_factory(timeout)
+                        gain_db = _render_variant(
+                            plan,
+                            transport,
+                            timeout,
+                            aup3_serializer,
+                            project_xml,
+                            commands,
+                            responses,
+                        )
+                        for path, sidecar in _output_sidecars(plan, gain_db).items():
+                            path.with_suffix(".json").write_text(
+                                json.dumps(sidecar, indent=2) + "\n",
+                                encoding="utf-8",
+                            )
+                except (
+                    AudacityPipeError,
+                    OSError,
+                    RuntimeError,
+                    TimeoutError,
+                    ValueError,
+                ) as exc:
+                    exit_state = f"failure: {exc}"
                 finally:
-                    if process is not None:
-                        process.kill()
-                        process.wait()
-            duration = time.monotonic() - started
-            log.write(
-                json.dumps(
-                    _log_record(
-                        plan,
-                        row,
-                        output_row,
-                        plan.commands if dry_run else commands,
-                        responses,
-                        duration,
-                        exit_state,
+                    try:
+                        if transport is not None:
+                            transport.close()
+                    finally:
+                        if process is not None:
+                            process.kill()
+                            process.wait()
+                duration = time.monotonic() - started
+                log.write(
+                    json.dumps(
+                        _log_record(
+                            plan,
+                            row,
+                            output_row,
+                            plan.commands if dry_run else commands,
+                            responses,
+                            duration,
+                            exit_state,
+                        )
                     )
+                    + "\n"
                 )
-                + "\n"
-            )
-            log.flush()
+                log.flush()
+                if not exit_state.startswith("failure:"):
+                    break
+            else:
+                failures += 1
     return failures
 
 
@@ -540,6 +558,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--limit", type=int)
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_SECONDS)
+    parser.add_argument(
+        "--retries",
+        type=int,
+        default=DEFAULT_RETRIES,
+        help="further attempts per failed variant, each in a fresh Audacity",
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--aup3-serializer",
@@ -566,6 +590,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         dry_run=args.dry_run,
         aup3_serializer=args.aup3_serializer,
         project_xml=args.project_xml,
+        retries=args.retries,
     )
     if failures:
         print(f"{failures} variant(s) failed")

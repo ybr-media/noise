@@ -307,7 +307,7 @@ def test_resume_and_force(tmp_path: Path) -> None:
     assert calls == 4
 
 
-def test_failure_continues_without_retry(tmp_path: Path) -> None:
+def test_failure_continues_to_the_next_variant(tmp_path: Path) -> None:
     matrix = _matrix(tmp_path, 2)
     output = tmp_path / "out"
     created: list[FakeTransport] = []
@@ -327,6 +327,7 @@ def test_failure_continues_without_retry(tmp_path: Path) -> None:
         output,
         "audacity",
         3,
+        retries=0,
         transport_factory=factory,
         process_factory=process_factory,
     ) == 1
@@ -344,8 +345,73 @@ def test_failure_continues_without_retry(tmp_path: Path) -> None:
         output,
         "audacity",
         3,
+        retries=0,
         transport_factory=factory,
         process_factory=process_factory,
     ) == 0
     assert len(created) == 3
     assert failed_sidecar.exists()
+
+
+def test_flaky_variant_is_retried_in_a_fresh_process(tmp_path: Path) -> None:
+    """A one-off Audacity failure heals on retry; the retry gets its own process."""
+    matrix = _matrix(tmp_path, 1)
+    output = tmp_path / "out"
+    created: list[FakeTransport] = []
+    processes: list[FakeProcess] = []
+
+    def factory(timeout: float) -> FakeTransport:
+        del timeout
+        transport = FakeTransport(["OK"] * 100, fail_at=0 if not created else None)
+        created.append(transport)
+        return transport
+
+    def process_factory(binary: str) -> FakeProcess:
+        del binary
+        process = FakeProcess()
+        processes.append(process)
+        return process
+
+    assert render_batch(
+        matrix,
+        output,
+        "audacity",
+        3,
+        transport_factory=factory,
+        process_factory=process_factory,
+    ) == 0
+    assert len(created) == 2 and len(processes) == 2
+    assert all(process.killed and process.waited for process in processes)
+    records = [json.loads(line) for line in (output / "render_log.jsonl").read_text().splitlines()]
+    assert [record["exit_state"].split(":")[0] for record in records] == ["failure", "success"]
+    assert records[0]["variant_id"] == records[1]["variant_id"]
+
+
+def test_persistent_failure_exhausts_retries(tmp_path: Path) -> None:
+    matrix = _matrix(tmp_path, 1)
+    output = tmp_path / "out"
+    created: list[FakeTransport] = []
+
+    def factory(timeout: float) -> FakeTransport:
+        del timeout
+        transport = FakeTransport(["OK"] * 100, fail_at=0)
+        created.append(transport)
+        return transport
+
+    def process_factory(binary: str) -> FakeProcess:
+        del binary
+        return FakeProcess()
+
+    assert render_batch(
+        matrix,
+        output,
+        "audacity",
+        3,
+        retries=2,
+        transport_factory=factory,
+        process_factory=process_factory,
+    ) == 1
+    assert len(created) == 3
+    records = [json.loads(line) for line in (output / "render_log.jsonl").read_text().splitlines()]
+    assert len(records) == 3
+    assert all(record["exit_state"].startswith("failure:") for record in records)
