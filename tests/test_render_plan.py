@@ -334,3 +334,99 @@ def test_a_non_master_output_name_is_rejected() -> None:
     output, rows = _pilot()
     with pytest.raises(PlanError):
         build_plan(rows[0], output, "/tmp/wn_white_mid_drift_balanced.wav")
+
+
+def _fx_row(index: int = 0, **fx: object) -> tuple[dict[str, object], dict[str, object]]:
+    output, rows = _pilot()
+    row = dict(rows[index])
+    row["fx"] = fx
+    return row, output
+
+
+def _fx_plan(**fx: object) -> RenderPlan:
+    row, output = _fx_row(**fx)
+    return build_plan(row, output, f"/tmp/{row['filename']}")
+
+
+WARM_BED = [0, 1, 2, 2, 1, 0, -1, -3, -6, -9]
+CATHEDRAL = {
+    "preset": "cathedral",
+    "room_size": 95,
+    "pre_delay_ms": 35,
+    "reverberance": 90,
+    "damping": 25,
+    "mix_percent": 45,
+}
+
+
+def test_fx_free_plan_is_unchanged() -> None:
+    plain = _plan()
+    assert plain.fx is None
+    assert plain.tail_seconds == 0
+    assert plain.commands[-1] == "MixAndRenderToNewTrack:"
+    identity = _fx_plan(eq={"preset": "flat", "gains_db": [0] * 10, "trim_db": 0})
+    assert identity.commands == plain.commands
+    assert identity.tail_seconds == 0
+
+
+def test_fx_eq_appends_a_post_mix_filter_curve_over_all_tracks() -> None:
+    plan = _fx_plan(eq={"preset": "warm-bed", "gains_db": WARM_BED, "trim_db": 0})
+    mix = plan.commands.index("MixAndRenderToNewTrack:")
+    curve_index = next(
+        index for index, command in enumerate(plan.commands)
+        if index > mix and command.startswith("FilterCurve:")
+    )
+    assert "Track=0 TrackCount=4 Mode=Set" in plan.commands[curve_index - 1]
+    assert plan.tail_seconds == 0
+    points = _curve_points(plan.commands[curve_index])
+    # Warm Bed cuts the top shelf hard, so the curve must fall at the top.
+    top = [db for hz, db in points if hz > 12000]
+    assert all(db < -2 for db in top)
+    mids = [db for hz, db in points if 200 < hz < 350]
+    assert all(1 < db < 3 for db in mids)
+
+
+def test_fx_reverb_appends_tail_reverb_and_final_fade() -> None:
+    plan = _fx_plan(reverb=CATHEDRAL)
+    assert 0 < plan.tail_seconds <= 8
+    assert plan.tail_seconds * plan.output.sample_rate == round(
+        plan.tail_seconds * plan.output.sample_rate
+    )
+    nominal = plan.output.cell_seconds * plan.output.repeats
+    assert plan.total_seconds == nominal + plan.tail_seconds
+    mix = plan.commands.index("MixAndRenderToNewTrack:")
+    tail = [command for command in plan.commands[mix:] if command.startswith("Silence: Duration=")]
+    assert len(tail) == 1
+    reverb = next(command for command in plan.commands[mix:] if command.startswith("Reverb:"))
+    assert "RoomSize=95" in reverb
+    assert "Reverberance=90" in reverb
+    assert "WetOnly=0" in reverb
+    assert "DryGain=0" in reverb
+    assert plan.commands[-1] == "FadeOut:"
+    assert f"Start={plan.total_seconds - 0.5:g}" in plan.commands[-2]
+
+
+def test_fx_tail_grows_with_the_room() -> None:
+    small = _fx_plan(reverb={"preset": "small-room", "room_size": 25, "pre_delay_ms": 5, "reverberance": 25, "damping": 50, "mix_percent": 20})
+    cathedral = _fx_plan(reverb=CATHEDRAL)
+    assert small.tail_seconds < cathedral.tail_seconds
+
+
+def test_fx_validation_rejects_bad_blocks() -> None:
+    with pytest.raises(PlanError):
+        _fx_plan(eq={"preset": "custom", "gains_db": [0] * 9, "trim_db": 0})
+    with pytest.raises(PlanError):
+        _fx_plan(eq={"preset": "custom", "gains_db": [0] * 9 + [25], "trim_db": 0})
+    with pytest.raises(PlanError):
+        _fx_plan(reverb={**CATHEDRAL, "mix_percent": 120})
+    row, output = _fx_row()
+    row["fx"] = "cathedral"
+    with pytest.raises(PlanError):
+        build_plan(row, output, f"/tmp/{row['filename']}")
+
+
+def test_fx_eq_response_is_zero_when_flat() -> None:
+    from render_plan import eq_response_db
+
+    for hz in (31, 500, 16000):
+        assert eq_response_db([0.0] * 10, hz, 48000) == 0.0

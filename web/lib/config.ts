@@ -160,7 +160,7 @@ export function findVariant(variantId: string): Variant | undefined {
   return loadVariants().find((variant) => variant.variantId === variantId);
 }
 
-export type RenderSelection = { variantIds?: unknown[]; pilot?: boolean; full?: boolean };
+export type RenderSelection = { variantIds?: unknown[]; pilot?: boolean; full?: boolean; fx?: unknown };
 
 // A render request names either a set of ids or a whole manifest. `pilot` and
 // `full` are also render.yml's own selectors, so the whole matrix travels as one

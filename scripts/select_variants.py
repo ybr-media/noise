@@ -7,6 +7,7 @@ a matter of filtering the matrix rather than adding engine flags.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -15,6 +16,20 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 FULL = ROOT / "config" / "variants.yaml"
 PILOT = ROOT / "config" / "variants_pilot.yaml"
+
+
+def apply_fx(selected: dict[str, object], fx_json: str | None) -> dict[str, object]:
+    """Attach one FX block to every selected variant row."""
+    if not fx_json or not fx_json.strip():
+        return selected
+    try:
+        fx = json.loads(fx_json)
+    except json.JSONDecodeError as error:
+        raise SystemExit(f"--fx is not valid JSON: {error}") from error
+    if not isinstance(fx, dict):
+        raise SystemExit("--fx must be a JSON object")
+    variants = [dict(row, fx=fx) for row in selected.get("variants", [])]
+    return {**selected, "variants": variants}
 
 
 def select(spec: str) -> dict[str, object]:
@@ -36,9 +51,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("spec", help='"full", "pilot", or a comma-separated list of variant ids')
     parser.add_argument("--out", type=Path, required=True, help="Where to write the filtered variants file")
+    parser.add_argument("--fx", default="", help="Optional JSON FX block applied to every selected variant")
     args = parser.parse_args(argv)
 
-    selected = select(args.spec)
+    selected = apply_fx(select(args.spec), args.fx)
     args.out.write_text(yaml.safe_dump(selected, sort_keys=False), encoding="utf-8")
     count = len(selected.get("variants", []))
     if not count:

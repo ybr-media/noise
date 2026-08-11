@@ -1,4 +1,5 @@
 import { dispatchRender } from "./dispatch";
+import { sanitizeFxBlock } from "./fx";
 import { enqueue } from "./queue";
 import { RENDER_MODE, findVariant, resolveSelection, type RenderMode, type RenderSelection } from "./config";
 import type { QueueJob } from "./types";
@@ -19,11 +20,12 @@ export async function submitQueueSelection(selection: RenderSelection): Promise<
   if (!variantIds.length || variantIds.some((id) => !findVariant(id))) {
     return { status: 400, payload: { error: "Choose one or more known variants" } };
   }
+  const fx = sanitizeFxBlock(selection.fx);
   if (RENDER_MODE === "local") {
-    return { status: 202, payload: { mode: RENDER_MODE, jobs: enqueue(variantIds) } };
+    return { status: 202, payload: { mode: RENDER_MODE, jobs: enqueue(variantIds, fx) } };
   }
   try {
-    await dispatchRender(dispatchInput);
+    await dispatchRender(dispatchInput, fx);
   } catch (error) {
     return { status: 502, payload: { error: error instanceof Error ? error.message : "Render dispatch failed" } };
   }

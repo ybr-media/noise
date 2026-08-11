@@ -15,6 +15,7 @@ from pathlib import Path
 
 import numpy as np
 import soundfile as sf
+
 from audacity_pipe import AudacityPipe, AudacityPipeError
 
 ROOT = Path(__file__).resolve().parent
