@@ -374,3 +374,49 @@ def test_a_master_whose_stems_are_the_wrong_length_fails(tmp_path: Path) -> None
     audio, rate = sf.read(short, dtype="float64", always_2d=True)
     sf.write(short, audio[:-1], rate, subtype="PCM_24", format="WAV")
     assert_only(master, "Stem sum")
+
+
+def _with_tail(audio: np.ndarray, tail_seconds: float) -> np.ndarray:
+    tail_frames = round(tail_seconds * SAMPLE_RATE)
+    rng = np.random.default_rng(9)
+    tail = rng.normal(0, 0.005, (tail_frames, 2))
+    tail *= np.linspace(1, 0, tail_frames)[:, None]
+    return np.concatenate([audio, tail])
+
+
+def test_a_reverb_tail_in_the_sidecar_extends_the_expected_duration(tmp_path: Path) -> None:
+    path = make_track(tmp_path)
+    audio, rate = sf.read(path)
+    tailed = _with_tail(audio, 2.0)
+    metadata = json.loads(path.with_suffix(".json").read_text())
+    metadata["tail_seconds"] = 2.0
+    path.with_suffix(".json").write_text(json.dumps(metadata), encoding="utf-8")
+    write_group(path, tailed, rate)
+    result = checks(path)
+    assert result["Duration/format"].passed
+    # Without the metadata the same file must fail the duration check.
+    metadata.pop("tail_seconds")
+    path.with_suffix(".json").write_text(json.dumps(metadata), encoding="utf-8")
+    write_group(path, tailed, rate)
+    assert checks(path)["Duration/format"].passed is False
+
+
+def test_fx_eq_metadata_normalises_the_measured_spectrum(tmp_path: Path) -> None:
+    from render_plan import EqFx, eq_points
+
+    gains = [0, 0, -1, -2, -4, -6, -9, -12, -15, -18]
+    path = make_track(tmp_path)
+    audio, rate = sf.read(path)
+    spectrum = np.fft.rfft(audio, axis=0)
+    frequencies = np.fft.rfftfreq(audio.shape[0], 1 / rate)
+    points = eq_points(EqFx(preset="midnight", gains_db=tuple(gains), trim_db=0.0), rate)
+    hz = np.array([point[0] for point in points])
+    db = np.array([point[1] for point in points])
+    response = np.interp(np.maximum(frequencies, hz[0]), hz, db)
+    shaped = np.fft.irfft(spectrum * (10 ** (response / 20))[:, None], n=audio.shape[0], axis=0)
+    metadata = json.loads(path.with_suffix(".json").read_text())
+    metadata["fx"] = {"eq": {"preset": "midnight", "gains_db": gains, "trim_db": 0}}
+    path.with_suffix(".json").write_text(json.dumps(metadata), encoding="utf-8")
+    write_group(path, shaped, rate)
+    result = checks(path)
+    assert result["Spectral tilt"].passed

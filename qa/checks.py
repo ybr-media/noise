@@ -14,7 +14,6 @@ import numpy as np
 import pyloudnorm as pyln
 import soundfile as sf
 
-
 #: Half-width, in octaves, of the region around a bell center excluded from the
 #: tilt fit. The bell's skirts reach well past one octave, so a narrower window
 #: leaves them in the fit and lifts the baseline the bell is measured against.
@@ -45,6 +44,86 @@ class Bell:
     q: float
 
 
+#: Band frequencies and inner-band Q of the render FX graphic EQ; must match
+#: ``render_plan.EQ_BAND_HZ`` / ``EQ_BAND_Q``.
+EQ_BAND_HZ: tuple[float, ...] = (
+    31.0, 62.0, 125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0
+)
+EQ_BAND_Q: float = 1.4
+
+
+@dataclass(frozen=True)
+class FxEq:
+    gains_db: tuple[float, ...]
+    trim_db: float
+
+
+def _biquad_response_db(
+    coefficients: tuple[float, float, float, float, float, float],
+    frequencies: np.ndarray,
+    sample_rate: float,
+) -> np.ndarray:
+    b0, b1, b2, a0, a1, a2 = coefficients
+    z1 = np.exp(-1j * 2.0 * np.pi * frequencies / sample_rate)
+    z2 = z1 * z1
+    magnitude = np.abs(b0 + b1 * z1 + b2 * z2) / np.maximum(
+        np.abs(a0 + a1 * z1 + a2 * z2), 1e-30
+    )
+    return 20.0 * np.log10(np.maximum(magnitude, 1e-30))
+
+
+def _shelf_coefficients(
+    frequency: float, gain_db: float, sample_rate: float, *, high: bool
+) -> tuple[float, float, float, float, float, float]:
+    amplitude = 10.0 ** (gain_db / 40.0)
+    omega = 2.0 * math.pi * frequency / sample_rate
+    cos_w = math.cos(omega)
+    alpha = math.sin(omega) / 2.0 * math.sqrt(amplitude + 1.0 / amplitude)
+    two_sqrt_a_alpha = 2.0 * math.sqrt(amplitude) * alpha
+    sign = 1.0 if high else -1.0
+    return (
+        amplitude * ((amplitude + 1) + sign * (amplitude - 1) * cos_w + two_sqrt_a_alpha),
+        -2.0 * sign * amplitude * ((amplitude - 1) + sign * (amplitude + 1) * cos_w),
+        amplitude * ((amplitude + 1) + sign * (amplitude - 1) * cos_w - two_sqrt_a_alpha),
+        (amplitude + 1) - sign * (amplitude - 1) * cos_w + two_sqrt_a_alpha,
+        2.0 * sign * ((amplitude - 1) - sign * (amplitude + 1) * cos_w),
+        (amplitude + 1) - sign * (amplitude - 1) * cos_w - two_sqrt_a_alpha,
+    )
+
+
+def _peaking_coefficients(
+    frequency: float, gain_db: float, quality: float, sample_rate: float
+) -> tuple[float, float, float, float, float, float]:
+    amplitude = 10.0 ** (gain_db / 40.0)
+    omega = 2.0 * math.pi * frequency / sample_rate
+    alpha = math.sin(omega) / (2.0 * quality)
+    cos_w = math.cos(omega)
+    return (
+        1.0 + alpha * amplitude,
+        -2.0 * cos_w,
+        1.0 - alpha * amplitude,
+        1.0 + alpha / amplitude,
+        -2.0 * cos_w,
+        1.0 - alpha / amplitude,
+    )
+
+
+def eq_response_db(eq: FxEq, frequencies: np.ndarray, sample_rate: float) -> np.ndarray:
+    """Combined dB response of the render FX EQ, mirroring render_plan's math."""
+    total = np.full(frequencies.shape, eq.trim_db, dtype=np.float64)
+    for band_hz, gain_db in zip(EQ_BAND_HZ, eq.gains_db):
+        if gain_db == 0.0:
+            continue
+        if band_hz == EQ_BAND_HZ[0]:
+            coefficients = _shelf_coefficients(band_hz, gain_db, sample_rate, high=False)
+        elif band_hz == EQ_BAND_HZ[-1]:
+            coefficients = _shelf_coefficients(band_hz, gain_db, sample_rate, high=True)
+        else:
+            coefficients = _peaking_coefficients(band_hz, gain_db, EQ_BAND_Q, sample_rate)
+        total += _biquad_response_db(coefficients, frequencies, sample_rate)
+    return total
+
+
 @dataclass(frozen=True)
 class Sidecar:
     variant_id: str
@@ -70,6 +149,12 @@ class Sidecar:
     role: str
     stem: str | None
     stem_filenames: tuple[str, ...]
+    tail_seconds: float = 0.0
+    fx_eq: FxEq | None = None
+
+    @property
+    def tail_frames(self) -> int:
+        return round(self.tail_seconds * self.sample_rate)
 
     @property
     def is_master(self) -> bool:
@@ -137,6 +222,30 @@ class Sidecar:
         stem_raw = raw.get("stem")
         if stem_raw is not None and (not isinstance(stem_raw, str) or not stem_raw):
             raise SidecarError(f"{path.name}: stem must be null or a non-empty string")
+        tail_raw = raw.get("tail_seconds", 0.0)
+        if isinstance(tail_raw, bool) or not isinstance(tail_raw, (int, float)) or tail_raw < 0:
+            raise SidecarError(f"{path.name}: tail_seconds must be a non-negative number")
+        fx_raw = raw.get("fx")
+        fx_eq: FxEq | None = None
+        if fx_raw is not None:
+            if not isinstance(fx_raw, dict):
+                raise SidecarError(f"{path.name}: fx must be null or an object")
+            eq_raw = fx_raw.get("eq")
+            if eq_raw is not None:
+                if not isinstance(eq_raw, dict):
+                    raise SidecarError(f"{path.name}: fx.eq must be an object")
+                eq_gains_raw = eq_raw.get("gains_db")
+                if not isinstance(eq_gains_raw, list) or len(eq_gains_raw) != len(EQ_BAND_HZ) or not all(
+                    isinstance(item, (int, float)) and not isinstance(item, bool)
+                    for item in eq_gains_raw
+                ):
+                    raise SidecarError(
+                        f"{path.name}: fx.eq.gains_db must be a list of {len(EQ_BAND_HZ)} numbers"
+                    )
+                trim_raw = eq_raw.get("trim_db", 0.0)
+                if isinstance(trim_raw, bool) or not isinstance(trim_raw, (int, float)):
+                    raise SidecarError(f"{path.name}: fx.eq.trim_db must be numeric")
+                fx_eq = FxEq(tuple(float(item) for item in eq_gains_raw), float(trim_raw))
         repeats_value = required("repeats")
         sample_rate = required("sample_rate")
         bit_depth = required("bit_depth")
@@ -170,6 +279,8 @@ class Sidecar:
             role=text("role"),
             stem=stem_raw,
             stem_filenames=tuple(stems_raw),
+            tail_seconds=float(tail_raw),
+            fx_eq=fx_eq,
         )
         text("audacity_version")
         text("render_timestamp")
@@ -325,7 +436,7 @@ class Spectrum:
 
 def analyze_spectrum(data: np.ndarray, sidecar: Sidecar) -> Spectrum:
     start = round(sidecar.fade_seconds * sidecar.sample_rate)
-    stop = data.shape[0] - start
+    stop = data.shape[0] - start - sidecar.tail_frames
     mono = np.mean(data[start:stop], axis=1)
     nperseg = min(65536, max(1024, len(mono) // 8))
     step = max(1, nperseg // 2)
@@ -336,6 +447,12 @@ def analyze_spectrum(data: np.ndarray, sidecar: Sidecar) -> Spectrum:
     spectra = [np.abs(np.fft.rfft(chunk * window)) ** 2 for chunk in windows]
     psd = np.mean(np.asarray(spectra), axis=0)
     frequencies = np.fft.rfftfreq(nperseg, 1 / sidecar.sample_rate)
+    if sidecar.fx_eq is not None:
+        # The render FX EQ shapes the spectrum on purpose; dividing its known
+        # response back out lets the tilt and bell targets stay meaningful.
+        psd = psd / 10.0 ** (
+            eq_response_db(sidecar.fx_eq, frequencies, sidecar.sample_rate) / 10.0
+        )
     centers = (16, 20, 25, 31, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000, 2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000)
     third: dict[int, float] = {}
     for center in centers:
@@ -433,7 +550,8 @@ def green_bell(spectrum: Spectrum, sidecar: Sidecar) -> CheckResult:
 
 def silence(data: np.ndarray, sidecar: Sidecar) -> CheckResult:
     start = int(sidecar.fade_seconds * sidecar.sample_rate)
-    stop = data.shape[0] - start
+    # The reverb tail past the nominal length decays to silence by design.
+    stop = data.shape[0] - start - sidecar.tail_frames
     mono = np.mean(data[start:stop], axis=1)
     frame = max(1, int(sidecar.sample_rate * 0.02))
     hop = max(1, int(sidecar.sample_rate * 0.01))
@@ -494,7 +612,7 @@ def stem_sum(master_path: Path, stem_paths: tuple[Path, ...]) -> CheckResult:
 
 
 def duration_format(info: sf.SoundFile, sidecar: Sidecar) -> CheckResult:
-    expected = round(sidecar.cell_seconds * sidecar.sample_rate) * sidecar.repeats
+    expected = round(sidecar.cell_seconds * sidecar.sample_rate) * sidecar.repeats + sidecar.tail_frames
     subtype_bits = {"PCM_16": 16, "PCM_24": 24, "PCM_32": 32}.get(info.subtype, 0)
     passed = info.samplerate == sidecar.sample_rate and info.channels == 2 and subtype_bits == sidecar.bit_depth and info.frames == expected
     return _result("Duration/format", f"{info.frames} frames, {info.samplerate} Hz, {info.channels}ch, {info.subtype}", f"exactly {expected} frames; {sidecar.sample_rate} Hz stereo {sidecar.bit_depth}-bit", passed)

@@ -75,6 +75,7 @@ export type QueueJob = {
   durationSeconds?: number;
   logsUrl?: string;
   failure?: { step?: string; exitCode?: number | null; durationSeconds?: number; runner?: string | null };
+  fx?: import("./fx").FxBlock;
 };
 
 export type ReleaseType = "single" | "ep" | "album";

@@ -25,6 +25,7 @@ from aup3_serializer import extract_stereo_tracks_to_wavs, read_stereo_track
 from render_plan import (
     MASTER_TRACK_INDEX,
     STEM_MAP,
+    Fx,
     RenderPlan,
     build_plan,
 )
@@ -267,6 +268,28 @@ def _integrated_loudness(samples: np.ndarray, sample_rate: int) -> float:
     )
 
 
+def _fx_block(fx: Fx | None) -> dict[str, object] | None:
+    if fx is None or fx.is_identity:
+        return None
+    block: dict[str, object] = {}
+    if fx.eq is not None and not fx.eq.is_flat:
+        block["eq"] = {
+            "preset": fx.eq.preset,
+            "gains_db": list(fx.eq.gains_db),
+            "trim_db": fx.eq.trim_db,
+        }
+    if fx.reverb is not None and not fx.reverb.is_off:
+        block["reverb"] = {
+            "preset": fx.reverb.preset,
+            "room_size": fx.reverb.room_size,
+            "pre_delay_ms": fx.reverb.pre_delay_ms,
+            "reverberance": fx.reverb.reverberance,
+            "damping": fx.reverb.damping,
+            "mix_percent": fx.reverb.mix_percent,
+        }
+    return block or None
+
+
 def _sidecar(plan: RenderPlan, loudness_gain_db: float) -> dict[str, object]:
     variant = plan.variant
     master = Path(plan.master_path)
@@ -303,6 +326,8 @@ def _sidecar(plan: RenderPlan, loudness_gain_db: float) -> dict[str, object]:
             if variant.spectrum.has_bell
             else None
         ),
+        "fx": _fx_block(plan.fx),
+        "tail_seconds": plan.tail_seconds,
         "audacity_version": AUDACITY_VERSION,
         "render_timestamp": datetime.now(timezone.utc).isoformat(),
         # One measurement of the mix, applied unchanged to all four outputs.

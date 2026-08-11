@@ -31,6 +31,30 @@ import { usePullRefresh } from "@/lib/use-pull-refresh";
 import type { DerivedRelease } from "@/lib/releases";
 import { toReleaseDocument } from "@/lib/release-document";
 import { mulberry32, renderCoverArt, type CoverArtDimensions } from "@/lib/cover-art";
+import {
+  EQ_BAND_HZ,
+  EQ_MAX_ABS_DB,
+  EQ_PRESET_LABELS,
+  EQ_PRESETS,
+  REVERB_PRESET_LABELS,
+  REVERB_PRESETS,
+  defaultFx,
+  eqIsFlat,
+  eqPresetState,
+  eqResponseDb,
+  formatBandLabel,
+  formatTail,
+  fxBadges,
+  reverbIsOff,
+  reverbPresetState,
+  reverbTailSeconds,
+  toFxBlock,
+  wetGainDb,
+  type EqPreset,
+  type FxState,
+  type ReverbPreset,
+  type ReverbState,
+} from "@/lib/fx";
 import { lintNames } from "@/lib/name-lint";
 import { formatBytes } from "@/lib/format";
 import { BellMark } from "./bell-mark";
@@ -365,7 +389,40 @@ function formatQueueDuration(seconds: number): string {
   return `${Math.floor(total / 60)}m ${String(total % 60).padStart(2, "0")}s`;
 }
 
-function Spectrum({ analyser, playing }: { analyser: AnalyserNode | null; playing: boolean }) {
+function drawEqCurve(ctx: CanvasRenderingContext2D, width: number, gainsDb: number[], flat: boolean) {
+  const minHz = 30;
+  const maxHz = 16000;
+  ctx.save();
+  if (flat) {
+    ctx.strokeStyle = "#d8d8dc";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, 75);
+    ctx.lineTo(width, 75);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+  const points: [number, number][] = [];
+  for (let x = 0; x <= width; x += 3) {
+    const hz = minHz * Math.pow(maxHz / minHz, x / width);
+    const db = eqResponseDb(gainsDb, hz);
+    points.push([x, 75 - (db / EQ_MAX_ABS_DB) * 60]);
+  }
+  ctx.beginPath();
+  points.forEach(([x, y], index) => (index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+  ctx.strokeStyle = "rgba(0,122,255,0.75)";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.lineTo(width, 150);
+  ctx.lineTo(0, 150);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(0,122,255,0.08)";
+  ctx.fill();
+  ctx.restore();
+}
+
+function Spectrum({ analyser, playing, eqGains, eqBadge }: { analyser: AnalyserNode | null; playing: boolean; eqGains: number[]; eqBadge: string | null }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const canvas = ref.current;
@@ -380,6 +437,8 @@ function Spectrum({ analyser, playing }: { analyser: AnalyserNode | null; playin
     ctx.strokeStyle = "#e9e9eb";
     ctx.lineWidth = 1;
     for (let y = 22; y < 140; y += 28) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
+    const flat = eqGains.every((gain) => gain === 0);
+    drawEqCurve(ctx, width, eqGains, flat);
     if (!analyser || !playing) return;
     const bins = new Uint8Array(analyser.frequencyBinCount);
     const gradient = ctx.createLinearGradient(0, 0, width, 0);
@@ -391,7 +450,9 @@ function Spectrum({ analyser, playing }: { analyser: AnalyserNode | null; playin
       analyser.getByteFrequencyData(bins);
       ctx.clearRect(0, 0, width, 150);
       ctx.strokeStyle = "#e9e9eb";
+      ctx.lineWidth = 1;
       for (let y = 22; y < 140; y += 28) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
+      drawEqCurve(ctx, width, eqGains, eqGains.every((gain) => gain === 0));
       ctx.strokeStyle = gradient;
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -406,8 +467,37 @@ function Spectrum({ analyser, playing }: { analyser: AnalyserNode | null; playin
     };
     frame = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(frame);
-  }, [analyser, playing]);
-  return <canvas ref={ref} className="block h-[150px] w-full" aria-label="Approximate preview spectrum" />;
+  }, [analyser, playing, eqGains]);
+  return (
+    <div className="relative">
+      <canvas ref={ref} className="block h-[150px] w-full" aria-label="Approximate preview spectrum" />
+      {eqBadge && <span className="absolute right-2 top-2 rounded-full bg-[#007aff14] px-2 py-0.5 text-[10px] font-semibold text-[#007aff]">EQ: {eqBadge}</span>}
+    </div>
+  );
+}
+
+function makeImpulseResponse(ctx: AudioContext, reverb: ReverbState): AudioBuffer {
+  const tail = Math.max(0.2, reverbTailSeconds(reverb));
+  const preDelay = reverb.preDelayMs / 1000;
+  const length = Math.ceil(ctx.sampleRate * (preDelay + tail));
+  const buffer = ctx.createBuffer(2, length, ctx.sampleRate);
+  const preDelayFrames = Math.floor(ctx.sampleRate * preDelay);
+  // One-pole lowpass whose cutoff falls with damping, applied per sample so
+  // highs die faster than lows, like freeverb's damped comb filters.
+  const dampCoefficient = 0.2 + (reverb.damping / 100) * 0.7;
+  for (let channel = 0; channel < 2; channel += 1) {
+    const data = buffer.getChannelData(channel);
+    const random = mulberry32(channel + 1);
+    let lowpass = 0;
+    for (let i = preDelayFrames; i < length; i += 1) {
+      const t = (i - preDelayFrames) / (length - preDelayFrames);
+      const envelope = Math.pow(1 - t, 2) * Math.exp(-4 * t);
+      const noise = random() * 2 - 1;
+      lowpass = lowpass * dampCoefficient + noise * (1 - dampCoefficient);
+      data[i] = lowpass * envelope;
+    }
+  }
+  return buffer;
 }
 
 function makeCrossfadedBuffer(ctx: AudioContext, seed: number, seconds = 6): AudioBuffer {
@@ -429,11 +519,21 @@ function makeCrossfadedBuffer(ctx: AudioContext, seed: number, seconds = 6): Aud
   return buffer;
 }
 
-function useApproxPreview(variant: Variant | undefined) {
+type FxNodes = {
+  filters: BiquadFilterNode[];
+  trim: GainNode;
+  dry: GainNode;
+  wet: GainNode;
+  convolver: ConvolverNode;
+};
+
+function useApproxPreview(variant: Variant | undefined, fx: FxState) {
   const context = useRef<AudioContext | null>(null);
   const sources = useRef<AudioBufferSourceNode[]>([]);
   const lfos = useRef<OscillatorNode[]>([]);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const fxNodes = useRef<FxNodes | null>(null);
+  const reverbKey = useRef("");
   const [playing, setPlaying] = useState(false);
   const stop = useCallback(() => {
     sources.current.forEach((source) => {
@@ -448,6 +548,8 @@ function useApproxPreview(variant: Variant | undefined) {
     lfos.current = [];
     analyserRef.current?.disconnect();
     analyserRef.current = null;
+    fxNodes.current = null;
+    reverbKey.current = "";
     setPlaying(false);
   }, []);
   const toggle = useCallback(() => {
@@ -463,8 +565,43 @@ function useApproxPreview(variant: Variant | undefined) {
     analyserRef.current = analyser;
     const master = ctx.createGain();
     master.gain.value = 0.35;
-    master.connect(analyser);
+    // FX chain mirroring the render pipeline: 10-band EQ -> trim -> parallel
+    // dry/convolver-wet reverb -> limiter, so presets sound like the export.
+    const filters = EQ_BAND_HZ.map((hz, band) => {
+      const filter = ctx.createBiquadFilter();
+      filter.type = band === 0 ? "lowshelf" : band === EQ_BAND_HZ.length - 1 ? "highshelf" : "peaking";
+      filter.frequency.value = hz;
+      if (filter.type === "peaking") filter.Q.value = 1.4;
+      filter.gain.value = fx.eq.gainsDb[band];
+      return filter;
+    });
+    for (let band = 1; band < filters.length; band += 1) filters[band - 1].connect(filters[band]);
+    const trim = ctx.createGain();
+    trim.gain.value = 10 ** (fx.eq.trimDb / 20);
+    filters[filters.length - 1].connect(trim);
+    const dry = ctx.createGain();
+    dry.gain.value = 1;
+    const wet = ctx.createGain();
+    const off = reverbIsOff(fx.reverb);
+    wet.gain.value = off ? 0 : 10 ** (wetGainDb(fx.reverb.mixPercent) / 20);
+    const convolver = ctx.createConvolver();
+    convolver.buffer = makeImpulseResponse(ctx, off ? { ...fx.reverb, mixPercent: 30 } : fx.reverb);
+    reverbKey.current = JSON.stringify([fx.reverb.roomSize, fx.reverb.preDelayMs, fx.reverb.reverberance, fx.reverb.damping]);
+    trim.connect(dry);
+    trim.connect(convolver);
+    convolver.connect(wet);
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -1;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.002;
+    limiter.release.value = 0.1;
+    dry.connect(limiter);
+    wet.connect(limiter);
+    limiter.connect(analyser);
     analyser.connect(ctx.destination);
+    master.connect(filters[0]);
+    fxNodes.current = { filters, trim, dry, wet, convolver };
     const layers = [
       { seed: variant.seeds.bed_l ?? 1, gain: variant.gainsDb.bed, type: "bed" },
       { seed: variant.seeds.texture_l ?? 2, gain: variant.gainsDb.texture, type: "texture" },
@@ -520,9 +657,155 @@ function useApproxPreview(variant: Variant | undefined) {
     }
     sources.current = nextSources;
     setPlaying(true);
-  }, [playing, stop, variant]);
+  }, [playing, stop, variant, fx]);
   useEffect(() => stop, [variant, stop]);
+  useEffect(() => {
+    const nodes = fxNodes.current;
+    const ctx = context.current;
+    if (!nodes || !ctx || !playing) return;
+    nodes.filters.forEach((filter, band) => { filter.gain.value = fx.eq.gainsDb[band]; });
+    nodes.trim.gain.value = 10 ** (fx.eq.trimDb / 20);
+    const off = reverbIsOff(fx.reverb);
+    nodes.wet.gain.value = off ? 0 : 10 ** (wetGainDb(fx.reverb.mixPercent) / 20);
+    const key = JSON.stringify([fx.reverb.roomSize, fx.reverb.preDelayMs, fx.reverb.reverberance, fx.reverb.damping]);
+    if (!off && key !== reverbKey.current) {
+      nodes.convolver.buffer = makeImpulseResponse(ctx, fx.reverb);
+      reverbKey.current = key;
+    }
+  }, [fx, playing]);
   return { playing, toggle, stop, analyser: analyserRef.current };
+}
+
+const FX_STORAGE_KEY = "noise.fx";
+
+function useFxState(variantId: string | undefined): [FxState, (update: (old: FxState) => FxState) => void] {
+  const [fx, setFx] = useState<FxState>(defaultFx);
+  const loadedFor = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!variantId || loadedFor.current === variantId) return;
+    loadedFor.current = variantId;
+    try {
+      const saved = JSON.parse(localStorage.getItem(FX_STORAGE_KEY) ?? "{}") as Record<string, FxState>;
+      const stored = saved[variantId];
+      setFx(stored && stored.eq && stored.reverb ? stored : defaultFx());
+    } catch { setFx(defaultFx()); }
+  }, [variantId]);
+  const update = useCallback((mutate: (old: FxState) => FxState) => {
+    setFx((old) => {
+      const next = mutate(old);
+      if (variantId) {
+        try {
+          const saved = JSON.parse(localStorage.getItem(FX_STORAGE_KEY) ?? "{}") as Record<string, FxState>;
+          saved[variantId] = next;
+          localStorage.setItem(FX_STORAGE_KEY, JSON.stringify(saved));
+        } catch { /* ignore storage failures */ }
+      }
+      return next;
+    });
+  }, [variantId]);
+  return [fx, update];
+}
+
+function ChipRow({ options, value, onChange, label }: {
+  options: readonly { id: string; name: string }[];
+  value: string;
+  onChange: (id: string) => void;
+  label: string;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={label}>
+      {options.map((option) => (
+        <button key={option.id} type="button" role="radio" aria-checked={value === option.id}
+          onClick={() => { if (value !== option.id) fireSelectionHaptic(); onChange(option.id); }}
+          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${value === option.id ? "border-[#007aff] bg-[#007aff14] text-[#007aff]" : "border-[#d8d8dc] bg-white text-[#1c1c1e]"}`}>
+          {option.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ToneSection({ fx, onChange }: { fx: FxState; onChange: (update: (old: FxState) => FxState) => void }) {
+  const flat = eqIsFlat(fx.eq);
+  const chipPresets = EQ_PRESETS.filter((preset) => preset !== "custom" || fx.eq.preset === "custom");
+  return (
+    <section className="soft-card controls-card">
+      <div className="param-row">
+        <div className="param-row-heading">
+          <div className="param-title">Tone</div>
+          <div className="param-caption"><span className="param-caption-text">{flat ? "Flat — untouched" : `${EQ_PRESET_LABELS[fx.eq.preset]} EQ`}</span></div>
+        </div>
+        <ChipRow label="Tone preset" value={fx.eq.preset}
+          options={chipPresets.map((preset) => ({ id: preset, name: EQ_PRESET_LABELS[preset] }))}
+          onChange={(id) => onChange((old) => ({ ...old, eq: id === "custom" ? { ...old.eq, preset: "custom" } : eqPresetState(id as Exclude<EqPreset, "custom">) }))} />
+        {!flat && (
+          <>
+            <div className="mt-3 flex items-end justify-between gap-1" role="group" aria-label="EQ bands">
+              {EQ_BAND_HZ.map((hz, band) => (
+                <div key={hz} className="flex min-w-0 flex-1 flex-col items-center gap-1">
+                  <span className="text-[9px] tabular-nums text-[color:var(--secondary-text)]">{fx.eq.gainsDb[band] > 0 ? `+${fx.eq.gainsDb[band]}` : fx.eq.gainsDb[band]}</span>
+                  <input type="range" min={-EQ_MAX_ABS_DB} max={EQ_MAX_ABS_DB} step={1} value={fx.eq.gainsDb[band]}
+                    aria-label={`${formatBandLabel(hz)} Hz gain`} aria-orientation="vertical"
+                    className="eq-band-slider" style={{ writingMode: "vertical-lr", direction: "rtl", height: 96, width: 22 }}
+                    onChange={(event) => {
+                      const value = Number(event.target.value);
+                      onChange((old) => ({ ...old, eq: { preset: "custom", trimDb: old.eq.trimDb, gainsDb: old.eq.gainsDb.map((gain, index) => (index === band ? value : gain)) } }));
+                    }} />
+                  <span className="text-[9px] text-[color:var(--secondary-text)]">{formatBandLabel(hz)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-2 flex justify-end">
+              <button type="button" className="text-xs font-semibold text-[#007aff]" onClick={() => onChange((old) => ({ ...old, eq: eqPresetState("flat") }))}>Reset to Flat</button>
+            </div>
+          </>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function FxSlider({ label, value, min, max, step, unit, onChange }: { label: string; value: number; min: number; max: number; step: number; unit: string; onChange: (value: number) => void }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="flex justify-between text-[11px] text-[color:var(--secondary-text)]"><span>{label}</span><span className="tabular-nums">{value}{unit}</span></span>
+      <input type="range" min={min} max={max} step={step} value={value} aria-label={label} onChange={(event) => onChange(Number(event.target.value))} />
+    </label>
+  );
+}
+
+function SpaceSection({ fx, onChange, nominalSeconds }: { fx: FxState; onChange: (update: (old: FxState) => FxState) => void; nominalSeconds: number }) {
+  const [advanced, setAdvanced] = useState(false);
+  const off = reverbIsOff(fx.reverb);
+  const tail = reverbTailSeconds(fx.reverb);
+  const setReverb = (patch: Partial<ReverbState>) => onChange((old) => ({ ...old, reverb: { ...old.reverb, ...patch, preset: "custom" } }));
+  return (
+    <section className="soft-card controls-card">
+      <div className="param-row">
+        <div className="param-row-heading">
+          <div className="param-title">Space</div>
+          <div className="param-caption"><span className="param-caption-text">{off ? "Dry — no reverb" : `${REVERB_PRESET_LABELS[fx.reverb.preset]} · ${formatTail(nominalSeconds, tail)}`}</span></div>
+        </div>
+        <ChipRow label="Space preset" value={fx.reverb.preset}
+          options={REVERB_PRESETS.filter((preset) => preset !== "custom" || fx.reverb.preset === "custom").map((preset) => ({ id: preset, name: REVERB_PRESET_LABELS[preset] }))}
+          onChange={(id) => onChange((old) => ({ ...old, reverb: id === "custom" ? { ...old.reverb, preset: "custom" } : reverbPresetState(id as Exclude<ReverbPreset, "custom">) }))} />
+        {!off && (
+          <div className="mt-3 flex flex-col gap-2">
+            <FxSlider label="Room amount" value={fx.reverb.mixPercent} min={0} max={100} step={1} unit="%" onChange={(value) => setReverb({ mixPercent: value })} />
+            <button type="button" className="self-start text-xs font-semibold text-[#007aff]" aria-expanded={advanced} onClick={() => setAdvanced((open) => !open)}>{advanced ? "Hide advanced" : "Advanced"}</button>
+            {advanced && (
+              <div className="flex flex-col gap-2">
+                <FxSlider label="Room size" value={fx.reverb.roomSize} min={0} max={100} step={1} unit="%" onChange={(value) => setReverb({ roomSize: value })} />
+                <FxSlider label="Pre-delay" value={fx.reverb.preDelayMs} min={0} max={200} step={1} unit=" ms" onChange={(value) => setReverb({ preDelayMs: value })} />
+                <FxSlider label="Decay" value={fx.reverb.reverberance} min={0} max={100} step={1} unit="%" onChange={(value) => setReverb({ reverberance: value })} />
+                <FxSlider label="Damping" value={fx.reverb.damping} min={0} max={100} step={1} unit="%" onChange={(value) => setReverb({ damping: value })} />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }
 
 export default function NoiseLab() {
@@ -558,7 +841,8 @@ export default function NoiseLab() {
   const releaseCount = releases.filter((release) => release.ladder.ready && !release.ladder.submitted).length;
   const selected = useMemo(() => variants.find((variant) => variant.color === selection.color && variant.band === selection.band && variant.motion === selection.motion && variant.balance === selection.balance), [selection, variants]);
   const pilotCount = variants.filter((variant) => variant.pilot !== null).length;
-  const preview = useApproxPreview(selected);
+  const [fx, setFx] = useFxState(selected?.variantId);
+  const preview = useApproxPreview(selected, fx);
   const queueFetchInFlight = useRef(false);
   const initialLoad = loading && !everLoaded;
 
@@ -741,7 +1025,8 @@ export default function NoiseLab() {
     if (queueing) return;
     setQueueing(true);
     try {
-      const selector = label === "pilot" ? { pilot: true } : label === "full" ? { full: true } : { variantIds: ids };
+      const fxBlock = label === "one" ? toFxBlock(fx) : null;
+      const selector = label === "pilot" ? { pilot: true } : label === "full" ? { full: true } : { variantIds: ids, ...(fxBlock ? { fx: fxBlock } : {}) };
       const response = await fetch("/api/queue", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(selector) });
       if (!response.ok) {
         const reason = (await response.json().catch(() => ({}))) as { error?: string };
@@ -795,7 +1080,7 @@ export default function NoiseLab() {
           {selected && (
           <div className="design-stack">
             <section className="soft-card spectrum-card">
-              <div className="spectrum-frame"><Spectrum analyser={preview.analyser} playing={preview.playing} /></div>
+              <div className="spectrum-frame"><Spectrum analyser={preview.analyser} playing={preview.playing} eqGains={fx.eq.gainsDb} eqBadge={eqIsFlat(fx.eq) ? null : EQ_PRESET_LABELS[fx.eq.preset]} /></div>
               <div className="spectrum-ticks"><span>30 Hz</span><span>500</span><span>2k</span><span>16k</span></div>
             </section>
             <div className="action-row">
@@ -813,9 +1098,11 @@ export default function NoiseLab() {
               <ParamRow label="Motion" caption={PARAM_CAPTIONS[selection.motion]}><GlyphSegmented options={OPTIONS.motion} value={selection.motion} onChange={(value) => setSelection((old) => ({ ...old, motion: value }))} label="Motion" /></ParamRow>
               <ParamRow label="Balance" caption={PARAM_CAPTIONS[selection.balance]}><GlyphSegmented options={OPTIONS.balance} value={selection.balance} onChange={(value) => setSelection((old) => ({ ...old, balance: value }))} label="Balance" /></ParamRow>
             </section>
+            <ToneSection fx={fx} onChange={setFx} />
+            <SpaceSection fx={fx} onChange={setFx} nominalSeconds={selected.durationSeconds} />
             <section className="soft-card variant-card">
               <div className="variant-id">{selected.variantId}</div>
-              <div className="variant-meta"><span>Duration {formatDuration(selected.durationSeconds)}</span><span>Seed {selected.seeds.bed_l}</span></div>
+              <div className="variant-meta"><span>Duration {reverbIsOff(fx.reverb) ? formatDuration(selected.durationSeconds) : formatTail(selected.durationSeconds, reverbTailSeconds(fx.reverb))}</span><span>Seed {selected.seeds.bed_l}</span></div>
               {selected.pilot && <div className="pilot-badge">Pilot {selected.pilot}</div>}
             </section>
           </div>
@@ -1293,7 +1580,7 @@ function Queue({ jobs, initialLoad, mode, stats, variants, tracks, onRefresh, re
     const name = nameFor(latest.variantId); const failure = latest.failure?.step ? queueStrings.failedAt(latest.failure.step, latest.failure.exitCode) : latest.error ?? queueStrings.failure(name, latest.status); const displayTime = latest.finishedAt ?? latest.queuedAt;
     return <article className="queue-job-card" key={job.variantId}>
       <div className="queue-title-row"><div className="queue-name" title={name === "Unknown variant" ? latest.variantId : undefined}>{name}</div>{done ? <span className="queue-ready-chip">{queueStrings.status.done}</span> : failed && <div className="track-menu-wrap queue-menu-wrap"><button type="button" className="icon-action queue-overflow" aria-label="More queue actions" aria-haspopup="menu" aria-expanded={menu === latest.id} onClick={() => setMenu(menu === latest.id ? null : latest.id)}><MoreHorizontal size={19} /></button>{menu === latest.id && <div className="track-menu" role="menu">{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener" role="menuitem">{queueStrings.logs}</a>}<button type="button" role="menuitem" onClick={() => hasArtifacts(job) ? setConfirmRemove(job) : remove(job)}>Remove from history</button></div>}</div>}</div>
-      <div className="queue-chips">{failed && <span className="queue-status-failed">{queueStrings.status.failed}</span>}{activeItem && <span className="queue-status-active">{latest.status === "Rendering" ? queueStrings.status.rendering : queueStrings.status.queued}</span>}{chipsFor(latest.variantId).map((chip) => <span className="queue-chip" key={chip}>{chip}</span>)}</div>
+      <div className="queue-chips">{failed && <span className="queue-status-failed">{queueStrings.status.failed}</span>}{activeItem && <span className="queue-status-active">{latest.status === "Rendering" ? queueStrings.status.rendering : queueStrings.status.queued}</span>}{chipsFor(latest.variantId).map((chip) => <span className="queue-chip" key={chip}>{chip}</span>)}{fxBadges(latest.fx).map((badge) => <span className="queue-chip" key={badge}>{badge}</span>)}</div>
       {activeItem && <div className="queue-active-copy">{activeCopy(job)}</div>}
       {failed && <details className="queue-detail-strip queue-failure-strip"><summary>{failure}<ChevronDown size={15} /></summary><div className="queue-diagnostics"><div>Failed step · {latest.failure?.step ?? "Unavailable"}</div><div>Exit code · {latest.failure?.exitCode ?? "—"}</div><div>Duration · {latest.failure?.durationSeconds ? formatQueueDuration(latest.failure.durationSeconds) : latest.durationSeconds ? formatQueueDuration(latest.durationSeconds) : "—"}</div><div>Runner · {latest.failure?.runner ?? (mode === "local" ? "Local worker" : "—")}</div>{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener">{queueStrings.logs} →</a>}</div></details>}
       {job.attempts.length > 1 && <details className="queue-detail-strip queue-history-strip"><summary>{queueStrings.runHistory(job.attempts.length)}<ChevronDown size={15} /></summary><div className="queue-diagnostics">{job.attempts.map((attempt, index) => <div key={attempt.id}><span>{queueStrings.attempt(index + 1, relativeTime(attempt.queuedAt))}</span> <span className={attempt.status === "Done" ? "duration-good" : "duration-bad"}>{attempt.status === "Done" ? "✓" : "✗"} {attempt.durationSeconds ? formatQueueDuration(attempt.durationSeconds) : "—"}</span></div>)}</div></details>}

@@ -72,6 +72,33 @@ BELL_POINT_SPACING_OCTAVES: float = 0.5
 MIN_CURVE_HZ: float = 20.0
 MAX_CURVE_HZ: float = 20000.0
 
+#: Center frequencies of the 10-band FX graphic EQ. The two outer bands are
+#: shelves; the eight inner bands are peaking filters.
+EQ_BAND_HZ: tuple[float, ...] = (
+    31.0, 62.0, 125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0, 16000.0
+)
+
+#: Quality factor of the eight inner peaking bands.
+EQ_BAND_Q: float = 1.4
+
+#: Per-band gain limit of the FX graphic EQ.
+EQ_MAX_ABS_DB: float = 20.0
+
+#: Master trim limit applied after the EQ stage.
+FX_TRIM_MAX_ABS_DB: float = 12.0
+
+#: Number of points describing the EQ response to Filter Curve EQ.
+EQ_CURVE_POINTS: int = 61
+
+#: Longest reverb tail appended past the nominal track length.
+REVERB_TAIL_CAP_SECONDS: float = 8.0
+
+#: Fade applied to the very end of the reverb tail so it never hard-cuts.
+TAIL_FADE_SECONDS: float = 0.5
+
+#: Audacity's Reverb effect accepts wet gains between -20 and +10 dB.
+REVERB_WET_GAIN_MIN_DB: float = -20.0
+
 
 class PlanError(ValueError):
     """Raised when a variant row cannot be turned into a render plan."""
@@ -146,6 +173,58 @@ class Spectrum:
 
 
 @dataclass(frozen=True)
+class EqFx:
+    """The 10-band graphic EQ stage of a render's FX block."""
+
+    preset: str
+    gains_db: tuple[float, ...]
+    trim_db: float
+
+    @property
+    def is_flat(self) -> bool:
+        return self.trim_db == 0.0 and all(gain == 0.0 for gain in self.gains_db)
+
+
+@dataclass(frozen=True)
+class ReverbFx:
+    """The freeverb-style reverb stage of a render's FX block.
+
+    ``mix_percent`` is the single user-facing wet level: 100 puts the wet
+    path at unity next to the always-unity dry path, 0 bypasses the stage.
+    """
+
+    preset: str
+    room_size: float
+    pre_delay_ms: float
+    reverberance: float
+    damping: float
+    mix_percent: float
+
+    @property
+    def is_off(self) -> bool:
+        return self.mix_percent <= 0.0
+
+    @property
+    def wet_gain_db(self) -> float:
+        wet = 20.0 * math.log10(self.mix_percent / 100.0)
+        return max(REVERB_WET_GAIN_MIN_DB, min(0.0, wet))
+
+
+@dataclass(frozen=True)
+class Fx:
+    """Optional post-mix frequency shaping and spatial processing."""
+
+    eq: EqFx | None
+    reverb: ReverbFx | None
+
+    @property
+    def is_identity(self) -> bool:
+        return (self.eq is None or self.eq.is_flat) and (
+            self.reverb is None or self.reverb.is_off
+        )
+
+
+@dataclass(frozen=True)
 class Variant:
     """The subset of a variant row that the render plan depends on."""
 
@@ -212,11 +291,13 @@ class RenderPlan:
     master_path: str
     stem_paths: tuple[str, ...]
     commands: tuple[str, ...]
+    fx: Fx | None = None
+    tail_seconds: float = 0.0
 
     @property
     def total_seconds(self) -> float:
-        """Duration of the exported files, in seconds."""
-        return self.output.cell_seconds * self.output.repeats
+        """Duration of the exported files, in seconds, including any FX tail."""
+        return self.output.cell_seconds * self.output.repeats + self.tail_seconds
 
     @property
     def track_paths(self) -> tuple[str, ...]:
@@ -326,6 +407,64 @@ def parse_spectrum(block: Mapping[str, object], context: str) -> Spectrum:
         bell_center_hz=_number(bell, "center_hz", bell_context),
         bell_q=_number(bell, "q", bell_context),
     )
+
+
+def _bounded(value: float, low: float, high: float, name: str, context: str) -> float:
+    if not low <= value <= high:
+        raise PlanError(f"{context}: {name} must be between {low:g} and {high:g}")
+    return value
+
+
+def parse_fx(block: object, context: str) -> Fx | None:
+    """Build an :class:`Fx` from a variant row's optional ``fx`` block."""
+    if block is None:
+        return None
+    if not isinstance(block, Mapping):
+        raise PlanError(f"{context}: fx must be a mapping")
+    eq: EqFx | None = None
+    reverb: ReverbFx | None = None
+    fx_block = {str(name): item for name, item in block.items()}
+    eq_raw = fx_block.get("eq")
+    if eq_raw is not None:
+        if not isinstance(eq_raw, Mapping):
+            raise PlanError(f"{context}: fx.eq must be a mapping")
+        eq_block = {str(name): item for name, item in eq_raw.items()}
+        eq_context = f"{context}.fx.eq"
+        gains_raw = _require(eq_block, "gains_db", eq_context)
+        if not isinstance(gains_raw, Sequence) or isinstance(gains_raw, (str, bytes)):
+            raise PlanError(f"{eq_context}: gains_db must be a list")
+        if len(gains_raw) != len(EQ_BAND_HZ):
+            raise PlanError(
+                f"{eq_context}: gains_db must have {len(EQ_BAND_HZ)} entries"
+            )
+        gains: list[float] = []
+        for gain in gains_raw:
+            if isinstance(gain, bool) or not isinstance(gain, (int, float)):
+                raise PlanError(f"{eq_context}: gains_db entries must be numeric")
+            gains.append(_bounded(float(gain), -EQ_MAX_ABS_DB, EQ_MAX_ABS_DB, "gains_db", eq_context))
+        trim = float(eq_block.get("trim_db", 0.0) or 0.0)
+        eq = EqFx(
+            preset=str(eq_block.get("preset", "custom")),
+            gains_db=tuple(gains),
+            trim_db=_bounded(trim, -FX_TRIM_MAX_ABS_DB, FX_TRIM_MAX_ABS_DB, "trim_db", eq_context),
+        )
+    reverb_raw = fx_block.get("reverb")
+    if reverb_raw is not None:
+        if not isinstance(reverb_raw, Mapping):
+            raise PlanError(f"{context}: fx.reverb must be a mapping")
+        reverb_block = {str(name): item for name, item in reverb_raw.items()}
+        reverb_context = f"{context}.fx.reverb"
+        reverb = ReverbFx(
+            preset=str(reverb_block.get("preset", "custom")),
+            room_size=_bounded(_number(reverb_block, "room_size", reverb_context), 0.0, 100.0, "room_size", reverb_context),
+            pre_delay_ms=_bounded(_number(reverb_block, "pre_delay_ms", reverb_context), 0.0, 200.0, "pre_delay_ms", reverb_context),
+            reverberance=_bounded(_number(reverb_block, "reverberance", reverb_context), 0.0, 100.0, "reverberance", reverb_context),
+            damping=_bounded(_number(reverb_block, "damping", reverb_context), 0.0, 100.0, "damping", reverb_context),
+            mix_percent=_bounded(_number(reverb_block, "mix_percent", reverb_context), 0.0, 100.0, "mix_percent", reverb_context),
+        )
+    if eq is None and reverb is None:
+        return None
+    return Fx(eq=eq, reverb=reverb)
 
 
 def parse_variant(row: Mapping[str, object]) -> Variant:
@@ -521,6 +660,150 @@ def bell_points(spectrum: Spectrum) -> list[tuple[float, float]]:
     return points
 
 
+def _biquad_response_db(
+    b0: float, b1: float, b2: float, a0: float, a1: float, a2: float,
+    hz: float, sample_rate: float,
+) -> float:
+    omega = 2.0 * math.pi * hz / sample_rate
+    z1 = complex(math.cos(-omega), math.sin(-omega))
+    z2 = z1 * z1
+    numerator = b0 + b1 * z1 + b2 * z2
+    denominator = a0 + a1 * z1 + a2 * z2
+    magnitude = abs(numerator) / max(abs(denominator), 1e-30)
+    return 20.0 * math.log10(max(magnitude, 1e-30))
+
+
+def _shelf_coefficients(
+    frequency: float, gain_db: float, sample_rate: float, *, high: bool
+) -> tuple[float, float, float, float, float, float]:
+    """RBJ shelf coefficients with S=1, matching Web Audio's BiquadFilterNode."""
+    amplitude = 10.0 ** (gain_db / 40.0)
+    omega = 2.0 * math.pi * frequency / sample_rate
+    cos_w = math.cos(omega)
+    alpha = math.sin(omega) / 2.0 * math.sqrt(amplitude + 1.0 / amplitude)
+    two_sqrt_a_alpha = 2.0 * math.sqrt(amplitude) * alpha
+    sign = 1.0 if high else -1.0
+    b0 = amplitude * ((amplitude + 1) + sign * (amplitude - 1) * cos_w + two_sqrt_a_alpha)
+    b1 = -2.0 * sign * amplitude * ((amplitude - 1) + sign * (amplitude + 1) * cos_w)
+    b2 = amplitude * ((amplitude + 1) + sign * (amplitude - 1) * cos_w - two_sqrt_a_alpha)
+    a0 = (amplitude + 1) - sign * (amplitude - 1) * cos_w + two_sqrt_a_alpha
+    a1 = 2.0 * sign * ((amplitude - 1) - sign * (amplitude + 1) * cos_w)
+    a2 = (amplitude + 1) - sign * (amplitude - 1) * cos_w - two_sqrt_a_alpha
+    return b0, b1, b2, a0, a1, a2
+
+
+def _peaking_coefficients(
+    frequency: float, gain_db: float, quality: float, sample_rate: float
+) -> tuple[float, float, float, float, float, float]:
+    amplitude = 10.0 ** (gain_db / 40.0)
+    omega = 2.0 * math.pi * frequency / sample_rate
+    alpha = math.sin(omega) / (2.0 * quality)
+    cos_w = math.cos(omega)
+    return (
+        1.0 + alpha * amplitude,
+        -2.0 * cos_w,
+        1.0 - alpha * amplitude,
+        1.0 + alpha / amplitude,
+        -2.0 * cos_w,
+        1.0 - alpha / amplitude,
+    )
+
+
+def eq_response_db(
+    gains_db: Sequence[float], hz: float, sample_rate: float
+) -> float:
+    """Combined response of the 10-band EQ at one frequency.
+
+    The low and high bands are shelves and the inner bands peaking filters,
+    mirroring the Web Audio preview chain node for node, so the rendered curve
+    and the previewed curve are the same function.
+    """
+    total = 0.0
+    for band_hz, gain_db in zip(EQ_BAND_HZ, gains_db, strict=True):
+        if gain_db == 0.0:
+            continue
+        if band_hz == EQ_BAND_HZ[0]:
+            coefficients = _shelf_coefficients(band_hz, gain_db, sample_rate, high=False)
+        elif band_hz == EQ_BAND_HZ[-1]:
+            coefficients = _shelf_coefficients(band_hz, gain_db, sample_rate, high=True)
+        else:
+            coefficients = _peaking_coefficients(band_hz, gain_db, EQ_BAND_Q, sample_rate)
+        total += _biquad_response_db(*coefficients, hz, sample_rate)
+    return total
+
+
+def eq_points(eq: EqFx, sample_rate: float) -> list[tuple[float, float]]:
+    """Point grid describing the EQ (plus trim) to Filter Curve EQ."""
+    frequencies = _log_spaced(MIN_CURVE_HZ, MAX_CURVE_HZ, EQ_CURVE_POINTS)
+    return [
+        (hz, eq_response_db(eq.gains_db, hz, sample_rate) + eq.trim_db)
+        for hz in frequencies
+    ]
+
+
+def reverb_tail_seconds(reverb: ReverbFx | None, sample_rate: int) -> float:
+    """Whole-sample tail length appended so the reverb decays naturally.
+
+    The estimate approximates freeverb's RT60 from reverberance and room
+    size, plus the pre-delay, capped at :data:`REVERB_TAIL_CAP_SECONDS`.
+    """
+    if reverb is None or reverb.is_off:
+        return 0.0
+    rt60 = (reverb.reverberance / 100.0) ** 1.5 * (
+        2.0 + 6.0 * reverb.room_size / 100.0
+    )
+    tail = min(REVERB_TAIL_CAP_SECONDS, 0.15 + rt60 + reverb.pre_delay_ms / 1000.0)
+    return round(tail * sample_rate) / sample_rate
+
+
+def _fx_commands(
+    fx: Fx | None,
+    total_seconds: float,
+    tail_seconds: float,
+    track_count: int,
+    sample_rate: float,
+) -> list[str]:
+    """Post-mix FX applied identically to the master and every stem.
+
+    Both stages are linear and time-invariant, so applying the same chain to
+    each of the four tracks keeps ``sum(stems) == master`` exactly.
+    """
+    if fx is None or fx.is_identity:
+        return []
+
+    def select(start: float, end: float) -> str:
+        return (
+            f"Select: Start={_seconds(start)} End={_seconds(end)} "
+            f"Track=0 TrackCount={track_count} Mode=Set RelativeTo=ProjectStart"
+        )
+
+    commands: list[str] = []
+    if fx.eq is not None and not fx.eq.is_flat:
+        commands.append(select(0, total_seconds))
+        commands.append(_filter_curve(eq_points(fx.eq, sample_rate)))
+    reverb = fx.reverb
+    if reverb is not None and not reverb.is_off:
+        end = total_seconds + tail_seconds
+        commands += [
+            select(total_seconds, end),
+            f"Silence: Duration={_seconds(tail_seconds)}",
+            select(0, end),
+            (
+                "Reverb: "
+                f"RoomSize={_decibels(reverb.room_size)} "
+                f"Delay={_decibels(reverb.pre_delay_ms)} "
+                f"Reverberance={_decibels(reverb.reverberance)} "
+                f"HfDamping={_decibels(reverb.damping)} "
+                "ToneLow=100 ToneHigh=100 "
+                f"WetGain={_decibels(reverb.wet_gain_db)} "
+                "DryGain=0 StereoWidth=100 WetOnly=0"
+            ),
+            select(end - TAIL_FADE_SECONDS, end),
+            "FadeOut:",
+        ]
+    return commands
+
+
 def _new_stereo_track(track_index: int, duration: float) -> list[str]:
     """Create a one-second Nyquist target track and select its placeholder."""
     del duration
@@ -663,6 +946,7 @@ def build_plan(
     """
     variant = parse_variant(variant_row)
     output = parse_output(output_row)
+    fx = parse_fx(variant_row.get("fx"), variant.variant_id)
     cell_frames = cell_frames_for_variant(variant, output.sample_rate)
     output = replace(output, cell_seconds=cell_frames / output.sample_rate)
     if crossfade_seconds <= 0 or crossfade_seconds >= output.cell_seconds:
@@ -720,10 +1004,19 @@ def build_plan(
         "MixAndRenderToNewTrack:",
     ]
 
+    tail_seconds = reverb_tail_seconds(
+        fx.reverb if fx is not None else None, output.sample_rate
+    )
+    commands += _fx_commands(
+        fx, total_seconds, tail_seconds, len(STEMS) + 1, output.sample_rate
+    )
+
     return RenderPlan(
         variant=variant,
         output=output,
         master_path=master_path,
         stem_paths=_stem_paths(master_path),
         commands=tuple(commands),
+        fx=fx,
+        tail_seconds=tail_seconds,
     )

@@ -23,8 +23,9 @@ async function render(job: QueueJob): Promise<void> {
   const source = parse(fs.readFileSync(CONFIG_PATH, "utf8")) as { output: unknown; variants: Array<Record<string, unknown>> };
   const row = source.variants.find((candidate) => candidate.variant_id === job.variantId);
   if (!row) throw new Error(`Unknown variant ${job.variantId}`);
+  const variant = job.fx ? { ...row, fx: job.fx } : row;
   const temporary = path.join(os.tmpdir(), `noise-lab-${job.id}.yaml`);
-  fs.writeFileSync(temporary, stringify({ output: source.output, variants: [row] }));
+  fs.writeFileSync(temporary, stringify({ output: source.output, variants: [variant] }));
   await new Promise<void>((resolve, reject) => {
     const child = spawn(process.env.NOISE_PYTHON ?? "python3", [
       path.resolve(process.cwd(), "..", "orchestrator.py"),
