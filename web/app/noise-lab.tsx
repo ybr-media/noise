@@ -713,11 +713,11 @@ function ChipRow({ options, value, onChange, label }: {
   label: string;
 }) {
   return (
-    <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={label}>
+    <div className="fx-chip-row" role="radiogroup" aria-label={label}>
       {options.map((option) => (
         <button key={option.id} type="button" role="radio" aria-checked={value === option.id}
           onClick={() => { if (value !== option.id) fireSelectionHaptic(); onChange(option.id); }}
-          className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${value === option.id ? "border-[#007aff] bg-[#007aff14] text-[#007aff]" : "border-[#d8d8dc] bg-white text-[#1c1c1e]"}`}>
+          className={`fx-chip${value === option.id ? " is-selected" : ""}`}>
           {option.name}
         </button>
       ))}
@@ -739,26 +739,24 @@ function ToneSection({ fx, onChange }: { fx: FxState; onChange: (update: (old: F
           options={chipPresets.map((preset) => ({ id: preset, name: EQ_PRESET_LABELS[preset] }))}
           onChange={(id) => onChange((old) => ({ ...old, eq: id === "custom" ? { ...old.eq, preset: "custom" } : eqPresetState(id as Exclude<EqPreset, "custom">) }))} />
         {!flat && (
-          <>
-            <div className="mt-3 flex items-end justify-between gap-1" role="group" aria-label="EQ bands">
+          <div className="fx-detail">
+            <div className="fx-eq-grid" role="group" aria-label="EQ bands">
               {EQ_BAND_HZ.map((hz, band) => (
-                <div key={hz} className="flex min-w-0 flex-1 flex-col items-center gap-1">
-                  <span className="text-[9px] tabular-nums text-[color:var(--secondary-text)]">{fx.eq.gainsDb[band] > 0 ? `+${fx.eq.gainsDb[band]}` : fx.eq.gainsDb[band]}</span>
+                <div key={hz} className="fx-eq-band">
+                  <span className={`fx-eq-value${fx.eq.gainsDb[band] !== 0 ? " is-active" : ""}`}>{fx.eq.gainsDb[band] > 0 ? `+${fx.eq.gainsDb[band]}` : fx.eq.gainsDb[band]}</span>
                   <input type="range" min={-EQ_MAX_ABS_DB} max={EQ_MAX_ABS_DB} step={1} value={fx.eq.gainsDb[band]}
                     aria-label={`${formatBandLabel(hz)} Hz gain`} aria-orientation="vertical"
-                    className="eq-band-slider" style={{ writingMode: "vertical-lr", direction: "rtl", height: 96, width: 22 }}
+                    className="fx-range fx-range-vertical"
                     onChange={(event) => {
                       const value = Number(event.target.value);
                       onChange((old) => ({ ...old, eq: { preset: "custom", trimDb: old.eq.trimDb, gainsDb: old.eq.gainsDb.map((gain, index) => (index === band ? value : gain)) } }));
                     }} />
-                  <span className="text-[9px] text-[color:var(--secondary-text)]">{formatBandLabel(hz)}</span>
+                  <span className="fx-eq-label">{formatBandLabel(hz)}</span>
                 </div>
               ))}
             </div>
-            <div className="mt-2 flex justify-end">
-              <button type="button" className="text-xs font-semibold text-[#007aff]" onClick={() => onChange((old) => ({ ...old, eq: eqPresetState("flat") }))}>Reset to Flat</button>
-            </div>
-          </>
+            <button type="button" className="fx-link" onClick={() => onChange((old) => ({ ...old, eq: eqPresetState("flat") }))}>Reset to Flat</button>
+          </div>
         )}
       </div>
     </section>
@@ -767,9 +765,11 @@ function ToneSection({ fx, onChange }: { fx: FxState; onChange: (update: (old: F
 
 function FxSlider({ label, value, min, max, step, unit, onChange }: { label: string; value: number; min: number; max: number; step: number; unit: string; onChange: (value: number) => void }) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="flex justify-between text-[11px] text-[color:var(--secondary-text)]"><span>{label}</span><span className="tabular-nums">{value}{unit}</span></span>
-      <input type="range" min={min} max={max} step={step} value={value} aria-label={label} onChange={(event) => onChange(Number(event.target.value))} />
+    <label className="fx-slider-field">
+      <span className="fx-slider-meta"><span>{label}</span><span className="fx-slider-value">{value}{unit}</span></span>
+      <input type="range" min={min} max={max} step={step} value={value} aria-label={label} className="fx-range fx-range-horizontal"
+        style={{ "--fx-fill": `${((value - min) / (max - min)) * 100}%` } as React.CSSProperties}
+        onChange={(event) => onChange(Number(event.target.value))} />
     </label>
   );
 }
@@ -790,11 +790,11 @@ function SpaceSection({ fx, onChange, nominalSeconds }: { fx: FxState; onChange:
           options={REVERB_PRESETS.filter((preset) => preset !== "custom" || fx.reverb.preset === "custom").map((preset) => ({ id: preset, name: REVERB_PRESET_LABELS[preset] }))}
           onChange={(id) => onChange((old) => ({ ...old, reverb: id === "custom" ? { ...old.reverb, preset: "custom" } : reverbPresetState(id as Exclude<ReverbPreset, "custom">) }))} />
         {!off && (
-          <div className="mt-3 flex flex-col gap-2">
+          <div className="fx-detail">
             <FxSlider label="Room amount" value={fx.reverb.mixPercent} min={0} max={100} step={1} unit="%" onChange={(value) => setReverb({ mixPercent: value })} />
-            <button type="button" className="self-start text-xs font-semibold text-[#007aff]" aria-expanded={advanced} onClick={() => setAdvanced((open) => !open)}>{advanced ? "Hide advanced" : "Advanced"}</button>
+            <button type="button" className="fx-link" aria-expanded={advanced} onClick={() => setAdvanced((open) => !open)}>{advanced ? "Hide advanced" : "Advanced"}</button>
             {advanced && (
-              <div className="flex flex-col gap-2">
+              <div className="fx-advanced-grid">
                 <FxSlider label="Room size" value={fx.reverb.roomSize} min={0} max={100} step={1} unit="%" onChange={(value) => setReverb({ roomSize: value })} />
                 <FxSlider label="Pre-delay" value={fx.reverb.preDelayMs} min={0} max={200} step={1} unit=" ms" onChange={(value) => setReverb({ preDelayMs: value })} />
                 <FxSlider label="Decay" value={fx.reverb.reverberance} min={0} max={100} step={1} unit="%" onChange={(value) => setReverb({ reverberance: value })} />
