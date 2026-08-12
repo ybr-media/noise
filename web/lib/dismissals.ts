@@ -7,10 +7,15 @@ import type { QueueJob } from "./types";
 
 // A dismissed failure is archived server-side — a full snapshot of the job at
 // the moment it was removed — so the record outlives both the browser and the
-// GitHub last-20-runs window and stays reviewable from any device.
+// GitHub last-20-runs window and stays reviewable from any device. Archiving
+// also queues deletion of the variants' published R2 artifacts; `r2Cleanup`
+// records whether that deletion run was dispatched.
+export type R2Cleanup = { state: "queued" | "failed" | "unavailable"; queuedAt: string };
+
 export type DismissalRecord = {
   job: QueueJob;
   dismissedAt: string;
+  r2Cleanup?: R2Cleanup;
 };
 
 export const DISMISSALS_PATH = process.env.NOISE_DISMISSALS_FILE
@@ -80,8 +85,8 @@ export async function listDismissals(): Promise<DismissalRecord[]> {
   return newestFirst(readLocalArchive());
 }
 
-export async function archiveDismissal(job: QueueJob): Promise<DismissalRecord[]> {
-  const record: DismissalRecord = { job, dismissedAt: new Date().toISOString() };
+export async function archiveDismissal(job: QueueJob, r2Cleanup?: R2Cleanup): Promise<DismissalRecord[]> {
+  const record: DismissalRecord = { job, dismissedAt: new Date().toISOString(), ...(r2Cleanup ? { r2Cleanup } : {}) };
   if (RENDER_MODE === "dispatch") {
     const { records, sha } = await readRepoArchive();
     if (records.some((existing) => existing.job.id === job.id)) return newestFirst(records);

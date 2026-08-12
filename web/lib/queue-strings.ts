@@ -10,6 +10,7 @@ export const queueStrings = {
   historyCount: (count: number) => `History (${count})`,
   archivedCount: (count: number) => `Archived (${count})`,
   archivedAt: (time: string) => `archived ${time}`,
+  r2Cleanup: { queued: "R2 deletion queued", failed: "R2 deletion could not be queued", unavailable: "R2 deletion unavailable" },
   runHistory: (count: number) => `Run history · ${count}`,
   synced: (value: string) => `synced ${value}`,
   statusCaption: { idle: "Idle", queued: "Queued · waiting for runner", rendering: (count: number) => `Rendering · ${count} running` },

@@ -1,0 +1,37 @@
+name: Cleanup
+
+run-name: Cleanup ${{ inputs.variants }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      variants:
+        description: Comma-separated variant ids whose published artifacts should be deleted
+        required: true
+      prefix:
+        description: Optional key prefix inside the artifact bucket
+        required: false
+        default: ''
+
+concurrency:
+  group: cleanup
+  cancel-in-progress: false
+
+jobs:
+  delete:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m venv .venv && .venv/bin/pip install --disable-pip-version-check -r requirements-publish.txt
+      - name: Delete published artifacts
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET: ${{ vars.R2_BUCKET || 'noise-labs' }}
+          R2_PREFIX: ${{ inputs.prefix }}
+          VARIANTS: ${{ inputs.variants }}
+        run: .venv/bin/python scripts/delete_artifacts.py "$VARIANTS"
