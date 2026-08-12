@@ -1,0 +1,51 @@
+name: Archive dismissal
+
+run-name: Archive dismissal ${{ fromJSON(inputs.record).job.variantId }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      record:
+        description: JSON dismissal record to append to the archive
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: archive-dismissal
+  cancel-in-progress: false
+
+jobs:
+  archive:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Append record to archive
+        env:
+          RECORD: ${{ inputs.record }}
+          ARCHIVE_PATH: web-state/queue-dismissals.json
+        run: |
+          python3 - <<'EOF'
+          import json, os, pathlib
+          record = json.loads(os.environ["RECORD"])
+          path = pathlib.Path(os.environ["ARCHIVE_PATH"])
+          records = json.loads(path.read_text()) if path.exists() else []
+          if not any(existing.get("job", {}).get("id") == record["job"]["id"] for existing in records):
+              records.append(record)
+              path.parent.mkdir(parents=True, exist_ok=True)
+              path.write_text(json.dumps(records, indent=2) + "\n")
+          EOF
+      - name: Commit archive
+        env:
+          VARIANT_ID: ${{ fromJSON(inputs.record).job.variantId }}
+        run: |
+          if [ -z "$(git status --porcelain web-state/queue-dismissals.json)" ]; then
+            echo "Record already archived; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add web-state/queue-dismissals.json
+          git commit -m "Archive dismissed render $VARIANT_ID"
+          git push
