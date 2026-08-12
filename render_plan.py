@@ -548,6 +548,19 @@ def _seeded_noise(seed: int, duration: float) -> str:
     return f"(progn (random-seed {seed}) (noise {_nyquist_number(duration)}))"
 
 
+def _clamped(expression: str, duration: float) -> str:
+    """Clamp a stem expression to exactly ``duration`` seconds.
+
+    Filters and modulators can leave a channel a sample longer or shorter
+    than its siblings; stems of different lengths make later whole-track
+    edits (crossfade, ``Trim:``, ``Repeat:``) leave stray clip fragments
+    that abort the render.  Summing with silence pads a short expression and
+    ``extract-abs`` trims a long one, so every stem lands on the same frame.
+    """
+    dur = _nyquist_number(duration)
+    return f"(abs-env (extract-abs 0 {dur} (sim (s-rest {dur}) {expression})))"
+
+
 def _band_passed_noise(seed: int, duration: float, low_hz: float, high_hz: float) -> str:
     source = _seeded_noise(seed, duration)
     lowpassed = f"(lowpass8 {source} {_nyquist_number(high_hz)})"
@@ -828,8 +841,8 @@ def _bed_commands(variant: Variant, track_index: int, duration: float) -> list[s
     commands.append(
         nyquist_prompt(
             _stereo(
-                _seeded_noise(variant.seed("bed", "l"), duration),
-                _seeded_noise(variant.seed("bed", "r"), duration),
+                _clamped(_seeded_noise(variant.seed("bed", "l"), duration), duration),
+                _clamped(_seeded_noise(variant.seed("bed", "r"), duration), duration),
             )
         )
     )
@@ -842,17 +855,23 @@ def _texture_commands(variant: Variant, track_index: int, duration: float) -> li
     commands.append(
         nyquist_prompt(
             _stereo(
-                _band_passed_noise(
-                    variant.seed("texture", "l"),
+                _clamped(
+                    _band_passed_noise(
+                        variant.seed("texture", "l"),
+                        duration,
+                        variant.band_low_hz,
+                        variant.band_high_hz,
+                    ),
                     duration,
-                    variant.band_low_hz,
-                    variant.band_high_hz,
                 ),
-                _band_passed_noise(
-                    variant.seed("texture", "r"),
+                _clamped(
+                    _band_passed_noise(
+                        variant.seed("texture", "r"),
+                        duration,
+                        variant.band_low_hz,
+                        variant.band_high_hz,
+                    ),
                     duration,
-                    variant.band_low_hz,
-                    variant.band_high_hz,
                 ),
             )
         )
@@ -866,17 +885,23 @@ def _motion_commands(variant: Variant, track_index: int, duration: float) -> lis
     commands.append(
         nyquist_prompt(
             _stereo(
-                _modulated_noise(
-                    variant.seed("motion", "l"),
+                _clamped(
+                    _modulated_noise(
+                        variant.seed("motion", "l"),
+                        duration,
+                        variant.lfo_depth,
+                        variant.lfo_rate_hz,
+                    ),
                     duration,
-                    variant.lfo_depth,
-                    variant.lfo_rate_hz,
                 ),
-                _modulated_noise(
-                    variant.seed("motion", "r"),
+                _clamped(
+                    _modulated_noise(
+                        variant.seed("motion", "r"),
+                        duration,
+                        variant.lfo_depth,
+                        variant.lfo_rate_hz,
+                    ),
                     duration,
-                    variant.lfo_depth,
-                    variant.lfo_rate_hz,
                 ),
             )
         )
