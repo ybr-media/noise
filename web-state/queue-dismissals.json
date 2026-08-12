@@ -40,5 +40,23 @@
       "state": "queued",
       "queuedAt": "2026-08-12T20:20:02.551Z"
     }
+  },
+  {
+    "job": {
+      "id": "31533039556",
+      "variantId": "wn_white_mid_breathing_balanced",
+      "status": "Failed",
+      "queuedAt": "2026-08-11T20:27:37Z",
+      "error": "Render failed",
+      "logsUrl": "https://github.com/ybr-media/noise/actions/runs/31533039556",
+      "startedAt": "2026-08-11T20:27:37Z",
+      "finishedAt": "2026-08-11T20:33:47Z",
+      "durationSeconds": 370
+    },
+    "dismissedAt": "2026-08-12T20:20:15.401Z",
+    "r2Cleanup": {
+      "state": "queued",
+      "queuedAt": "2026-08-12T20:20:14.395Z"
+    }
   }
 ]
