@@ -1,0 +1,26 @@
+[
+  {
+    "job": {
+      "id": "31565378821",
+      "variantId": "wn_pink_mid_drift_balanced",
+      "status": "Failed",
+      "queuedAt": "2026-08-12T05:05:22Z",
+      "error": "Render failed",
+      "logsUrl": "https://github.com/ybr-media/noise/actions/runs/31565378821",
+      "startedAt": "2026-08-12T05:05:22Z",
+      "finishedAt": "2026-08-12T05:06:28Z",
+      "durationSeconds": 66,
+      "failure": {
+        "step": "Render",
+        "exitCode": null,
+        "durationSeconds": 59,
+        "runner": "GitHub Actions 1000000283"
+      }
+    },
+    "dismissedAt": "2026-08-12T20:19:40.144Z",
+    "r2Cleanup": {
+      "state": "queued",
+      "queuedAt": "2026-08-12T20:19:39.052Z"
+    }
+  }
+]
