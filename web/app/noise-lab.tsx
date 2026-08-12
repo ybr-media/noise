@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { LibraryTrack, QueueJob, Release, ReleaseTrack, Variant } from "@/lib/types";
+import type { DismissalRecord } from "@/lib/dismissals";
 import { absoluteTime, batchMembersForJob, knownVariantId, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
 import { groupCompletedByDay, partitionRenderJobs, type RenderJob } from "@/lib/render-jobs";
 import { queueStrings } from "@/lib/queue-strings";
@@ -1522,24 +1523,23 @@ function Queue({ jobs, initialLoad, mode, stats, variants, tracks, onRefresh, re
   const [confirm, setConfirm] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<RenderJob | null>(null);
   const [retried, setRetried] = useState<Set<string>>(new Set());
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
-  const [hidden, setHidden] = useState<Set<string>>(new Set());
-  const dismissalReady = useRef(false);
+  const [archive, setArchive] = useState<DismissalRecord[]>([]);
   const pilotMembers = variants.filter((variant) => variant.pilot !== null).map((variant) => variant.variantId);
   const fullMembers = variants.map((variant) => variant.variantId);
   const partition = partitionRenderJobs(jobs, pilotMembers, fullMembers);
   useEffect(() => { const timer = window.setInterval(() => setSyncTick((tick) => tick + 1), 30_000); return () => window.clearInterval(timer); }, []);
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("noise.queue.dismissals") ?? "{}") as { dismissed?: string[]; hidden?: string[] };
-      setDismissed(new Set(saved.dismissed ?? [])); setHidden(new Set(saved.hidden ?? []));
-    } catch { /* ignore malformed storage */ }
-    dismissalReady.current = true;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch("/api/queue/dismiss", { cache: "no-store" });
+        if (!response.ok) return;
+        const payload = (await response.json()) as { records?: DismissalRecord[] };
+        if (!cancelled && payload.records) setArchive(payload.records);
+      } catch { /* the archive is supplemental; the queue itself remains usable */ }
+    })();
+    return () => { cancelled = true; };
   }, []);
-  useEffect(() => {
-    if (!dismissalReady.current) return;
-    try { localStorage.setItem("noise.queue.dismissals", JSON.stringify({ dismissed: [...dismissed], hidden: [...hidden] })); } catch { /* ignore storage failures */ }
-  }, [dismissed, hidden]);
   useEffect(() => {
     const close = (event: MouseEvent) => { if (!(event.target as HTMLElement).closest(".queue-menu-wrap")) setMenu(null); };
     document.addEventListener("mousedown", close);
@@ -1550,7 +1550,8 @@ function Queue({ jobs, initialLoad, mode, stats, variants, tracks, onRefresh, re
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, []);
-  const visible = (items: RenderJob[]) => items.filter((item) => !dismissed.has(item.latest.id) && !hidden.has(item.latest.id));
+  const archivedIds = new Set(archive.map((record) => record.job.id));
+  const visible = (items: RenderJob[]) => items.filter((item) => !archivedIds.has(item.latest.id));
   const attention = visible(partition.needsAttention);
   const active = visible(partition.active);
   const completed = visible(partition.completed);
@@ -1570,7 +1571,16 @@ function Queue({ jobs, initialLoad, mode, stats, variants, tracks, onRefresh, re
     const ids = batchMembersForJob(job.latest, pilotMembers, fullMembers) ?? [job.latest.variantId];
     return ids.some((id) => tracks.some((track) => track.variantId === id && track.exists));
   };
-  const remove = (job: RenderJob) => { setDismissed((old) => new Set(old).add(job.latest.id)); setHidden((old) => new Set(old).add(job.latest.id)); setConfirmRemove(null); setMenu(null); onToast({ message: queueStrings.dismiss.removed }); };
+  const remove = async (job: RenderJob) => {
+    setConfirmRemove(null); setMenu(null);
+    try {
+      const response = await fetch("/api/queue/dismiss", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ job: job.latest }) });
+      const payload = (await response.json().catch(() => ({}))) as { records?: DismissalRecord[]; error?: string };
+      if (!response.ok || !payload.records) { onToast({ message: payload.error ?? queueStrings.dismiss.failed, error: true }); return; }
+      setArchive(payload.records);
+      onToast({ message: queueStrings.dismiss.removed });
+    } catch { onToast({ message: queueStrings.dismiss.failed, error: true }); }
+  };
   const retry = async (job: RenderJob) => {
     if (confirm !== job.latest.id) { setConfirm(job.latest.id); window.setTimeout(() => setConfirm((current) => current === job.latest.id ? null : current), 3000); return; }
     if (await onRetry(job.latest)) { setRetried((old) => new Set(old).add(job.latest.id)); setConfirm(null); }
@@ -1579,16 +1589,27 @@ function Queue({ jobs, initialLoad, mode, stats, variants, tracks, onRefresh, re
     const latest = job.latest; const failed = latest.status === "Failed" || latest.status === "Cancelled"; const done = latest.status === "Done"; const activeItem = latest.status === "Queued" || latest.status === "Rendering";
     const name = nameFor(latest.variantId); const failure = latest.failure?.step ? queueStrings.failedAt(latest.failure.step, latest.failure.exitCode) : latest.error ?? queueStrings.failure(name, latest.status); const displayTime = latest.finishedAt ?? latest.queuedAt;
     return <article className="queue-job-card" key={job.variantId}>
-      <div className="queue-title-row"><div className="queue-name" title={name === "Unknown variant" ? latest.variantId : undefined}>{name}</div>{done ? <span className="queue-ready-chip">{queueStrings.status.done}</span> : failed && <div className="track-menu-wrap queue-menu-wrap"><button type="button" className="icon-action queue-overflow" aria-label="More queue actions" aria-haspopup="menu" aria-expanded={menu === latest.id} onClick={() => setMenu(menu === latest.id ? null : latest.id)}><MoreHorizontal size={19} /></button>{menu === latest.id && <div className="track-menu" role="menu">{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener" role="menuitem">{queueStrings.logs}</a>}<button type="button" role="menuitem" onClick={() => hasArtifacts(job) ? setConfirmRemove(job) : remove(job)}>Remove from history</button></div>}</div>}</div>
+      <div className="queue-title-row"><div className="queue-name" title={name === "Unknown variant" ? latest.variantId : undefined}>{name}</div>{done ? <span className="queue-ready-chip">{queueStrings.status.done}</span> : failed && <div className="track-menu-wrap queue-menu-wrap"><button type="button" className="icon-action queue-overflow" aria-label="More queue actions" aria-haspopup="menu" aria-expanded={menu === latest.id} onClick={() => setMenu(menu === latest.id ? null : latest.id)}><MoreHorizontal size={19} /></button>{menu === latest.id && <div className="track-menu" role="menu">{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener" role="menuitem">{queueStrings.logs}</a>}<button type="button" role="menuitem" onClick={() => hasArtifacts(job) ? setConfirmRemove(job) : void remove(job)}>Remove from history</button></div>}</div>}</div>
       <div className="queue-chips">{failed && <span className="queue-status-failed">{queueStrings.status.failed}</span>}{activeItem && <span className="queue-status-active">{latest.status === "Rendering" ? queueStrings.status.rendering : queueStrings.status.queued}</span>}{chipsFor(latest.variantId).map((chip) => <span className="queue-chip" key={chip}>{chip}</span>)}{fxBadges(latest.fx).map((badge) => <span className="queue-chip" key={badge}>{badge}</span>)}</div>
       {activeItem && <div className="queue-active-copy">{activeCopy(job)}</div>}
       {failed && <details className="queue-detail-strip queue-failure-strip"><summary>{failure}<ChevronDown size={15} /></summary><div className="queue-diagnostics"><div>Failed step · {latest.failure?.step ?? "Unavailable"}</div><div>Exit code · {latest.failure?.exitCode ?? "—"}</div><div>Duration · {latest.failure?.durationSeconds ? formatQueueDuration(latest.failure.durationSeconds) : latest.durationSeconds ? formatQueueDuration(latest.durationSeconds) : "—"}</div><div>Runner · {latest.failure?.runner ?? (mode === "local" ? "Local worker" : "—")}</div>{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener">{queueStrings.logs} →</a>}</div></details>}
       {job.attempts.length > 1 && <details className="queue-detail-strip queue-history-strip"><summary>{queueStrings.runHistory(job.attempts.length)}<ChevronDown size={15} /></summary><div className="queue-diagnostics">{job.attempts.map((attempt, index) => <div key={attempt.id}><span>{queueStrings.attempt(index + 1, relativeTime(attempt.queuedAt))}</span> <span className={attempt.status === "Done" ? "duration-good" : "duration-bad"}>{attempt.status === "Done" ? "✓" : "✗"} {attempt.durationSeconds ? formatQueueDuration(attempt.durationSeconds) : "—"}</span></div>)}</div></details>}
       <div className="queue-meta"><time title={absoluteTime(displayTime)}>{relativeTime(displayTime)}</time>{failed && ` · ${job.attempts.length} attempts`}</div>
-      <div className="queue-card-actions">{done ? <button type="button" className="queue-primary" onClick={() => onDone(latest)}>{queueStrings.library}</button> : failed && <><button type="button" className={`queue-primary ${retried.has(latest.id) ? "queue-retry-confirmed" : ""}`} disabled={queueing || retried.has(latest.id)} onClick={() => void retry(job)}>{retried.has(latest.id) ? "Queued ✓" : confirm === latest.id ? `Dispatch Actions run (${stats.sampleSize ? renderEstimate(stats.medianRenderSeconds, stats.sampleSize) : "~6 min"})?` : "Re-run render"}</button><button type="button" className="queue-secondary" onClick={() => hasArtifacts(job) ? setConfirmRemove(job) : remove(job)}>Remove</button></>}</div>
+      <div className="queue-card-actions">{done ? <button type="button" className="queue-primary" onClick={() => onDone(latest)}>{queueStrings.library}</button> : failed && <><button type="button" className={`queue-primary ${retried.has(latest.id) ? "queue-retry-confirmed" : ""}`} disabled={queueing || retried.has(latest.id)} onClick={() => void retry(job)}>{retried.has(latest.id) ? "Queued ✓" : confirm === latest.id ? `Dispatch Actions run (${stats.sampleSize ? renderEstimate(stats.medianRenderSeconds, stats.sampleSize) : "~6 min"})?` : "Re-run render"}</button><button type="button" className="queue-secondary" onClick={() => hasArtifacts(job) ? setConfirmRemove(job) : void remove(job)}>Remove</button></>}</div>
+    </article>;
+  };
+  const archivedCard = (record: DismissalRecord) => {
+    const job = record.job;
+    const name = nameFor(job.variantId);
+    const failure = job.failure?.step ? queueStrings.failedAt(job.failure.step, job.failure.exitCode) : job.error ?? queueStrings.failure(name, job.status);
+    return <article className="queue-job-card" key={job.id}>
+      <div className="queue-title-row"><div className="queue-name" title={name === "Unknown variant" ? job.variantId : undefined}>{name}</div></div>
+      <div className="queue-chips"><span className="queue-status-failed">{job.status === "Cancelled" ? queueStrings.status.cancelled : queueStrings.status.failed}</span>{chipsFor(job.variantId).map((chip) => <span className="queue-chip" key={chip}>{chip}</span>)}</div>
+      <details className="queue-detail-strip queue-failure-strip"><summary>{failure}<ChevronDown size={15} /></summary><div className="queue-diagnostics"><div>Failed step · {job.failure?.step ?? "Unavailable"}</div><div>Exit code · {job.failure?.exitCode ?? "—"}</div><div>Duration · {job.failure?.durationSeconds ? formatQueueDuration(job.failure.durationSeconds) : job.durationSeconds ? formatQueueDuration(job.durationSeconds) : "—"}</div><div>Runner · {job.failure?.runner ?? (mode === "local" ? "Local worker" : "—")}</div>{job.logsUrl && <a href={job.logsUrl} target="_blank" rel="noopener">{queueStrings.logs} →</a>}</div></details>
+      <div className="queue-meta"><time title={absoluteTime(record.dismissedAt)}>{queueStrings.archivedAt(relativeTime(record.dismissedAt))}</time></div>
     </article>;
   };
   const section = (label: string, items: RenderJob[]) => items.length ? <section className="queue-group queue-section" key={label}><div className="section-title">{label} · {items.length}</div><div className="queue-job-list">{items.map(card)}</div></section> : null;
   const buckets = groupCompletedByDay(completed);
-  return <section ref={refreshShellRef} className="panel-section queue-refresh-shell queue-section">{pullDistance > 0 && <div className={`pull-refresh-indicator ${pullDistance >= 56 ? "is-ready" : ""}`} style={{ height: pullDistance }}>{pullDistance >= 56 ? "Release to refresh" : "Pull to refresh"}</div>}<div className="queue-sync-caption" aria-live="polite"><span className={`queue-sync-dot ${activeCount ? "is-active" : ""}`} />{caption}</div>{initialLoad ? <QueueSkeleton /> : <>{section(queueStrings.sections.attention, attention)}{section(queueStrings.sections.active, active)}{buckets.map((bucket) => section(bucket.label, bucket.jobs))}{history.length > 0 && <details className="queue-history"><summary>{queueStrings.historyCount(history.length)}</summary><div className="queue-job-list">{history.map(card)}</div></details>}</>}{confirmRemove && <div className="queue-confirm-backdrop" role="presentation" onClick={() => setConfirmRemove(null)}><div className="queue-confirm-sheet" role="dialog" aria-modal="true" aria-labelledby="queue-remove-title" onClick={(event) => event.stopPropagation()}><h2 id="queue-remove-title">Remove from history?</h2><p>This removes only the queue history entry. It will not delete the rendered or published output.</p><div className="queue-card-actions"><button type="button" className="queue-secondary" onClick={() => setConfirmRemove(null)}>Cancel</button><button type="button" className="queue-primary" onClick={() => remove(confirmRemove)}>Remove history entry</button></div></div></div>}</section>;
+  return <section ref={refreshShellRef} className="panel-section queue-refresh-shell queue-section">{pullDistance > 0 && <div className={`pull-refresh-indicator ${pullDistance >= 56 ? "is-ready" : ""}`} style={{ height: pullDistance }}>{pullDistance >= 56 ? "Release to refresh" : "Pull to refresh"}</div>}<div className="queue-sync-caption" aria-live="polite"><span className={`queue-sync-dot ${activeCount ? "is-active" : ""}`} />{caption}</div>{initialLoad ? <QueueSkeleton /> : <>{section(queueStrings.sections.attention, attention)}{section(queueStrings.sections.active, active)}{buckets.map((bucket) => section(bucket.label, bucket.jobs))}{history.length > 0 && <details className="queue-history"><summary>{queueStrings.historyCount(history.length)}</summary><div className="queue-job-list">{history.map(card)}</div></details>}{archive.length > 0 && <details className="queue-history"><summary>{queueStrings.archivedCount(archive.length)}</summary><div className="queue-job-list">{archive.map(archivedCard)}</div></details>}</>}{confirmRemove && <div className="queue-confirm-backdrop" role="presentation" onClick={() => setConfirmRemove(null)}><div className="queue-confirm-sheet" role="dialog" aria-modal="true" aria-labelledby="queue-remove-title" onClick={(event) => event.stopPropagation()}><h2 id="queue-remove-title">Remove from history?</h2><p>This archives the queue entry — it stays reviewable under Archived below. It will not delete the rendered or published output.</p><div className="queue-card-actions"><button type="button" className="queue-secondary" onClick={() => setConfirmRemove(null)}>Cancel</button><button type="button" className="queue-primary" onClick={() => void remove(confirmRemove)}>Remove history entry</button></div></div></div>}</section>;
 }
