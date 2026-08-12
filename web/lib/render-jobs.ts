@@ -15,19 +15,6 @@ export type RenderJobPartition = {
   history: RenderJob[];
 };
 
-export function filterDismissedJobs(
-  jobs: RenderJob[],
-  dismissedIds: Set<string> | string[],
-): { jobs: RenderJob[]; dismissedIds: Set<string> } {
-  const ids = new Set(dismissedIds);
-  const currentIds = new Set(jobs.map((job) => job.latest.id));
-  const pruned = new Set([...ids].filter((id) => currentIds.has(id)));
-  return {
-    jobs: jobs.filter((job) => !pruned.has(job.latest.id)),
-    dismissedIds: pruned,
-  };
-}
-
 function newestFirst(a: QueueJob, b: QueueJob): number {
   const byTime = new Date(b.queuedAt).getTime() - new Date(a.queuedAt).getTime();
   return byTime || b.id.localeCompare(a.id);

@@ -13,7 +13,7 @@ export const DISPATCH_CONFIGURED = Boolean(DISPATCH_REPO && DISPATCH_TOKEN);
 
 const API = "https://api.github.com";
 
-function headers(): HeadersInit {
+export function dispatchHeaders(): HeadersInit {
   return {
     accept: "application/vnd.github+json",
     authorization: `Bearer ${DISPATCH_TOKEN}`,
@@ -29,7 +29,7 @@ export function runUrl(runId: number | string): string {
 export async function dispatchRender(variants: string, fx: FxBlock | null = null): Promise<void> {
   const response = await fetch(`${API}/repos/${DISPATCH_REPO}/actions/workflows/${DISPATCH_WORKFLOW}/dispatches`, {
     method: "POST",
-    headers: headers(),
+    headers: dispatchHeaders(),
     body: JSON.stringify({ ref: DISPATCH_REF, inputs: { variants, ...(fx ? { fx: JSON.stringify(fx) } : {}) } }),
   });
   if (!response.ok) {
@@ -40,11 +40,22 @@ export async function dispatchRender(variants: string, fx: FxBlock | null = null
 export async function dispatchMetadata(payload: string): Promise<void> {
   const response = await fetch(`${API}/repos/${DISPATCH_REPO}/actions/workflows/metadata.yml/dispatches`, {
     method: "POST",
-    headers: headers(),
+    headers: dispatchHeaders(),
     body: JSON.stringify({ ref: DISPATCH_REF, inputs: { payload } }),
   });
   if (!response.ok) {
     throw new Error(`GitHub refused the metadata dispatch (${response.status}): ${(await response.text()).slice(0, 300)}`);
+  }
+}
+
+export async function dispatchCleanup(variants: string): Promise<void> {
+  const response = await fetch(`${API}/repos/${DISPATCH_REPO}/actions/workflows/cleanup.yml/dispatches`, {
+    method: "POST",
+    headers: dispatchHeaders(),
+    body: JSON.stringify({ ref: DISPATCH_REF, inputs: { variants } }),
+  });
+  if (!response.ok) {
+    throw new Error(`GitHub refused the cleanup dispatch (${response.status}): ${(await response.text()).slice(0, 300)}`);
   }
 }
 
@@ -102,7 +113,7 @@ function errorForConclusion(conclusion: string | null): string {
 export async function dispatchedQueue(): Promise<{ jobs: QueueJob[]; stats: { medianRenderSeconds: number | null; sampleSize: number } }> {
   const response = await fetch(
     `${API}/repos/${DISPATCH_REPO}/actions/workflows/${DISPATCH_WORKFLOW}/runs?per_page=20`,
-    { headers: headers(), cache: "no-store" },
+    { headers: dispatchHeaders(), cache: "no-store" },
   );
   if (!response.ok) return { jobs: [], stats: { medianRenderSeconds: null, sampleSize: 0 } };
   const body = (await response.json()) as { workflow_runs?: WorkflowRun[] };
@@ -127,7 +138,7 @@ export async function dispatchedQueue(): Promise<{ jobs: QueueJob[]; stats: { me
   });
   await Promise.all(jobs.filter((job) => job.status === "Failed" || job.status === "Cancelled").slice(0, 5).map(async (job) => {
     try {
-      const response = await fetch(`${API}/repos/${DISPATCH_REPO}/actions/runs/${job.id}/jobs`, { headers: headers(), cache: "no-store" });
+      const response = await fetch(`${API}/repos/${DISPATCH_REPO}/actions/runs/${job.id}/jobs`, { headers: dispatchHeaders(), cache: "no-store" });
       if (!response.ok) return;
       const body = (await response.json()) as { jobs?: ActionsJob[] };
       job.failure = parseFailureDetails(body.jobs ?? []);
