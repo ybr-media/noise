@@ -152,6 +152,16 @@ button:disabled { cursor: not-allowed; }
 .approved-marker { margin-left: 7px; color: #187a35; font-size: 10px; font-weight: 500; }
 .icon-action { display: grid; width: 34px; height: 34px; place-items: center; margin: -6px -8px 0 0; border: 0; border-radius: 50%; color: var(--secondary-text); background: transparent; }
 .icon-action:hover, .icon-action:focus-visible { color: var(--label); background: #f0f0f4; outline: none; }
+.library-toolbar { display: flex; align-items: flex-end; justify-content: space-between; }
+.view-toggle { margin: 22px 0 6px; }
+.track-date { margin-top: 10px; color: var(--secondary-text); font-size: 11px; }
+.track-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
+.track-row-play { width: 32px; height: 32px; color: #fff; background: #171719; }
+.track-row-body { min-width: 0; flex: 1; }
+.track-row-title { overflow: hidden; font-size: 14px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.track-row-meta { margin-top: 2px; color: var(--secondary-text); font-size: 11px; font-variant-numeric: tabular-nums; }
+.track-row-meta .qa-fail-text { color: #c7352b; font-weight: 700; }
+.track-row-download { margin: 0; }
 .track-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .track-chip { padding: 4px 8px; border-radius: 999px; color: var(--secondary-text); background: #f0f0f4; font-size: 10px; font-weight: 650; }
 .custom-player { display: flex; align-items: center; gap: 9px; margin-top: 14px; padding: 10px 12px; border-radius: 14px; color: #fff; background: #171719; }
