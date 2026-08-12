@@ -22,8 +22,12 @@ export const DISMISSALS_PATH = process.env.NOISE_DISMISSALS_FILE
   ?? path.join(os.homedir(), "noisegen-out", "noise-lab-dismissals.jsonl");
 
 // The hosted console has no persistent disk, so the archive lives as a JSON
-// file committed to the dispatch repo through the same token used for renders.
+// file committed to the dispatch repo. The dispatch token only carries the
+// Actions scope (contents PUTs come back 403), so writes are delegated to a
+// workflow that commits with its own repo-scoped token, mirroring how renders
+// and cleanup runs are dispatched.
 export const DISMISSALS_REPO_PATH = process.env.NOISE_DISMISSALS_REPO_PATH ?? "web-state/queue-dismissals.json";
+export const DISMISSALS_WORKFLOW = process.env.NOISE_DISMISSALS_WORKFLOW ?? "archive-dismissal.yml";
 
 const API = "https://api.github.com";
 
@@ -31,37 +35,32 @@ function contentsUrl(): string {
   return `${API}/repos/${DISPATCH_REPO}/contents/${DISMISSALS_REPO_PATH}`;
 }
 
-async function readRepoArchive(): Promise<{ records: DismissalRecord[]; sha: string | null }> {
+async function readRepoArchive(): Promise<{ records: DismissalRecord[] }> {
   const response = await fetch(`${contentsUrl()}?ref=${encodeURIComponent(DISPATCH_REF)}`, {
     headers: dispatchHeaders(),
     cache: "no-store",
   });
-  if (response.status === 404) return { records: [], sha: null };
+  if (response.status === 404) return { records: [] };
   if (!response.ok) {
     throw new Error(`GitHub refused the dismissal archive read (${response.status}): ${(await response.text()).slice(0, 300)}`);
   }
-  const body = (await response.json()) as { content?: string; sha?: string };
+  const body = (await response.json()) as { content?: string };
   try {
     const decoded = Buffer.from(body.content ?? "", "base64").toString("utf8");
-    return { records: (JSON.parse(decoded) as DismissalRecord[]) ?? [], sha: body.sha ?? null };
+    return { records: (JSON.parse(decoded) as DismissalRecord[]) ?? [] };
   } catch {
-    return { records: [], sha: body.sha ?? null };
+    return { records: [] };
   }
 }
 
-async function writeRepoArchive(records: DismissalRecord[], sha: string | null, variantId: string): Promise<void> {
-  const response = await fetch(contentsUrl(), {
-    method: "PUT",
+async function dispatchArchiveWrite(record: DismissalRecord): Promise<void> {
+  const response = await fetch(`${API}/repos/${DISPATCH_REPO}/actions/workflows/${DISMISSALS_WORKFLOW}/dispatches`, {
+    method: "POST",
     headers: dispatchHeaders(),
-    body: JSON.stringify({
-      message: `Archive dismissed render ${variantId}`,
-      content: Buffer.from(`${JSON.stringify(records, null, 2)}\n`).toString("base64"),
-      branch: DISPATCH_REF,
-      ...(sha ? { sha } : {}),
-    }),
+    body: JSON.stringify({ ref: DISPATCH_REF, inputs: { record: JSON.stringify(record) } }),
   });
   if (!response.ok) {
-    throw new Error(`GitHub refused the dismissal archive write (${response.status}): ${(await response.text()).slice(0, 300)}`);
+    throw new Error(`GitHub refused the dismissal archive dispatch (${response.status}): ${(await response.text()).slice(0, 300)}`);
   }
 }
 
@@ -88,11 +87,12 @@ export async function listDismissals(): Promise<DismissalRecord[]> {
 export async function archiveDismissal(job: QueueJob, r2Cleanup?: R2Cleanup): Promise<DismissalRecord[]> {
   const record: DismissalRecord = { job, dismissedAt: new Date().toISOString(), ...(r2Cleanup ? { r2Cleanup } : {}) };
   if (RENDER_MODE === "dispatch") {
-    const { records, sha } = await readRepoArchive();
+    const { records } = await readRepoArchive();
     if (records.some((existing) => existing.job.id === job.id)) return newestFirst(records);
-    const updated = [...records, record];
-    await writeRepoArchive(updated, sha, job.variantId);
-    return newestFirst(updated);
+    // The commit lands asynchronously (and the workflow dedupes by job id), so
+    // the returned list includes the new record optimistically.
+    await dispatchArchiveWrite(record);
+    return newestFirst([...records, record]);
   }
   const records = readLocalArchive();
   if (records.some((existing) => existing.job.id === job.id)) return newestFirst(records);
