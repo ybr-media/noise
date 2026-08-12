@@ -22,5 +22,23 @@
       "state": "queued",
       "queuedAt": "2026-08-12T20:19:39.052Z"
     }
+  },
+  {
+    "job": {
+      "id": "31241151754",
+      "variantId": "wn_white_broad_still_bed-forward",
+      "status": "Cancelled",
+      "queuedAt": "2026-08-08T05:11:57Z",
+      "error": "Cancelled",
+      "logsUrl": "https://github.com/ybr-media/noise/actions/runs/31241151754",
+      "startedAt": "2026-08-08T05:11:57Z",
+      "finishedAt": "2026-08-08T05:18:28Z",
+      "durationSeconds": 391
+    },
+    "dismissedAt": "2026-08-12T20:20:03.681Z",
+    "r2Cleanup": {
+      "state": "queued",
+      "queuedAt": "2026-08-12T20:20:02.551Z"
+    }
   }
 ]
