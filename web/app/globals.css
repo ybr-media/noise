@@ -89,6 +89,11 @@ button:disabled { cursor: not-allowed; }
 .library-sync-skeleton { margin: -4px 6px 12px; }
 .library-list { display: grid; gap: var(--card-gap); }
 .release-list { display: grid; gap: 14px; }
+.release-wip-banner { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 16px; padding: 14px 16px; border: 1px solid #f2c46d; border-radius: 18px; color: #7a4d00; background: #fff8e7; font-size: 12px; line-height: 1.45; }
+.release-wip-banner svg { flex-shrink: 0; margin-top: 1px; }
+.release-wip-banner strong, .release-wip-banner span { display: block; }
+.release-wip-banner strong { font-size: 13px; }
+.release-wip-banner span { margin-top: 2px; color: #946a26; }
 .release-card { width: 100%; padding: 20px; border: 0; color: inherit; text-align: left; cursor: pointer; }
 .release-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .release-kicker { color: var(--secondary-text); font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }

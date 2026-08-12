@@ -1303,10 +1303,18 @@ function Releases({ releases, releaseId, variants, tracks, mode, loading, initia
   onToast: (toast: { message: string; error?: boolean }) => void;
 }) {
   const release = releases.find((candidate) => candidate.id === releaseId);
-  if (!releaseId || !release) {
-    return <ReleaseList releases={releases} loading={loading} initialLoad={initialLoad} onRefresh={onRefresh} />;
-  }
-  return <ReleaseDetail release={release} savedArtist={releases.find((candidate) => !candidate.unsaved)?.artist} variants={variants} tracks={tracks} mode={mode} onRefresh={onRefresh} onToast={onToast} />;
+  const content = !releaseId || !release
+    ? <ReleaseList releases={releases} loading={loading} initialLoad={initialLoad} onRefresh={onRefresh} />
+    : <ReleaseDetail release={release} savedArtist={releases.find((candidate) => !candidate.unsaved)?.artist} variants={variants} tracks={tracks} mode={mode} onRefresh={onRefresh} onToast={onToast} />;
+  return (
+    <>
+      <div className="release-wip-banner" role="alert">
+        <AlertCircle size={18} aria-hidden="true" />
+        <div><strong>Work in progress — do not use</strong><span>The Releases workflow is not ready for production.</span></div>
+      </div>
+      {content}
+    </>
+  );
 }
 
 function ReleaseList({ releases, loading, initialLoad, onRefresh }: { releases: DerivedRelease[]; loading: boolean; initialLoad: boolean; onRefresh: () => void }) {
