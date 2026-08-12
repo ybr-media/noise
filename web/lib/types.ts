@@ -59,6 +59,7 @@ export type LibraryTrack = Variant & {
   measuredLufs: string | null;
   measuredTruePeak: string | null;
   renderStatus: string;
+  renderedAt: string | null;
   title?: string;
   description?: string;
   titleApproved?: boolean;

@@ -41,7 +41,7 @@ function withSidecar(variant: Variant, sidecar: Sidecar | null): Variant {
 
 export async function libraryTracks(releaseTitles: Map<string, { title: string; description: string }> = new Map()): Promise<LibraryTrack[]> {
   const index = await artifactIndex();
-  return loadVariants().map((variant) => {
+  const tracks = loadVariants().map((variant): LibraryTrack => {
     const artifact = index.artifacts.get(variant.filename);
     const sidecar = artifact?.sidecar ?? null;
     const resolved = withSidecar(variant, sidecar);
@@ -61,10 +61,21 @@ export async function libraryTracks(releaseTitles: Map<string, { title: string; 
       measuredLufs: lufs,
       measuredTruePeak: peak,
       renderStatus: artifact?.renderStatus ?? "Not rendered",
+      renderedAt: typeof sidecar?.render_timestamp === "string" ? sidecar.render_timestamp : null,
       title: releaseTitles.get(variant.variantId)?.title || (typeof sidecar?.seo_title === "string" ? sidecar.seo_title : undefined),
       description: releaseTitles.get(variant.variantId)?.description || (typeof sidecar?.seo_description === "string" ? sidecar.seo_description : undefined),
       titleApproved: sidecar?.seo_title_approved === true,
     };
+  });
+  // Newest renders first; undated tracks keep their matrix order at the end.
+  return tracks.sort((a, b) => {
+    if (a.renderedAt && b.renderedAt) {
+      const delta = new Date(b.renderedAt).getTime() - new Date(a.renderedAt).getTime();
+      if (delta) return delta;
+      return a.matrixIndex - b.matrixIndex;
+    }
+    if (a.renderedAt !== b.renderedAt) return a.renderedAt ? -1 : 1;
+    return a.matrixIndex - b.matrixIndex;
   });
 }
 
