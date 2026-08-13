@@ -108,9 +108,6 @@ button:disabled { cursor: not-allowed; }
 .swatch-white.is-selected { box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px var(--brand), inset 0 0 0 1px rgba(0,0,0,.12); }
 @media (hover: hover) { .swatch:hover { transform: scale(1.08); } .swatch.is-selected:hover { transform: scale(1.08); } }
 .swatch:active { transform: scale(.96); }
-.variant-card { position: relative; padding: 22px 24px; }
-.variant-id { margin-bottom: 12px; color: var(--ink); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; overflow-wrap: anywhere; }
-.variant-meta { display: flex; justify-content: space-between; color: var(--ink-secondary); font-size: var(--text-base); }
 .chip, .status-pill { display: inline-flex; align-items: center; min-height: 28px; border-radius: var(--radius-pill); padding: 5px 10px; color: var(--ink-secondary); background: var(--surface-sunken); font-size: var(--text-sm); font-weight: 600; }
 .chip-success, .status-pill-success { color: var(--success); background: var(--success-bg); }
 .chip-danger, .status-pill-danger { color: var(--danger); background: var(--danger-bg); }
@@ -331,7 +328,7 @@ button:disabled { cursor: not-allowed; }
   .noise-page { padding-top: 78px; padding-right: 14px; padding-left: 14px; }
   .current-tab-title { padding-right: 14px; padding-left: 14px; }
   .current-tab-tooltip { right: 14px; }
-  .spectrum-card, .track-card, .variant-card { padding-right: 16px; padding-left: 16px; }
+  .spectrum-card, .track-card { padding-right: 16px; padding-left: 16px; }
   .controls-card { padding-right: 16px; padding-left: 16px; }
   .param-caption { font-size: var(--text-xs); }
   .action-row { position: sticky; z-index: 40; top: calc(env(safe-area-inset-top) + 58px); gap: 14px; padding: 12px; border-radius: var(--radius-pill); background: rgba(255,255,255,.86); box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 30px rgba(20,20,50,.1); -webkit-backdrop-filter: blur(18px) saturate(180%); backdrop-filter: blur(18px) saturate(180%); }
@@ -359,11 +356,6 @@ button:disabled { cursor: not-allowed; }
 .ui-switch.is-checked { background: var(--brand); }
 .ui-switch.is-checked .ui-switch-thumb { transform: translateX(16px); }
 .ui-switch:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-.fx-chip-row { display: flex; width: 100%; gap: 2px; padding: 4px; border-radius: var(--radius-control); background: var(--surface-inset); }
-.fx-chip { min-width: 0; min-height: 34px; flex: 1 1 0; padding: 0 8px; overflow: visible; border: 0; border-radius: var(--radius-chip); color: var(--ink-inset); background: transparent; font-size: var(--text-xs); font-weight: 600; white-space: nowrap; transition: background 180ms ease, color 180ms ease, transform 150ms ease; }
-.fx-chip.is-selected { color: var(--brand); background: var(--surface); box-shadow: 0 2px 8px rgba(0,0,0,.10), 0 0 0 0.5px rgba(0,0,0,.04); }
-.fx-chip:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
-.fx-chip:active { transform: scale(.96); }
 .fx-link { align-self: flex-start; padding: 0; border: 0; color: var(--danger); background: transparent; font-size: 12px; font-weight: 600; }
 .fx-link:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .fx-detail { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; animation: param-caption-fade 150ms ease; }
