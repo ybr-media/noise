@@ -6,7 +6,9 @@ import { test } from "node:test";
 import { absoluteTime, attemptNumber, formatMinutes, hasRepeatedVariant, isSuperseded, knownVariantId, median, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "../lib/eta";
 import { formatBatchLabel, formatDisplayName, formatVariantLabel } from "../lib/variant-labels";
 import { formatBytes } from "../lib/format";
+import { bundleNaming } from "../lib/bundle-naming";
 import { streamZip, crc32 } from "../lib/zip";
+import type { LibraryTrack, Release } from "../lib/types";
 
 const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "noise-lab-web-test-"));
 const renderDir = path.join(fixtureDir, "renders");
@@ -223,10 +225,87 @@ test("groups the stems with their master and serves every file as audio", async 
     isMaster: false,
   });
   assert.equal(await audioAsset("not_a_render.wav"), undefined);
-  assert.deepEqual((await bundleAssets("wn_white_mid_drift_balanced"))?.map((asset) => asset.filename), [
-    "present_master.wav", "present_stem_1.wav", "present_stem_2.wav",
-  ]);
+  const bundle = await bundleAssets("wn_white_mid_drift_balanced");
+  assert.equal(bundle?.master.filename, "present_master.wav");
+  assert.deepEqual(bundle?.stems.map((stem) => stem.filename), ["present_stem_1.wav", "present_stem_2.wav"]);
   assert.equal(await bundleAssets("wn_white_mid_drift_texture-forward"), undefined);
+});
+
+const namingTrack = (overrides: Partial<LibraryTrack> = {}): LibraryTrack => ({
+  variantId: "wn_pink_mid_drift_balanced",
+  filename: "present_master.wav",
+  matrixIndex: 14,
+  color: "pink",
+  band: "mid",
+  motion: "drift",
+  balance: "balanced",
+  bandLowHz: 800,
+  bandHighHz: 2500,
+  lfoDepth: 0.1,
+  lfoRateHz: 0.02,
+  gainsDb: { bed: -6, motion: -12, texture: -9 },
+  seeds: {},
+  durationSeconds: 240,
+  sampleRate: 48000,
+  targetLufs: -20,
+  truePeakMaxDbtp: -3,
+  pilot: null,
+  spectrum: { tiltDbPerOct: 0, bell: null },
+  path: "present_master.wav",
+  sizeBytes: 1,
+  audioUrl: "",
+  downloadUrl: "",
+  exists: true,
+  stems: [{ filename: "present_stem_1.wav", sizeBytes: 1, number: 1, stem: "bed", audioUrl: "", downloadUrl: "", exists: true }],
+  qaVerdict: "PASS",
+  qaChecks: [],
+  measuredLufs: null,
+  measuredTruePeak: null,
+  renderStatus: "Done",
+  renderedAt: null,
+  title: "SEO Title",
+  titleApproved: true,
+  ...overrides,
+});
+
+const namingRelease = (overrides: Partial<Release> = {}): Release => ({
+  id: "saved-album",
+  type: "album",
+  artist: "Eric",
+  title: "Quiet Album",
+  genre: "Ambient",
+  secondaryGenre: "New Age",
+  releaseDate: "",
+  artSeed: null,
+  songwriter: "",
+  tracks: [{ variantId: "wn_pink_mid_drift_balanced", title: "Track One", description: "", approvedAt: null }],
+  submitted: { at: null, storeUrl: null },
+  ...overrides,
+});
+
+test("names a saved-release bundle and its master and stem paths", () => {
+  const track = namingTrack();
+  const names = bundleNaming(track, [namingRelease()]);
+  assert.equal(names.zipFilename, "Eric - Quiet Album [Masters & Stems].zip");
+  assert.equal(names.masterPath, "Eric - Quiet Album [Masters]/Eric - Quiet Album - 01 - Track One (Pink Noise) [Master].wav");
+  assert.equal(names.stemsPath(track.stems[0]), "Eric - Quiet Album [Stems]/Eric - Quiet Album - 01 - Track One (Pink Noise) [Stems]/Stem 1.wav");
+});
+
+test("falls back to a preset release and the approved SEO title", () => {
+  const track = namingTrack({ title: "SEO Title", titleApproved: true });
+  const preset = namingRelease({ id: "pink-album", artist: "chamberecho", title: "Pink Noise", tracks: [{ variantId: track.variantId, title: "", description: "", approvedAt: null }] });
+  const names = bundleNaming(track, [preset]);
+  assert.equal(names.zipFilename, "chamberecho - Pink Noise [Masters & Stems].zip");
+  assert.match(names.masterPath, /- 01 - SEO Title \(Pink Noise\) \[Master\]\.wav$/);
+});
+
+test("falls back from missing release title to the variant id and sanitizes names", () => {
+  const track = namingTrack({ title: "Ignored", titleApproved: false });
+  const release = namingRelease({ artist: "Eric / Test", title: "Album: One", tracks: [{ variantId: track.variantId, title: "Rain / Fire: Night", description: "", approvedAt: null }] });
+  const names = bundleNaming(track, [release]);
+  assert.equal(names.masterPath, "Eric Test - Album One [Masters]/Eric Test - Album One - 01 - Rain Fire Night (Pink Noise) [Master].wav");
+  const missing = bundleNaming(track, [namingRelease({ tracks: [{ variantId: track.variantId, title: "", description: "", approvedAt: null }] })]);
+  assert.match(missing.masterPath, /- 01 - wn_pink_mid_drift_balanced \(Pink Noise\) \[Master\]\.wav$/);
 });
 
 test("formats artifact sizes with decimal units", () => {
@@ -238,9 +317,10 @@ test("formats artifact sizes with decimal units", () => {
 
 test("writes streamed stored ZIP entries with CRCs and expected sizes", async () => {
   assert.equal(crc32(new TextEncoder().encode("123456789")), 0xcbf43926);
+  const expectedDate = new Date("2026-08-09T12:34:56Z");
   const stream = streamZip([
-    { name: "master.wav", data: (async function* () { yield new TextEncoder().encode("RIFF"); })() },
-    { name: "stem_1.wav", data: (async function* () { yield new TextEncoder().encode("stem"); })() },
+    { name: "máster.wav", date: expectedDate, data: (async function* () { yield new TextEncoder().encode("RIFF"); })() },
+    { name: "stem_1.wav", date: new Date("1979-11-30T01:02:04Z"), data: (async function* () { yield new TextEncoder().encode("stem"); })() },
   ]);
   const chunks: Uint8Array[] = [];
   const reader = stream.getReader();
@@ -267,10 +347,26 @@ test("writes streamed stored ZIP entries with CRCs and expected sizes", async ()
     sizes.push(size);
     offset = descriptor + 16;
   }
-  assert.deepEqual(names, ["master.wav", "stem_1.wav"]);
+  assert.deepEqual(names, ["máster.wav", "stem_1.wav"]);
   assert.deepEqual(sizes, [4, 4]);
   assert.equal(view.getUint32(offset, true), 0x02014b50);
-  assert.equal(view.getUint16(offset + 8, true), 8);
+  assert.equal(view.getUint16(offset + 4, true), 0x0314);
+  assert.equal(view.getUint16(offset + 6, true), 20);
+  assert.equal(view.getUint16(offset + 8, true), 0x808);
+  assert.equal(view.getUint16(offset + 10, true), 0);
+  const dosTime = (date: Date) => (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);
+  const dosDate = (date: Date, year = date.getFullYear()) => ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
+  assert.equal(view.getUint16(10, true), dosTime(expectedDate));
+  assert.equal(view.getUint16(12, true), dosDate(expectedDate));
+  const centralOffset = offset;
+  assert.equal(view.getUint16(centralOffset + 12, true), dosTime(expectedDate));
+  assert.equal(view.getUint16(centralOffset + 14, true), dosDate(expectedDate));
+  const secondCentralOffset = centralOffset + 46 + view.getUint16(centralOffset + 28, true);
+  const clampedDate = new Date("1979-11-30T01:02:04Z");
+  assert.equal(view.getUint16(secondCentralOffset + 12, true), dosTime(clampedDate));
+  assert.equal(view.getUint16(secondCentralOffset + 14, true), dosDate(clampedDate, 1980));
+  assert.equal(view.getUint16(6, true) & 0x800, 0x800);
+  assert.equal(view.getUint16(centralOffset + 8, true) & 0x800, 0x800);
 });
 
 test("only a master can be named", async () => {

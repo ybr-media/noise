@@ -91,8 +91,10 @@ export async function audioAsset(filename: string): Promise<AudioAsset | undefin
   return undefined;
 }
 
-export async function bundleAssets(variantId: string): Promise<(LibraryTrack | TrackStem)[] | undefined> {
+export type BundleAssets = { master: LibraryTrack; stems: TrackStem[] };
+
+export async function bundleAssets(variantId: string): Promise<BundleAssets | undefined> {
   const track = (await libraryTracks()).find((candidate) => candidate.variantId === variantId);
   if (!track?.exists) return undefined;
-  return [track, ...track.stems.filter((stem) => stem.exists)];
+  return { master: track, stems: track.stems.filter((stem) => stem.exists) };
 }
