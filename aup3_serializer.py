@@ -22,6 +22,8 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
+from resampling import resample_stereo
+
 FLOAT32_SAMPLE_FORMAT = 262159
 
 
@@ -474,14 +476,12 @@ def extract_track(project_path: Path, project_xml: str, track_index: int = 0) ->
 
 
 def write_wav(samples: np.ndarray, rate: int, output_path: Path) -> None:
-    """Write extracted samples as the required 48 kHz/24-bit stereo WAV."""
+    """Write extracted samples as a 24-bit stereo WAV."""
     if samples.ndim != 2 or samples.shape[1] != 2:
         raise Aup3Error("output must be a stereo sample matrix")
-    if rate != 48000:
-        raise Aup3Error(f"expected 48000 Hz, got {rate}")
     sf.write(output_path, samples, rate, format="WAV", subtype="PCM_24")
     with sf.SoundFile(output_path) as info:
-        if (info.samplerate, info.channels, info.subtype) != (48000, 2, "PCM_24"):
+        if (info.samplerate, info.channels, info.subtype) != (rate, 2, "PCM_24"):
             raise Aup3Error("written WAV does not have required format")
 
 
@@ -523,6 +523,7 @@ def extract_stereo_tracks_to_wavs(
     project_path: Path,
     project_xml_path: Path | None,
     output_paths: tuple[Path, ...],
+    stem_rate: int = 48000,
 ) -> None:
     """Write one WAV per stereo track, pairing tracks and paths in order."""
     project_xml = _project_xml(project_path, project_xml_path)
@@ -532,8 +533,11 @@ def extract_stereo_tracks_to_wavs(
             f"project has {len(indexes)} stereo track(s), "
             f"expected {len(output_paths)}"
         )
-    for index, output_path in zip(indexes, output_paths):
+    for position, (index, output_path) in enumerate(zip(indexes, output_paths)):
         samples, rate = extract_track(project_path, project_xml, index)
+        if position < len(indexes) - 1:
+            samples = resample_stereo(samples, rate, stem_rate)
+            rate = stem_rate
         write_wav(samples, rate, output_path)
 
 

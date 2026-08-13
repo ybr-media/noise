@@ -4,7 +4,8 @@
 # tuple) is a pure YAML edit and requires no change to gen_variants.py.
 
 output:
-  sample_rate: 48000
+  master_sample_rate: 96000
+  stem_sample_rate: 48000
   bit_depth: 24
   cell_seconds: 60
   repeats: 4

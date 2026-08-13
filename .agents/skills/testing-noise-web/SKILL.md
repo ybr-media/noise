@@ -91,6 +91,21 @@ looking for a *sibling job sharing the same variantId*, a batch (`pilot`/`full`)
 show "Retried ✓" after a reload in local-worker mode, while single-variant rows can. Expect this
 asymmetry before filing it as a bug.
 
+## Fabricating Library sync-failure states
+`librarySyncFailed` flips when *any* of the four endpoints in `refresh()` (`/api/variants`,
+`/api/library`, `/api/queue`, `/api/releases`) fails — all four must return OK for a successful sync.
+The cheapest toggle is a **temporary, uncommitted** flag-file check at the top of the GET handler in
+`web/app/api/library/route.ts`:
+
+```ts
+if (existsSync("/tmp/noise-fail")) return new Response("fail", { status: 500 });
+```
+
+`touch /tmp/noise-fail` to break sync, `rm` it to recover — no server restart needed. Never commit
+this; verify `git status` before any push. Note the Library panel has no refresh round-action: a
+failed sync is reached via page reload (or pull-to-refresh on touch), and retried by clicking the
+sync caption itself when it shows the failed state.
+
 ## Observing in-flight / busy UI state (refresh spinners, disabled, aria-busy)
 Local API routes answer in a few ms, so in-flight state is otherwise impossible to catch. Add a
 **temporary, uncommitted** env-gated delay at the top of the GET handlers in
@@ -214,6 +229,51 @@ the active panel (skipping `display:none` and closed `<details>`) and subtract i
 `.dock-tab` heights drop to ~41.5px at `<=520px` (the mobile rule shrinks `font-size` to 13px while
 keeping 11px padding), which is under the 44px guideline even though `.mini-segment`,
 `.bulk-action` buttons and `.queue-link` all explicitly set `min-height: 44px`.
+
+## Which config file the console actually reads (sample rate / duration assertions)
+`/api/variants` calls `loadVariants()` on **`config/variants.yaml`** (overridable with
+`NOISE_VARIANTS_FILE`); `config/variants_pilot.yaml` is only used for the `P1..P8` pilot labels and
+`config/dimensions.yaml` only for the matrix. Editing `dimensions.yaml` or `variants_pilot.yaml` and
+watching `/api/variants` therefore proves nothing — a common false negative.
+
+To prove a config key is genuinely read rather than silently satisfied by a hardcoded default
+(`sampleRate: number(row.sample_rate, number(output.master_sample_rate, 96000))` in `web/lib/config.ts`),
+do a three-way A/B on `config/variants.yaml` with the dev server running (config is read per request,
+no restart needed):
+
+```bash
+cp config/variants.yaml /tmp/variants.bak
+sed -i 's/master_sample_rate: 96000/master_sample_rate: 88200/' config/variants.yaml
+curl -s localhost:3000/api/variants | python3 -c "import json,sys,collections;print(collections.Counter(v['sampleRate'] for v in json.load(sys.stdin)['variants']))"
+# expect 88200 -> the key IS read; then delete the key entirely and expect the literal fallback
+cp /tmp/variants.bak config/variants.yaml   # always restore and confirm `git status` is clean
+```
+
+Beware: because the fallback literal equals the real configured value, a *renamed/misspelled* key
+would look correct. Only the "changed value propagates" case is real proof.
+
+Note the console surfaces only the **master** rate (`Variant.sampleRate`); no UI element derives a
+stem rate, so any "48 kHz" text you see (e.g. Store answers, or a seeded QA `Sample rate` check) is
+static copy or fixture data, not computed — do not read it as evidence the stems are downsampled.
+Verify real stem rates from the downloaded WAVs with `soundfile.info()`
+(master 96000/PCM_24, stems 48000/PCM_24). A quick UI-level sanity signal: in the Library download
+menu a 48 kHz stem is ~half the byte size of the 96 kHz master of the same duration.
+
+## Driving a release to `Ready` and reaching the DistroKid handoff
+`web/lib/releases.ts` only derives `Ready` when every track has a unique title, `artSeed` is set, all
+tracks are rendered with QA `PASS`, and artist/songwriter/release-date are filled. In the Releases →
+release detail view the order that works is: fill **Songwriter** and **Release date** → `Generate names`
+→ `Generate cover art` → `Approve names` → footer reads `Prepare for DistroKid` → click it.
+
+Two traps:
+- The footer button is a single position whose label/action changes per state, and in the handoff view a
+  red **`Mark submitted`** button sits at almost the same screen position. Blind consecutive clicks
+  there will jump `Ready → Submitted` and skip the handoff content entirely. Screenshot between clicks.
+- To reset a release that was accidentally submitted, edit `/home/ubuntu/noisegen-out/releases.json` and
+  set `"submitted": {"at": null, "storeUrl": null}`. Do **not** delete the `submitted` key — the code
+  reads `release.submitted.at` unguarded and `/api/releases` then 500s with
+  `TypeError: Cannot read properties of undefined (reading 'at')`, which makes the Releases tab show
+  "No releases yet."
 
 ## Test-harness caveat
 The screenshot tool annotates the live DOM with `devin-hidden`/`offscreen` attributes. A screenshot

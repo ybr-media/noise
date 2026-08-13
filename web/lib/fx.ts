@@ -246,7 +246,7 @@ function biquadResponseDb(coefficients: Coefficients, hz: number, sampleRate: nu
   return 20 * Math.log10(Math.max(magnitude, 1e-30));
 }
 
-export function eqResponseDb(gainsDb: number[], hz: number, sampleRate = 48000): number {
+export function eqResponseDb(gainsDb: number[], hz: number, sampleRate = 96000): number {
   let total = 0;
   for (let band = 0; band < EQ_BAND_HZ.length; band += 1) {
     const gain = gainsDb[band];
