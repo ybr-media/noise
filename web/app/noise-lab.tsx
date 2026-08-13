@@ -1119,7 +1119,7 @@ export default function NoiseLab() {
   const queueActiveCount = jobs.filter((job) => job.status === "Rendering").length;
   const queueWaitingCount = jobs.filter((job) => job.status === "Queued").length;
   const queueSyncStatus = queueActiveCount ? queueStrings.statusCaption.rendering(queueActiveCount) : queueWaitingCount ? queueStrings.statusCaption.queued : queueStrings.statusCaption.idle;
-  const queueSyncCaption = `${queueSyncStatus} · ${queueStrings.synced(lastQueueSync ? relativeTime(lastQueueSync) : "—")}${!queueActiveCount && !queueWaitingCount ? " · pull to refresh" : ""}`;
+  const queueSyncCaption = `${queueSyncStatus} · ${queueStrings.synced(lastQueueSync ? relativeTime(lastQueueSync) : "—")}`;
 
   return (
     <main className="noise-shell min-h-screen w-full" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif' }}>
