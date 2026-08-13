@@ -61,6 +61,7 @@ import {
 import { lintNames } from "@/lib/name-lint";
 import { formatBytes } from "@/lib/format";
 import { BellMark } from "./bell-mark";
+import { TOKENS } from "./ui/tokens";
 
 const TAB_ICONS = {
   design: SlidersHorizontal,
@@ -68,19 +69,6 @@ const TAB_ICONS = {
   library: LibraryBig,
   releases: Rocket,
 } as const;
-
-const C = {
-  page: "#F2F2F7",
-  card: "#FFFFFF",
-  label: "#1C1C1E",
-  secondary: "#8E8E93",
-  separator: "#D8D8DC",
-  track: "#E9E9EB",
-  accent: "#FF3B30",
-  green: "#34C759",
-  orange: "#FF9500",
-  blue: "#007AFF",
-};
 
 const SWATCH_FILLS: Record<string, string> = {
   white: "#F6F6F4",
@@ -249,7 +237,7 @@ function SwatchRow({ options, value, onChange, label }: {
           style={{ background: SWATCH_FILLS[id] }}>
           {value === id && (
             <svg viewBox="0 0 14 14" width={14} height={14} aria-hidden="true">
-              <path d="M3 7.5l2.5 2.5L11 4.5" stroke={DARK_CHECK_SWATCHES.has(id) ? "#1D1D1F" : "#FFFFFF"} strokeWidth="2" fill="none" strokeLinecap="round" />
+              <path d="M3 7.5l2.5 2.5L11 4.5" stroke={DARK_CHECK_SWATCHES.has(id) ? TOKENS.ink : TOKENS.white} strokeWidth="2" fill="none" strokeLinecap="round" />
             </svg>
           )}
         </button>
@@ -280,11 +268,11 @@ function Toast({ message, error, action, onClose }: ToastState & { onClose: () =
     return () => clearTimeout(timer);
   }, [onClose]);
   return (
-    <div className="toast" style={{ background: error ? C.accent : C.label }} role="status" aria-live="polite">
-      {error ? <AlertCircle size={17} color="#fff" /> : <Check size={17} color="#fff" />}
+    <div className="toast" style={{ background: error ? TOKENS.brand : TOKENS.ink }} role="status" aria-live="polite">
+      {error ? <AlertCircle size={17} color={TOKENS.white} /> : <Check size={17} color={TOKENS.white} />}
       <span className="flex-1 text-sm leading-5 text-white">{message}</span>
       {action && <button type="button" className="toast-action" onClick={action.onClick}>{action.label}</button>}
-      <button type="button" onClick={onClose} aria-label="Dismiss" className="toast-dismiss"><X size={16} color="#fff" /></button>
+      <button type="button" onClick={onClose} aria-label="Dismiss" className="toast-dismiss"><X size={16} color={TOKENS.white} /></button>
     </div>
   );
 }
@@ -403,7 +391,7 @@ function drawEqCurve(ctx: CanvasRenderingContext2D, width: number, gainsDb: numb
   const maxHz = 16000;
   ctx.save();
   if (flat) {
-    ctx.strokeStyle = "#d8d8dc";
+    ctx.strokeStyle = TOKENS.separator;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(0, 75);
@@ -443,7 +431,7 @@ function Spectrum({ analyser, playing, eqGains, eqBadge }: { analyser: AnalyserN
     if (!ctx) return;
     ctx.scale(ratio, ratio);
     const width = canvas.clientWidth;
-    ctx.strokeStyle = "#e9e9eb";
+    ctx.strokeStyle = TOKENS.track;
     ctx.lineWidth = 1;
     for (let y = 22; y < 140; y += 28) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
     const flat = eqGains.every((gain) => gain === 0);
@@ -451,14 +439,14 @@ function Spectrum({ analyser, playing, eqGains, eqBadge }: { analyser: AnalyserN
     if (!analyser || !playing) return;
     const bins = new Uint8Array(analyser.frequencyBinCount);
     const gradient = ctx.createLinearGradient(0, 0, width, 0);
-    gradient.addColorStop(0, "#ff3b30");
-    gradient.addColorStop(0.45, "#ff9500");
-    gradient.addColorStop(1, "#007aff");
+    gradient.addColorStop(0, TOKENS.brand);
+    gradient.addColorStop(0.45, TOKENS.orange);
+    gradient.addColorStop(1, TOKENS.link);
     let frame = 0;
     const draw = () => {
       analyser.getByteFrequencyData(bins);
       ctx.clearRect(0, 0, width, 150);
-      ctx.strokeStyle = "#e9e9eb";
+      ctx.strokeStyle = TOKENS.track;
       ctx.lineWidth = 1;
       for (let y = 22; y < 140; y += 28) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
       drawEqCurve(ctx, width, eqGains, eqGains.every((gain) => gain === 0));
@@ -480,7 +468,7 @@ function Spectrum({ analyser, playing, eqGains, eqBadge }: { analyser: AnalyserN
   return (
     <div className="relative">
       <canvas ref={ref} className="block h-[150px] w-full" aria-label="Approximate preview spectrum" />
-      {eqBadge && <span className="absolute right-2 top-2 rounded-full bg-[#007aff14] px-2 py-0.5 text-[10px] font-semibold text-[#007aff]">EQ: {eqBadge}</span>}
+      {eqBadge && <span className="absolute right-2 top-2 rounded-full bg-[color:var(--link-tint)] px-2 py-0.5 text-[10px] font-semibold text-[color:var(--link)]">EQ: {eqBadge}</span>}
     </div>
   );
 }
@@ -1286,7 +1274,7 @@ function TrackCard({ track, compact = false, onToast }: { track: LibraryTrack; c
       <div className="custom-player">{audioElement}<button type="button" className="player-play" aria-label={playing ? "Pause track" : "Play track"} onClick={togglePlay}>{playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}</button><span className="player-time">{formatDuration(elapsed)}</span><input className="player-scrubber" type="range" min={0} max={duration} step={0.1} value={Math.min(elapsed, duration)} aria-label="Seek track" onChange={(event) => seek(Number(event.target.value))} /><span className="player-time">{formatDuration(duration)}</span></div>
       <div className={metricClass}><button id={qaId} type="button" className="qa-header" aria-expanded={qaOpen} aria-controls={`${qaId}-checks`} onClick={() => setQaOpen((open) => !open)}><span><span className="qa-metric-label">LUFS</span><strong>{track.measuredLufs ?? "—"}</strong></span><span><span className="qa-metric-label">True peak</span><strong>{track.measuredTruePeak ?? "—"}</strong></span><span className="qa-verdict">{track.qaVerdict}</span>{qaOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>{qaOpen && <div id={`${qaId}-checks`} className="qa-checks">{track.qaChecks.length ? track.qaChecks.map((check) => <span key={check.name}><span>{check.passed ? "✓" : "×"} {check.name}</span><b>{check.measured}</b></span>) : "No QA checks available."}</div>}</div>
       <div className="download-menu-wrap"><div className="download-split"><button type="button" onClick={() => download()} disabled={downloadBusy} className="download-main"><Download size={15} /> {downloadBusy ? "Preparing…" : "Download"}</button><button type="button" className="download-chevron" aria-label="Download options" aria-haspopup="menu" aria-expanded={menu === "download"} onClick={() => setMenu(menu === "download" ? null : "download")}><ChevronDown size={15} /></button></div>{menu === "download" && <div className="track-menu download-menu" role="menu"><button type="button" role="menuitem" onClick={() => download()}><span>Master</span><small>{formatBytes(track.sizeBytes)}</small></button>{track.stems.filter((stem) => stem.exists).map((stem) => <button type="button" role="menuitem" key={stem.filename} onClick={() => download(stem.downloadUrl, stem.filename)}><span>Stem {stem.number} — {stem.stem}</span><small>{formatBytes(stem.sizeBytes)}</small></button>)}<div className="menu-separator" /><button type="button" role="menuitem" onClick={() => download(`/api/bundle/${encodeURIComponent(track.variantId)}`, `${track.variantId}.zip`)}><span>All as .zip</span><small>{formatBytes(track.sizeBytes + track.stems.filter((stem) => stem.exists).reduce((total, stem) => total + stem.sizeBytes, 0))}</small></button></div>}</div>
-        {suggestion && <div className="mt-3 rounded-xl border border-[#d8d8dc] p-3"><div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--secondary-text)]">Review before approval</div><input value={suggestion.title} onChange={(event) => setSuggestion({ ...suggestion, title: event.target.value })} className="w-full border-b border-[#d8d8dc] pb-1 text-sm font-semibold outline-none" /><textarea value={suggestion.description} onChange={(event) => setSuggestion({ ...suggestion, description: event.target.value })} className="mt-2 h-16 w-full resize-none text-xs leading-4 outline-none" /><div className="mt-2 flex justify-end gap-2"><button type="button" onClick={() => void regenerate()} disabled={busy} className="rounded-lg px-2 py-1.5 text-xs text-[#005bb5] disabled:text-[color:var(--secondary-text)]">Regenerate</button><button type="button" onClick={() => void approve()} disabled={busy} className="rounded-lg bg-[#34c759] px-3 py-1.5 text-xs font-semibold text-white disabled:bg-[#c7c7cc]">{busy ? "Approving…" : "Approve"}</button></div></div>}
+        {suggestion && <div className="mt-3 rounded-xl border border-[color:var(--separator)] p-3"><div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--secondary-text)]">Review before approval</div><input value={suggestion.title} onChange={(event) => setSuggestion({ ...suggestion, title: event.target.value })} className="w-full border-b border-[color:var(--separator)] pb-1 text-sm font-semibold outline-none" /><textarea value={suggestion.description} onChange={(event) => setSuggestion({ ...suggestion, description: event.target.value })} className="mt-2 h-16 w-full resize-none text-xs leading-4 outline-none" /><div className="mt-2 flex justify-end gap-2"><button type="button" onClick={() => void regenerate()} disabled={busy} className="rounded-lg px-2 py-1.5 text-xs text-[color:var(--link-dark)] disabled:text-[color:var(--secondary-text)]">Regenerate</button><button type="button" onClick={() => void approve()} disabled={busy} className="rounded-lg bg-[color:var(--success-bright)] px-3 py-1.5 text-xs font-semibold text-white disabled:bg-[color:var(--disabled)]">{busy ? "Approving…" : "Approve"}</button></div></div>}
     </article>
   );
 }
