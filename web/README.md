@@ -13,6 +13,20 @@ NOISE_RENDER_DIR="$HOME/noisegen-out" npm run dev
 
 Configuration:
 
+Authentication is configured entirely through environment variables:
+
+- `AUTH_SECRET` — secret used to sign 30-day JWT sessions.
+- `AUTH_RESEND_KEY` — Resend API key used for magic-link email.
+- `AUTH_EMAIL_FROM` — verified sender address on the `ybellrecords.com` domain.
+- `UPSTASH_REDIS_REST_URL` — Upstash Redis REST endpoint for users and verification tokens.
+- `UPSTASH_REDIS_REST_TOKEN` — Upstash Redis REST token.
+- `ALLOWED_EMAILS` — comma-separated exact addresses and/or domains, such as
+  `@ybellrecords.com,austin@marlo.today`.
+
+Magic links expire after 15 minutes and can only be used once. Missing
+authentication configuration fails at the authentication boundary; the sign-in
+page and build remain available while credentials are being provisioned.
+
 - `NOISE_VARIANTS_FILE` points to `../config/variants.yaml`. When the app is
   deployed on its own, a copy of the engine's `config/` beside `app/` is used
   instead.
