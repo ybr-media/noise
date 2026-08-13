@@ -62,6 +62,13 @@ import { lintNames } from "@/lib/name-lint";
 import { formatBytes } from "@/lib/format";
 import { BellMark } from "./bell-mark";
 import { TOKENS } from "./ui/tokens";
+import { Card } from "./ui/card";
+import { Chip } from "./ui/chip";
+import { StatusPill } from "./ui/status-pill";
+import { Button } from "./ui/button";
+import { Banner } from "./ui/banner";
+import { EmptyState } from "./ui/empty-state";
+import { Disclosure } from "./ui/disclosure";
 
 const TAB_ICONS = {
   design: SlidersHorizontal,
@@ -294,26 +301,26 @@ function DesignSkeleton() {
   return (
     <SkeletonPanel label="Loading design controls…">
       <div className="design-stack">
-        <section className="soft-card spectrum-card">
+        <Card as="section" padding="md" className="spectrum-card">
           <Skeleton height={150} radius={16} />
           <div className="spectrum-ticks">{["30", "500", "2k", "16k"].map((tick) => <Skeleton key={tick} width={34} />)}</div>
-        </section>
+        </Card>
         <div className="action-row">
           <Skeleton className="skeleton-fixed" width={88} height={88} radius="50%" />
           <Skeleton className="skeleton-grow" height={52} radius={999} />
         </div>
-        <section className="soft-card controls-card">
+        <Card as="section" padding="md" className="controls-card">
           {["color", "band", "motion", "balance"].map((row) => (
             <div key={row} className="param-row">
               <div className="param-row-heading"><Skeleton width={68} height={15} /><Skeleton width={120} height={11} /></div>
               <Skeleton height={48} radius={16} />
             </div>
           ))}
-        </section>
-        <section className="soft-card variant-card">
+        </Card>
+        <Card as="section" padding="md" className="variant-card">
           <Skeleton width="66%" height={14} />
           <div className="variant-meta mt-4"><Skeleton width={104} /><Skeleton width={74} /></div>
-        </section>
+        </Card>
       </div>
     </SkeletonPanel>
   );
@@ -326,13 +333,13 @@ function LibrarySkeleton() {
       <Skeleton className="library-sync-skeleton" width={92} height={10} />
       <div className="library-list">
         {[0, 1, 2].map((card) => (
-          <article key={card} className="soft-card track-card">
+          <Card as="article" key={card} padding="md" className="track-card">
             <Skeleton width="46%" height={12} />
             <Skeleton className="mt-3" width="64%" height={15} />
             <Skeleton className="mt-3" height={38} radius={12} />
             <Skeleton className="mt-3" height={62} radius={12} />
             <div className="mt-3 flex gap-2"><Skeleton height={40} radius={12} /><Skeleton height={40} radius={12} /></div>
-          </article>
+          </Card>
         ))}
       </div>
     </SkeletonPanel>
@@ -345,7 +352,7 @@ function QueueSkeleton() {
       {["Active", "Today", "This week"].map((group) => (
         <section key={group} className="queue-group">
           <div className="section-title">{group}</div>
-          <div className="queue-job-list">{[0, 1].map((card) => <article className="queue-job-card" key={card}><Skeleton width="58%" height={17} /><div className="mt-3 flex gap-2"><Skeleton width={62} height={24} radius={8} /><Skeleton width={52} height={24} radius={8} /><Skeleton width={64} height={24} radius={8} /></div><Skeleton className="mt-3" width="34%" height={11} /><Skeleton className="mt-3" height={42} radius={999} /></article>)}</div>
+          <div className="queue-job-list">{[0, 1].map((card) => <Card as="article" key={card} padding="md"><Skeleton width="58%" height={17} /><div className="mt-3 flex gap-2"><Skeleton width={62} height={24} radius={8} /><Skeleton width={52} height={24} radius={8} /><Skeleton width={64} height={24} radius={8} /></div><Skeleton className="mt-3" width="34%" height={11} /><Skeleton className="mt-3" height={42} radius={999} /></Card>)}</div>
         </section>
       ))}
     </SkeletonPanel>
@@ -357,13 +364,13 @@ function ReleasesSkeleton() {
     <SkeletonPanel label="Loading releases…">
       <div className="release-list">
         {[0, 1, 2].map((card) => (
-          <article key={card} className="soft-card release-card">
+          <Card as="article" key={card} padding="md" className="release-card">
             <div className="release-card-heading">
               <div className="min-w-0 flex-1"><Skeleton width={72} height={10} /><Skeleton className="mt-2" width="58%" height={18} /><Skeleton className="mt-2" width="42%" height={11} /></div>
               <Skeleton className="skeleton-fixed" width={58} height={20} radius={999} />
             </div>
             <div className="release-checklist"><Skeleton width={64} height={11} /><Skeleton width={48} height={11} /><Skeleton width={56} height={11} /><Skeleton width="70%" height={11} /></div>
-          </article>
+          </Card>
         ))}
       </div>
     </SkeletonPanel>
@@ -726,7 +733,7 @@ function ToneSection({ fx, onChange }: { fx: FxState; onChange: (update: (old: F
   const flat = eqIsFlat(fx.eq);
   const chipPresets = EQ_PRESETS.filter((preset) => preset !== "custom" || fx.eq.preset === "custom");
   return (
-    <section className="soft-card controls-card">
+    <Card as="section" padding="md" className="controls-card">
       <div className="param-row">
         <div className="param-row-heading">
           <div className="param-title">Tone</div>
@@ -756,7 +763,7 @@ function ToneSection({ fx, onChange }: { fx: FxState; onChange: (update: (old: F
           </div>
         )}
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -777,7 +784,7 @@ function SpaceSection({ fx, onChange, nominalSeconds }: { fx: FxState; onChange:
   const tail = reverbTailSeconds(fx.reverb);
   const setReverb = (patch: Partial<ReverbState>) => onChange((old) => ({ ...old, reverb: { ...old.reverb, ...patch, preset: "custom" } }));
   return (
-    <section className="soft-card controls-card">
+    <Card as="section" padding="md" className="controls-card">
       <div className="param-row">
         <div className="param-row-heading">
           <div className="param-title">Space</div>
@@ -789,19 +796,18 @@ function SpaceSection({ fx, onChange, nominalSeconds }: { fx: FxState; onChange:
         {!off && (
           <div className="fx-detail">
             <FxSlider label="Room amount" value={fx.reverb.mixPercent} min={0} max={100} step={1} unit="%" onChange={(value) => setReverb({ mixPercent: value })} />
-            <button type="button" className="fx-link" aria-expanded={advanced} onClick={() => setAdvanced((open) => !open)}>{advanced ? "Hide advanced" : "Advanced"}</button>
-            {advanced && (
+            <Disclosure open={advanced} onOpenChange={setAdvanced} summary={advanced ? "Hide advanced" : "Advanced"} triggerClassName="fx-link">
               <div className="fx-advanced-grid">
                 <FxSlider label="Room size" value={fx.reverb.roomSize} min={0} max={100} step={1} unit="%" onChange={(value) => setReverb({ roomSize: value })} />
                 <FxSlider label="Pre-delay" value={fx.reverb.preDelayMs} min={0} max={200} step={1} unit=" ms" onChange={(value) => setReverb({ preDelayMs: value })} />
                 <FxSlider label="Decay" value={fx.reverb.reverberance} min={0} max={100} step={1} unit="%" onChange={(value) => setReverb({ reverberance: value })} />
                 <FxSlider label="Damping" value={fx.reverb.damping} min={0} max={100} step={1} unit="%" onChange={(value) => setReverb({ damping: value })} />
               </div>
-            )}
+            </Disclosure>
           </div>
         )}
       </div>
-    </section>
+    </Card>
   );
 }
 
@@ -1076,32 +1082,32 @@ export default function NoiseLab() {
           {initialLoad && !selected && <DesignSkeleton />}
           {selected && (
           <div className="design-stack">
-            <section className="soft-card spectrum-card">
+            <Card as="section" padding="md" className="spectrum-card">
               <div className="spectrum-frame"><Spectrum analyser={preview.analyser} playing={preview.playing} eqGains={fx.eq.gainsDb} eqBadge={eqIsFlat(fx.eq) ? null : EQ_PRESET_LABELS[fx.eq.preset]} /></div>
               <div className="spectrum-ticks"><span>30 Hz</span><span>500</span><span>2k</span><span>16k</span></div>
-            </section>
+            </Card>
             <div className="action-row">
               <button type="button" onClick={preview.toggle} aria-label={preview.playing ? "Stop approximate preview" : "Play approximate preview"} className="play-button">
                 {preview.playing ? <Pause size={27} fill="white" strokeWidth={0} /> : <Play size={27} fill="white" strokeWidth={0} className="ml-1" />}
               </button>
-              <button type="button" onClick={() => void queue([selected.variantId], "one")} disabled={queueing} className="queue-primary" title="Queues only the currently selected variant." aria-label={`Queue only the currently selected variant, variant #${selected.matrixIndex} of ${variants.length}`}>
+              <Button variant="primary" type="button" onClick={() => void queue([selected.variantId], "one")} disabled={queueing} title="Queues only the currently selected variant." aria-label={`Queue only the currently selected variant, variant #${selected.matrixIndex} of ${variants.length}`}>
                 <Layers size={16} />
                 <span>{queueing ? "Creating…" : "Create track"}</span>
-              </button>
+              </Button>
             </div>
-            <section className="soft-card controls-card">
+            <Card as="section" padding="md" className="controls-card">
               <ParamRow label="Color" caption={PARAM_CAPTIONS[selection.color]}><SwatchRow options={OPTIONS.color} value={selection.color} onChange={(value) => setSelection((old) => ({ ...old, color: value }))} label="Color" /></ParamRow>
               <ParamRow label="Band" caption={PARAM_CAPTIONS[selection.band]}><GlyphSegmented options={OPTIONS.band} value={selection.band} onChange={(value) => setSelection((old) => ({ ...old, band: value }))} label="Band" /></ParamRow>
               <ParamRow label="Motion" caption={PARAM_CAPTIONS[selection.motion]}><GlyphSegmented options={OPTIONS.motion} value={selection.motion} onChange={(value) => setSelection((old) => ({ ...old, motion: value }))} label="Motion" /></ParamRow>
               <ParamRow label="Balance" caption={PARAM_CAPTIONS[selection.balance]}><GlyphSegmented options={OPTIONS.balance} value={selection.balance} onChange={(value) => setSelection((old) => ({ ...old, balance: value }))} label="Balance" /></ParamRow>
-            </section>
+            </Card>
             <ToneSection fx={fx} onChange={setFx} />
             <SpaceSection fx={fx} onChange={setFx} nominalSeconds={selected.durationSeconds} />
-            <section className="soft-card variant-card">
+            <Card as="section" padding="md" className="variant-card">
               <div className="variant-id">{selected.variantId}</div>
               <div className="variant-meta"><span>Duration {reverbIsOff(fx.reverb) ? formatDuration(selected.durationSeconds) : formatTail(selected.durationSeconds, reverbTailSeconds(fx.reverb))}</span><span>Seed {selected.seeds.bed_l}</span></div>
-              {selected.pilot && <div className="pilot-badge">Pilot {selected.pilot}</div>}
-            </section>
+              {selected.pilot && <Chip tone="brand" className="pilot-badge">Pilot {selected.pilot}</Chip>}
+            </Card>
           </div>
           )}
         </div>
@@ -1178,7 +1184,7 @@ function Library({ tracks, loading, initialLoad, onRefresh, onToast, lastSync, s
       <div className="library-toolbar"><div className="section-title">Masters · {tracks.filter((track) => track.exists).length}</div><button type="button" className="icon-action view-toggle" aria-label={view === "cards" ? "Switch to compact rows" : "Switch to expanded cards"} title={view === "cards" ? "Compact rows" : "Expanded cards"} onClick={toggleView}>{view === "cards" ? <List size={18} /> : <LayoutGrid size={18} />}</button></div>
       {syncFailed ? <button type="button" className="library-sync-caption is-failed" onClick={onRefresh} disabled={loading}>{syncCaption}</button> : <div className="library-sync-caption" aria-live="polite">{syncCaption}</div>}
       <div className="library-list">
-        {tracks.filter((track) => track.exists).length === 0 && <div className="soft-card empty-state">No rendered files found.</div>}
+        {tracks.filter((track) => track.exists).length === 0 && <Card padding="md"><EmptyState title="No rendered files found." /></Card>}
         {tracks.filter((track) => track.exists).map((track) => <TrackCard key={track.variantId} track={track} compact={view === "rows"} onToast={onToast} />)}
       </div>
     </section>
@@ -1255,7 +1261,7 @@ function TrackCard({ track, compact = false, onToast }: { track: LibraryTrack; c
   const audioElement = <audio ref={audioRef} preload="none" src={track.audioUrl} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onTimeUpdate={(event) => setElapsed(event.currentTarget.currentTime)} onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : track.durationSeconds)} />;
   if (compact) {
     return (
-      <article id={`track-${track.variantId}`} className="soft-card track-row">
+      <Card as="article" id={`track-${track.variantId}`} padding="md" className="track-row">
         {audioElement}
         <button type="button" className="player-play track-row-play" aria-label={playing ? "Pause track" : "Play track"} onClick={togglePlay}>{playing ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}</button>
         <div className="track-row-body">
@@ -1263,19 +1269,21 @@ function TrackCard({ track, compact = false, onToast }: { track: LibraryTrack; c
           <div className="track-row-meta">{track.renderedAt && <><time title={absoluteTime(track.renderedAt)}>{formatCreatedDate(track.renderedAt)}</time> · </>}{formatDuration(duration)} · <span className={track.qaVerdict === "FAIL" ? "qa-fail-text" : undefined}>{track.qaVerdict}</span></div>
         </div>
         <button type="button" className="icon-action track-row-download" aria-label={`Download ${title}`} disabled={downloadBusy} onClick={() => download()}><Download size={17} /></button>
-      </article>
+      </Card>
     );
   }
   return (
-    <article id={`track-${track.variantId}`} className="soft-card track-card">
+    <Card as="article" id={`track-${track.variantId}`} padding="md" className="track-card">
       <div className="track-card-heading"><div className="track-card-title" title={title}>{title}{track.titleApproved && <span className="approved-marker">approved</span>}</div><div className="track-menu-wrap"><button type="button" className="icon-action" aria-label="More track actions" aria-haspopup="menu" aria-expanded={menu === "overflow"} onClick={() => setMenu(menu === "overflow" ? null : "overflow")}><MoreHorizontal size={19} /></button>{menu === "overflow" && <div className="track-menu" role="menu"><button type="button" role="menuitem" onClick={togglePlay}>{playing ? "Pause" : "Play"}</button><button type="button" role="menuitem" onClick={() => { setMenu(null); void generate(); }}><Sparkles size={14} /> Suggest SEO name</button><button type="button" role="menuitem" onClick={() => { setQaOpen(true); setMenu(null); document.getElementById(qaId)?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>View QA report</button><button type="button" role="menuitem" onClick={() => void copyUrl()}>Copy file URL <span className="developer-label">(developer)</span></button></div>}</div></div>
-      <div className="track-chips"><span className="track-chip">Matrix {track.matrixIndex}</span><span className="track-chip">{track.color}</span><span className="track-chip">{track.band}</span><span className="track-chip">{track.motion}</span></div>
+      <div className="track-chips"><Chip>Matrix {track.matrixIndex}</Chip><Chip>{track.color}</Chip><Chip>{track.band}</Chip><Chip>{track.motion}</Chip></div>
       {track.renderedAt && <div className="track-date">Created <time title={absoluteTime(track.renderedAt)}>{formatCreatedDate(track.renderedAt)}</time></div>}
       <div className="custom-player">{audioElement}<button type="button" className="player-play" aria-label={playing ? "Pause track" : "Play track"} onClick={togglePlay}>{playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}</button><span className="player-time">{formatDuration(elapsed)}</span><input className="player-scrubber" type="range" min={0} max={duration} step={0.1} value={Math.min(elapsed, duration)} aria-label="Seek track" onChange={(event) => seek(Number(event.target.value))} /><span className="player-time">{formatDuration(duration)}</span></div>
-      <div className={metricClass}><button id={qaId} type="button" className="qa-header" aria-expanded={qaOpen} aria-controls={`${qaId}-checks`} onClick={() => setQaOpen((open) => !open)}><span><span className="qa-metric-label">LUFS</span><strong>{track.measuredLufs ?? "—"}</strong></span><span><span className="qa-metric-label">True peak</span><strong>{track.measuredTruePeak ?? "—"}</strong></span><span className="qa-verdict">{track.qaVerdict}</span>{qaOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</button>{qaOpen && <div id={`${qaId}-checks`} className="qa-checks">{track.qaChecks.length ? track.qaChecks.map((check) => <span key={check.name}><span>{check.passed ? "✓" : "×"} {check.name}</span><b>{check.measured}</b></span>) : "No QA checks available."}</div>}</div>
-      <div className="download-menu-wrap"><div className="download-split"><button type="button" onClick={() => download()} disabled={downloadBusy} className="download-main"><Download size={15} /> {downloadBusy ? "Preparing…" : "Download"}</button><button type="button" className="download-chevron" aria-label="Download options" aria-haspopup="menu" aria-expanded={menu === "download"} onClick={() => setMenu(menu === "download" ? null : "download")}><ChevronDown size={15} /></button></div>{menu === "download" && <div className="track-menu download-menu" role="menu"><button type="button" role="menuitem" onClick={() => download()}><span>Master</span><small>{formatBytes(track.sizeBytes)}</small></button>{track.stems.filter((stem) => stem.exists).map((stem) => <button type="button" role="menuitem" key={stem.filename} onClick={() => download(stem.downloadUrl, stem.filename)}><span>Stem {stem.number} — {stem.stem}</span><small>{formatBytes(stem.sizeBytes)}</small></button>)}<div className="menu-separator" /><button type="button" role="menuitem" onClick={() => download(`/api/bundle/${encodeURIComponent(track.variantId)}`, `${track.variantId}.zip`)}><span>All as .zip</span><small>{formatBytes(track.sizeBytes + track.stems.filter((stem) => stem.exists).reduce((total, stem) => total + stem.sizeBytes, 0))}</small></button></div>}</div>
+      <Disclosure open={qaOpen} onOpenChange={setQaOpen} className={metricClass} triggerClassName="qa-header" triggerId={qaId} contentId={`${qaId}-checks`} summary={<><span><span className="qa-metric-label">LUFS</span><strong>{track.measuredLufs ?? "—"}</strong></span><span><span className="qa-metric-label">True peak</span><strong>{track.measuredTruePeak ?? "—"}</strong></span><span className="qa-verdict">{track.qaVerdict}</span>{qaOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</>}>
+        <div className="qa-checks">{track.qaChecks.length ? track.qaChecks.map((check) => <span key={check.name}><span>{check.passed ? "✓" : "×"} {check.name}</span><b>{check.measured}</b></span>) : "No QA checks available."}</div>
+      </Disclosure>
+      <div className="download-menu-wrap"><div className="download-split"><Button variant="secondary" type="button" onClick={() => download()} disabled={downloadBusy} className="download-main"><Download size={15} /> {downloadBusy ? "Preparing…" : "Download"}</Button><button type="button" className="download-chevron" aria-label="Download options" aria-haspopup="menu" aria-expanded={menu === "download"} onClick={() => setMenu(menu === "download" ? null : "download")}><ChevronDown size={15} /></button></div>{menu === "download" && <div className="track-menu download-menu" role="menu"><button type="button" role="menuitem" onClick={() => download()}><span>Master</span><small>{formatBytes(track.sizeBytes)}</small></button>{track.stems.filter((stem) => stem.exists).map((stem) => <button type="button" role="menuitem" key={stem.filename} onClick={() => download(stem.downloadUrl, stem.filename)}><span>Stem {stem.number} — {stem.stem}</span><small>{formatBytes(stem.sizeBytes)}</small></button>)}<div className="menu-separator" /><button type="button" role="menuitem" onClick={() => download(`/api/bundle/${encodeURIComponent(track.variantId)}`, `${track.variantId}.zip`)}><span>All as .zip</span><small>{formatBytes(track.sizeBytes + track.stems.filter((stem) => stem.exists).reduce((total, stem) => total + stem.sizeBytes, 0))}</small></button></div>}</div>
         {suggestion && <div className="mt-3 rounded-xl border border-[color:var(--separator)] p-3"><div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--ink-secondary)]">Review before approval</div><input value={suggestion.title} onChange={(event) => setSuggestion({ ...suggestion, title: event.target.value })} className="w-full border-b border-[color:var(--separator)] pb-1 text-sm font-semibold outline-none" /><textarea value={suggestion.description} onChange={(event) => setSuggestion({ ...suggestion, description: event.target.value })} className="mt-2 h-16 w-full resize-none text-xs leading-4 outline-none" /><div className="mt-2 flex justify-end gap-2"><button type="button" onClick={() => void regenerate()} disabled={busy} className="rounded-lg px-2 py-1.5 text-xs text-[color:var(--link)] disabled:text-[color:var(--ink-secondary)]">Regenerate</button><button type="button" onClick={() => void approve()} disabled={busy} className="rounded-lg bg-[color:var(--success)] px-3 py-1.5 text-xs font-semibold text-white disabled:bg-[color:var(--surface-sunken)]">{busy ? "Approving…" : "Approve"}</button></div></div>}
-    </article>
+    </Card>
   );
 }
 
@@ -1296,10 +1304,10 @@ function Releases({ releases, releaseId, variants, tracks, mode, loading, initia
     : <ReleaseDetail release={release} savedArtist={releases.find((candidate) => !candidate.unsaved)?.artist} variants={variants} tracks={tracks} mode={mode} onRefresh={onRefresh} onToast={onToast} />;
   return (
     <>
-      <div className="release-wip-banner" role="alert">
+      <Banner tone="warning">
         <AlertCircle size={18} aria-hidden="true" />
         <div><strong>Work in progress — do not use</strong><span>The Releases workflow is not ready for production.</span></div>
-      </div>
+      </Banner>
       {content}
     </>
   );
@@ -1314,14 +1322,14 @@ function ReleaseList({ releases, loading, initialLoad, onRefresh }: { releases: 
       </div>
       {initialLoad && <ReleasesSkeleton />}
       <div className="release-list">
-        {!initialLoad && releases.length === 0 && <div className="soft-card empty-state">No releases yet.</div>}
+        {!initialLoad && releases.length === 0 && <Card padding="md"><EmptyState title="No releases yet." /></Card>}
         {releases.map((release) => (
-          <article key={release.id} className="soft-card release-card" tabIndex={0} role="button" onClick={() => { window.location.hash = `releases/${encodeURIComponent(release.id)}`; }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") window.location.hash = `releases/${encodeURIComponent(release.id)}`; }}>
-            <div className="release-card-heading"><div className="min-w-0 text-left"><div className="release-kicker">{release.unsaved ? "Suggested preset" : release.type.toUpperCase()}</div><h3>{release.title}</h3><p>{release.artist} · {release.tracks.length} tracks</p></div><span className={`release-state release-state-${release.state.toLowerCase()}`}>{release.state}</span></div>
+          <Card as="article" key={release.id} padding="md" className="release-card" tabIndex={0} role="button" onClick={() => { window.location.hash = `releases/${encodeURIComponent(release.id)}`; }} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") window.location.hash = `releases/${encodeURIComponent(release.id)}`; }}>
+            <div className="release-card-heading"><div className="min-w-0 text-left"><div className="release-kicker">{release.unsaved ? "Suggested preset" : release.type.toUpperCase()}</div><h3>{release.title}</h3><p>{release.artist} · {release.tracks.length} tracks</p></div><StatusPill state={release.state.toLowerCase() as "ready" | "submitted" | "active" | "queued" | "rendering" | "failed" | "cancelled" | "pending"}>{release.state}</StatusPill></div>
             <div className="release-checklist" aria-label={`${release.state}: ${release.blockingItem}`}><span className={release.ladder.named ? "release-stage-done" : "release-stage-pending"}>{release.ladder.named ? "✓" : "○"} Named</span><span className={release.ladder.art ? "release-stage-done" : "release-stage-pending"}>{release.ladder.art ? "✓" : "○"} Art</span><span className={release.ladder.ready ? "release-stage-done" : "release-stage-pending"}>{release.ladder.ready ? "✓" : "○"} Ready</span>{release.ladder.submitted && <span className="release-stage-done">✓ Submitted</span>}<span className="release-blocker">{release.blockingItem}</span></div>
             {release.unsaved && release.id === "pilot-ep" && <div className="release-preset-hint">Start with the pilot EP (8 tracks)</div>}
             {release.submitted.storeUrl && <a href={release.submitted.storeUrl} target="_blank" rel="noreferrer" className="release-store-link" onClick={(event) => event.stopPropagation()}>Submitted · open in store ↗</a>}
-          </article>
+          </Card>
         ))}
       </div>
     </section>
@@ -1498,12 +1506,12 @@ function ReleaseDetail({ release, savedArtist, variants, tracks, mode, onRefresh
     <section className="panel-section release-detail">
       <button type="button" className="back-link" onClick={() => { window.location.hash = "releases"; }}><ChevronLeft size={17} /> All releases</button>
       <div className="panel-heading"><div><div className="release-kicker">{release.unsaved ? "Suggested preset" : release.type.toUpperCase()}</div><h2>{draft.title || "Untitled release"}</h2><p>{draft.tracks.length} tracks · <span aria-live="polite">{release.state} · {release.blockingItem}</span></p>{release.submitted.storeUrl && <a href={release.submitted.storeUrl} target="_blank" rel="noreferrer" className="release-store-link">Submitted · open in store ↗</a>}</div><button type="button" onClick={() => void persist()} disabled={busy || mode === "unavailable" || release.state === "Submitted"} className="round-action" aria-label="Save release"><Save size={14} /></button></div>
-      {mode === "unavailable" && <div className="soft-card unavailable-note">Releases are edited where a writer is configured; this deployment is read-only.</div>}
-      <section className="soft-card release-section"><div className="section-title">Metadata</div><div className="release-fields">
+      {mode === "unavailable" && <Banner tone="danger" className="unavailable-note">Releases are edited where a writer is configured; this deployment is read-only.</Banner>}
+      <Card as="section" padding="md" className="release-section"><div className="section-title">Metadata</div><div className="release-fields">
         {(["artist", "title", "genre", "secondaryGenre", "songwriter"] as const).map((field) => <label key={field} className="release-field"><span>{field === "secondaryGenre" ? "Secondary genre" : field[0].toUpperCase() + field.slice(1)}</span><input value={draft[field]} disabled={mode === "unavailable"} onChange={(event) => update({ [field]: event.target.value })} /></label>)}
         <label className="release-field"><span>Release date</span><input type="date" value={draft.releaseDate} disabled={mode === "unavailable"} onChange={(event) => update({ releaseDate: event.target.value })} /></label>
-      </div></section>
-      <section className="soft-card release-section"><div className="section-title">Tracklist · {draft.tracks.length}</div>
+      </div></Card>
+      <Card as="section" padding="md" className="release-section"><div className="section-title">Tracklist · {draft.tracks.length}</div>
         <ol className="tracklist" aria-label="Release tracklist">
           {draft.tracks.map((track, index) => {
             const library = libraryById.get(track.variantId);
@@ -1514,10 +1522,10 @@ function ReleaseDetail({ release, savedArtist, variants, tracks, mode, onRefresh
             </li>;
           })}
         </ol>
-        <div className="release-track-actions"><button type="button" className="queue-secondary" disabled={busy || mode === "unavailable"} onClick={() => void generateNames()}><Sparkles size={14} /> Generate names</button><button type="button" className="queue-primary" disabled={busy || mode === "unavailable" || lint.hardFailures.length > 0 || !namesReady} onClick={() => void approveNames()}>Approve names</button></div>
-      </section>
-      <section className="soft-card release-section"><div className="section-title">Cover art</div><div className="cover-art-frame">{draft.artSeed === null ? <div className="empty-state">No art yet — generate a seed below.</div> : <canvas ref={artPreview} width="240" height="240" aria-label="Generated cover art preview" />}</div><div className="cover-art-actions"><button type="button" className="queue-secondary" disabled={mode === "unavailable"} onClick={regenerateArt}>{draft.artSeed === null ? "Generate cover art" : "Regenerate"}</button>{draft.artSeed !== null && <button type="button" className="queue-secondary cover-download" onClick={downloadArt}><Download size={14} /> Download PNG</button>}</div></section>
-      <div className="release-footer"><div className="release-footer-status" aria-live="polite"><strong>{release.state}</strong><span>{release.blockingItem}</span></div><button type="button" className="queue-primary" disabled={busy || mode === "unavailable" || (release.state === "Ready" && !namesReady)} onClick={() => void footerAction()}>{footerLabel}</button></div>
+        <div className="release-track-actions"><Button variant="neutral" type="button" disabled={busy || mode === "unavailable"} onClick={() => void generateNames()}><Sparkles size={14} /> Generate names</Button><Button variant="primary" type="button" disabled={busy || mode === "unavailable" || lint.hardFailures.length > 0 || !namesReady} onClick={() => void approveNames()}>Approve names</Button></div>
+      </Card>
+      <Card as="section" padding="md" className="release-section"><div className="section-title">Cover art</div><div className="cover-art-frame">{draft.artSeed === null ? <EmptyState title="No art yet — generate a seed below." /> : <canvas ref={artPreview} width="240" height="240" aria-label="Generated cover art preview" />}</div><div className="cover-art-actions"><Button variant="neutral" type="button" disabled={mode === "unavailable"} onClick={regenerateArt}>{draft.artSeed === null ? "Generate cover art" : "Regenerate"}</Button>{draft.artSeed !== null && <Button variant="neutral" type="button" className="cover-download" onClick={downloadArt}><Download size={14} /> Download PNG</Button>}</div></Card>
+      <div className="release-footer"><div className="release-footer-status" aria-live="polite"><strong>{release.state}</strong><span>{release.blockingItem}</span></div><Button variant="primary" type="button" disabled={busy || mode === "unavailable" || (release.state === "Ready" && !namesReady)} onClick={() => void footerAction()}>{footerLabel}</Button></div>
     </section>
   );
 }
@@ -1535,12 +1543,12 @@ function DistroHandoff({ release, tracks, onBack, onCopy, onSubmit, mode }: {
   return <section className="panel-section release-detail">
     <button type="button" className="back-link" onClick={onBack}><ChevronLeft size={17} /> Release checklist</button>
     <div className="panel-heading"><div><h2>Prepare for DistroKid</h2><p>Copy each field, then upload the downloaded files.</p></div></div>
-    <section className="soft-card release-section"><div className="section-title">Release metadata</div>{[
+    <Card as="section" padding="md" className="release-section"><div className="section-title">Release metadata</div>{[
       ["Artist", release.artist], ["Release title", release.title], ["Number of songs", String(release.tracks.length)], ["Genre", release.genre], ["Secondary genre", release.secondaryGenre], ["Release date", release.releaseDate], ["Songwriter", release.songwriter],
-    ].map(([label, value]) => <div className="copy-field" key={label}><div><span>{label}</span><strong>{value || "Not set"}</strong></div><button type="button" className="copy-button" disabled={!value} onClick={() => onCopy(value, label)} aria-label={`Copy ${label}`}><Clipboard size={16} /> Copy</button></div>)}</section>
-    <section className="soft-card release-section"><div className="section-title">Tracklist</div>{release.tracks.map((track, index) => <div className="copy-field" key={track.variantId}><div><span>{index + 1}. Track title · Songwriter</span><strong>{track.title} · {release.songwriter || "Not set"}</strong></div><div className="copy-actions"><button type="button" className="copy-button" onClick={() => onCopy(track.title, `Track ${index + 1} title`)}><Clipboard size={16} /> Copy</button>{byId.get(track.variantId)?.exists && <a className="copy-button" href={byId.get(track.variantId)?.downloadUrl} download><Download size={16} /> WAV</a>}</div></div>)}</section>
-    <section className="soft-card release-section"><div className="section-title">Store answers</div><p className="handoff-note">Not explicit · Instrumental · No radio edit</p><p className="handoff-note">Masters: 48 kHz/24-bit WAV · −20 LUFS / −3 dBTP</p></section>
-    <section className="soft-card release-section"><div className="section-title">Mark submitted</div><label className="release-field"><span>DistroKid or Spotify URL (optional)</span><input value={storeUrl} onChange={(event) => setStoreUrl(event.target.value)} placeholder="https://" /></label><button type="button" className="queue-primary handoff-submit" disabled={mode === "unavailable"} onClick={() => void onSubmit(storeUrl)}>Mark submitted</button></section>
+    ].map(([label, value]) => <div className="copy-field" key={label}><div><span>{label}</span><strong>{value || "Not set"}</strong></div><Button variant="link" type="button" disabled={!value} onClick={() => onCopy(value, label)} aria-label={`Copy ${label}`}><Clipboard size={16} /> Copy</Button></div>)}</Card>
+    <Card as="section" padding="md" className="release-section"><div className="section-title">Tracklist</div>{release.tracks.map((track, index) => <div className="copy-field" key={track.variantId}><div><span>{index + 1}. Track title · Songwriter</span><strong>{track.title} · {release.songwriter || "Not set"}</strong></div><div className="copy-actions"><Button variant="link" type="button" onClick={() => onCopy(track.title, `Track ${index + 1} title`)}><Clipboard size={16} /> Copy</Button>{byId.get(track.variantId)?.exists && <Button as="a" variant="link" href={byId.get(track.variantId)?.downloadUrl} download><Download size={16} /> WAV</Button>}</div></div>)}</Card>
+    <Card as="section" padding="md" className="release-section"><div className="section-title">Store answers</div><p className="handoff-note">Not explicit · Instrumental · No radio edit</p><p className="handoff-note">Masters: 48 kHz/24-bit WAV · −20 LUFS / −3 dBTP</p></Card>
+    <Card as="section" padding="md" className="release-section"><div className="section-title">Mark submitted</div><label className="release-field"><span>DistroKid or Spotify URL (optional)</span><input value={storeUrl} onChange={(event) => setStoreUrl(event.target.value)} placeholder="https://" /></label><Button variant="primary" type="button" className="handoff-submit" disabled={mode === "unavailable"} onClick={() => void onSubmit(storeUrl)}>Mark submitted</Button></Card>
   </section>;
 }
 
@@ -1549,6 +1557,7 @@ function Queue({ jobs, initialLoad, mode, stats, variants, tracks, onRefresh, re
   const { pullDistance, refreshShellRef } = usePullRefresh(refreshing, onRefresh);
   const [menu, setMenu] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
+  const [openDisclosure, setOpenDisclosure] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<RenderJob | null>(null);
   const [retried, setRetried] = useState<Set<string>>(new Set());
   const [archive, setArchive] = useState<DismissalRecord[]>([]);
@@ -1616,28 +1625,34 @@ function Queue({ jobs, initialLoad, mode, stats, variants, tracks, onRefresh, re
   const card = (job: RenderJob) => {
     const latest = job.latest; const failed = latest.status === "Failed" || latest.status === "Cancelled"; const done = latest.status === "Done"; const activeItem = latest.status === "Queued" || latest.status === "Rendering";
     const name = nameFor(latest.variantId); const failure = latest.failure?.step ? queueStrings.failedAt(latest.failure.step, latest.failure.exitCode) : latest.error ?? queueStrings.failure(name, latest.status); const displayTime = latest.finishedAt ?? latest.queuedAt;
-    return <article className="queue-job-card" key={job.variantId}>
-      <div className="queue-title-row"><div className="queue-name" title={name === "Unknown variant" ? latest.variantId : undefined}>{name}</div>{done ? <span className="queue-ready-chip">{queueStrings.status.done}</span> : failed && <div className="track-menu-wrap queue-menu-wrap"><button type="button" className="icon-action queue-overflow" aria-label="More queue actions" aria-haspopup="menu" aria-expanded={menu === latest.id} onClick={() => setMenu(menu === latest.id ? null : latest.id)}><MoreHorizontal size={19} /></button>{menu === latest.id && <div className="track-menu" role="menu">{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener" role="menuitem">{queueStrings.logs}</a>}<button type="button" role="menuitem" onClick={() => hasArtifacts(job) ? setConfirmRemove(job) : void remove(job)}>Remove from history</button></div>}</div>}</div>
-      <div className="queue-chips">{failed && <span className="queue-status-failed">{queueStrings.status.failed}</span>}{activeItem && <span className="queue-status-active">{latest.status === "Rendering" ? queueStrings.status.rendering : queueStrings.status.queued}</span>}{chipsFor(latest.variantId).map((chip) => <span className="queue-chip" key={chip}>{chip}</span>)}{fxBadges(latest.fx).map((badge) => <span className="queue-chip" key={badge}>{badge}</span>)}</div>
+    return <Card as="article" padding="md" key={job.variantId}>
+      <div className="queue-title-row"><div className="queue-name" title={name === "Unknown variant" ? latest.variantId : undefined}>{name}</div>{done ? <StatusPill state="ready">{queueStrings.status.done}</StatusPill> : failed && <div className="track-menu-wrap queue-menu-wrap"><button type="button" className="icon-action queue-overflow" aria-label="More queue actions" aria-haspopup="menu" aria-expanded={menu === latest.id} onClick={() => setMenu(menu === latest.id ? null : latest.id)}><MoreHorizontal size={19} /></button>{menu === latest.id && <div className="track-menu" role="menu">{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener" role="menuitem">{queueStrings.logs}</a>}<button type="button" role="menuitem" onClick={() => hasArtifacts(job) ? setConfirmRemove(job) : void remove(job)}>Remove from history</button></div>}</div>}</div>
+      <div className="queue-chips">{failed && <StatusPill state="failed">{queueStrings.status.failed}</StatusPill>}{activeItem && <StatusPill state="active">{latest.status === "Rendering" ? queueStrings.status.rendering : queueStrings.status.queued}</StatusPill>}{chipsFor(latest.variantId).map((chip) => <Chip key={chip}>{chip}</Chip>)}{fxBadges(latest.fx).map((badge) => <Chip key={badge}>{badge}</Chip>)}</div>
       {activeItem && <div className="queue-active-copy">{activeCopy(job)}</div>}
-      {failed && <details className="queue-detail-strip queue-failure-strip"><summary>{failure}<ChevronDown size={15} /></summary><div className="queue-diagnostics"><div>Failed step · {latest.failure?.step ?? "Unavailable"}</div><div>Exit code · {latest.failure?.exitCode ?? "—"}</div><div>Duration · {latest.failure?.durationSeconds ? formatQueueDuration(latest.failure.durationSeconds) : latest.durationSeconds ? formatQueueDuration(latest.durationSeconds) : "—"}</div><div>Runner · {latest.failure?.runner ?? (mode === "local" ? "Local worker" : "—")}</div>{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener">{queueStrings.logs} →</a>}</div></details>}
-      {job.attempts.length > 1 && <details className="queue-detail-strip queue-history-strip"><summary>{queueStrings.runHistory(job.attempts.length)}<ChevronDown size={15} /></summary><div className="queue-diagnostics">{job.attempts.map((attempt, index) => <div key={attempt.id}><span>{queueStrings.attempt(index + 1, relativeTime(attempt.queuedAt))}</span> <span className={attempt.status === "Done" ? "duration-good" : "duration-bad"}>{attempt.status === "Done" ? "✓" : "✗"} {attempt.durationSeconds ? formatQueueDuration(attempt.durationSeconds) : "—"}</span></div>)}</div></details>}
+      {failed && <Disclosure open={openDisclosure === `${latest.id}-failure`} onOpenChange={(open) => setOpenDisclosure(open ? `${latest.id}-failure` : null)} className="queue-detail-strip queue-failure-strip" summary={<>{failure}<ChevronDown size={15} /></>}>
+        <div className="queue-diagnostics"><div>Failed step · {latest.failure?.step ?? "Unavailable"}</div><div>Exit code · {latest.failure?.exitCode ?? "—"}</div><div>Duration · {latest.failure?.durationSeconds ? formatQueueDuration(latest.failure.durationSeconds) : latest.durationSeconds ? formatQueueDuration(latest.durationSeconds) : "—"}</div><div>Runner · {latest.failure?.runner ?? (mode === "local" ? "Local worker" : "—")}</div>{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener">{queueStrings.logs} →</a>}</div>
+      </Disclosure>}
+      {job.attempts.length > 1 && <Disclosure open={openDisclosure === `${latest.id}-history`} onOpenChange={(open) => setOpenDisclosure(open ? `${latest.id}-history` : null)} className="queue-detail-strip queue-history-strip" summary={<>{queueStrings.runHistory(job.attempts.length)}<ChevronDown size={15} /></>}>
+        <div className="queue-diagnostics">{job.attempts.map((attempt, index) => <div key={attempt.id}><span>{queueStrings.attempt(index + 1, relativeTime(attempt.queuedAt))}</span> <span className={attempt.status === "Done" ? "duration-good" : "duration-bad"}>{attempt.status === "Done" ? "✓" : "✗"} {attempt.durationSeconds ? formatQueueDuration(attempt.durationSeconds) : "—"}</span></div>)}</div>
+      </Disclosure>}
       <div className="queue-meta"><time title={absoluteTime(displayTime)}>{relativeTime(displayTime)}</time>{failed && ` · ${job.attempts.length} attempts`}</div>
-      <div className="queue-card-actions">{done ? <button type="button" className="queue-primary" onClick={() => onDone(latest)}>{queueStrings.library}</button> : failed && <><button type="button" className={`queue-primary ${retried.has(latest.id) ? "queue-retry-confirmed" : ""}`} disabled={queueing || retried.has(latest.id)} onClick={() => void retry(job)}>{retried.has(latest.id) ? "Queued ✓" : confirm === latest.id ? `Dispatch Actions run (${stats.sampleSize ? renderEstimate(stats.medianRenderSeconds, stats.sampleSize) : "~6 min"})?` : "Re-run render"}</button><button type="button" className="queue-secondary" onClick={() => hasArtifacts(job) ? setConfirmRemove(job) : void remove(job)}>Remove</button></>}</div>
-    </article>;
+      <div className="queue-card-actions">{done ? <Button variant="neutral" type="button" onClick={() => onDone(latest)}>{queueStrings.library}</Button> : failed && <><Button variant="neutral" type="button" className={retried.has(latest.id) ? "queue-retry-confirmed" : ""} disabled={queueing || retried.has(latest.id)} onClick={() => void retry(job)}>{retried.has(latest.id) ? "Queued ✓" : confirm === latest.id ? `Dispatch Actions run (${stats.sampleSize ? renderEstimate(stats.medianRenderSeconds, stats.sampleSize) : "~6 min"})?` : "Re-run render"}</Button><Button variant="neutral" type="button" onClick={() => hasArtifacts(job) ? setConfirmRemove(job) : void remove(job)}>Remove</Button></>}</div>
+    </Card>;
   };
   const archivedCard = (record: DismissalRecord) => {
     const job = record.job;
     const name = nameFor(job.variantId);
     const failure = job.failure?.step ? queueStrings.failedAt(job.failure.step, job.failure.exitCode) : job.error ?? queueStrings.failure(name, job.status);
-    return <article className="queue-job-card" key={job.id}>
+    return <Card as="article" padding="md" key={job.id}>
       <div className="queue-title-row"><div className="queue-name" title={name === "Unknown variant" ? job.variantId : undefined}>{name}</div></div>
-      <div className="queue-chips"><span className="queue-status-failed">{job.status === "Cancelled" ? queueStrings.status.cancelled : queueStrings.status.failed}</span>{chipsFor(job.variantId).map((chip) => <span className="queue-chip" key={chip}>{chip}</span>)}</div>
-      <details className="queue-detail-strip queue-failure-strip"><summary>{failure}<ChevronDown size={15} /></summary><div className="queue-diagnostics"><div>Failed step · {job.failure?.step ?? "Unavailable"}</div><div>Exit code · {job.failure?.exitCode ?? "—"}</div><div>Duration · {job.failure?.durationSeconds ? formatQueueDuration(job.failure.durationSeconds) : job.durationSeconds ? formatQueueDuration(job.durationSeconds) : "—"}</div><div>Runner · {job.failure?.runner ?? (mode === "local" ? "Local worker" : "—")}</div>{job.logsUrl && <a href={job.logsUrl} target="_blank" rel="noopener">{queueStrings.logs} →</a>}</div></details>
+      <div className="queue-chips"><StatusPill state={job.status === "Cancelled" ? "cancelled" : "failed"}>{job.status === "Cancelled" ? queueStrings.status.cancelled : queueStrings.status.failed}</StatusPill>{chipsFor(job.variantId).map((chip) => <Chip key={chip}>{chip}</Chip>)}</div>
+      <Disclosure open={openDisclosure === `${job.id}-failure`} onOpenChange={(open) => setOpenDisclosure(open ? `${job.id}-failure` : null)} className="queue-detail-strip queue-failure-strip" summary={<>{failure}<ChevronDown size={15} /></>}>
+        <div className="queue-diagnostics"><div>Failed step · {job.failure?.step ?? "Unavailable"}</div><div>Exit code · {job.failure?.exitCode ?? "—"}</div><div>Duration · {job.failure?.durationSeconds ? formatQueueDuration(job.failure.durationSeconds) : job.durationSeconds ? formatQueueDuration(job.durationSeconds) : "—"}</div><div>Runner · {job.failure?.runner ?? (mode === "local" ? "Local worker" : "—")}</div>{job.logsUrl && <a href={job.logsUrl} target="_blank" rel="noopener">{queueStrings.logs} →</a>}</div>
+      </Disclosure>
       <div className="queue-meta"><time title={absoluteTime(record.dismissedAt)}>{queueStrings.archivedAt(relativeTime(record.dismissedAt))}</time>{record.r2Cleanup && ` · ${queueStrings.r2Cleanup[record.r2Cleanup.state]}`}</div>
-    </article>;
+    </Card>;
   };
   const section = (label: string, items: RenderJob[]) => items.length ? <section className="queue-group queue-section" key={label}><div className="section-title">{label} · {items.length}</div><div className="queue-job-list">{items.map(card)}</div></section> : null;
   const buckets = groupCompletedByDay(completed);
-  return <section ref={refreshShellRef} className="panel-section queue-refresh-shell queue-section">{pullDistance > 0 && <div className={`pull-refresh-indicator ${pullDistance >= 56 ? "is-ready" : ""}`} style={{ height: pullDistance }}>{pullDistance >= 56 ? "Release to refresh" : "Pull to refresh"}</div>}<div className="queue-sync-caption" aria-live="polite"><span className={`queue-sync-dot ${activeCount ? "is-active" : ""}`} />{caption}</div>{initialLoad ? <QueueSkeleton /> : <>{section(queueStrings.sections.attention, attention)}{section(queueStrings.sections.active, active)}{buckets.map((bucket) => section(bucket.label, bucket.jobs))}{history.length > 0 && <details className="queue-history"><summary>{queueStrings.historyCount(history.length)}</summary><div className="queue-job-list">{history.map(card)}</div></details>}{archive.length > 0 && <details className="queue-history"><summary>{queueStrings.archivedCount(archive.length)}</summary><div className="queue-job-list">{archive.map(archivedCard)}</div></details>}</>}{confirmRemove && <div className="queue-confirm-backdrop" role="presentation" onClick={() => setConfirmRemove(null)}><div className="queue-confirm-sheet" role="dialog" aria-modal="true" aria-labelledby="queue-remove-title" onClick={(event) => event.stopPropagation()}><h2 id="queue-remove-title">Remove from history?</h2><p>This archives the queue entry — it stays reviewable under Archived below — and queues deletion of its published output from R2.</p><div className="queue-card-actions"><button type="button" className="queue-secondary" onClick={() => setConfirmRemove(null)}>Cancel</button><button type="button" className="queue-primary" onClick={() => void remove(confirmRemove)}>Remove history entry</button></div></div></div>}</section>;
+  return <section ref={refreshShellRef} className="panel-section queue-refresh-shell queue-section">{pullDistance > 0 && <div className={`pull-refresh-indicator ${pullDistance >= 56 ? "is-ready" : ""}`} style={{ height: pullDistance }}>{pullDistance >= 56 ? "Release to refresh" : "Pull to refresh"}</div>}<div className="queue-sync-caption" aria-live="polite"><span className={`queue-sync-dot ${activeCount ? "is-active" : ""}`} />{caption}</div>{initialLoad ? <QueueSkeleton /> : <>{section(queueStrings.sections.attention, attention)}{section(queueStrings.sections.active, active)}{buckets.map((bucket) => section(bucket.label, bucket.jobs))}{history.length > 0 && <Disclosure open={openDisclosure === "history"} onOpenChange={(open) => setOpenDisclosure(open ? "history" : null)} className="queue-history" summary={queueStrings.historyCount(history.length)}><div className="queue-job-list">{history.map(card)}</div></Disclosure>}{archive.length > 0 && <Disclosure open={openDisclosure === "archive"} onOpenChange={(open) => setOpenDisclosure(open ? "archive" : null)} className="queue-history" summary={queueStrings.archivedCount(archive.length)}><div className="queue-job-list">{archive.map(archivedCard)}</div></Disclosure>}</>}{confirmRemove && <div className="queue-confirm-backdrop" role="presentation" onClick={() => setConfirmRemove(null)}><div className="queue-confirm-sheet" role="dialog" aria-modal="true" aria-labelledby="queue-remove-title" onClick={(event) => event.stopPropagation()}><h2 id="queue-remove-title">Remove from history?</h2><p>This archives the queue entry — it stays reviewable under Archived below — and queues deletion of its published output from R2.</p><div className="queue-card-actions"><Button variant="neutral" type="button" onClick={() => setConfirmRemove(null)}>Cancel</Button><Button variant="primary" type="button" onClick={() => void remove(confirmRemove)}>Remove history entry</Button></div></div></div>}</section>;
 }
