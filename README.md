@@ -82,3 +82,34 @@ an optional `R2_BUCKET` repository variable.
 
 At roughly 3.5 s per variant, the full 144-variant matrix is about 9 minutes of
 runner time plus setup.
+
+## R2 cost monitoring
+
+R2 bills for three meters: storage (10 GB-month free, then $0.015/GB-month),
+Class A operations — writes/lists (1M/month free, then $4.50/million), and
+Class B operations — reads (10M/month free, then $0.36/million). Egress and
+deletes are free. Because published manifests are merged rather than pruned
+(see above), storage is the meter most likely to grow over time; the render
+workflow only publishes on manual dispatch, so operations are unlikely to
+spike on their own.
+
+`.github/workflows/r2-cost-monitor.yml` runs daily, reads current-month usage
+from Cloudflare's GraphQL Analytics API, and emails an alert via
+[Resend](https://resend.com) once any meter reaches 80% of its free tier
+(`vars.ALERT_THRESHOLD_PCT`). `scripts/check_r2_usage.py` can be run locally
+with `--dry-run` to print the same report without sending mail, or
+`--force-alert` to send regardless of thresholds (useful for testing
+delivery end to end).
+
+Beyond the existing `R2_ACCOUNT_ID` and `R2_BUCKET`, it needs:
+
+- `CLOUDFLARE_API_TOKEN` (repository secret) — an API token scoped to
+  **Account Analytics: Read** for the account that owns the bucket.
+- `RESEND_API_KEY` (repository secret) — a Resend API key, from a Resend
+  account under `eric@ybellrecords.com`.
+- `ALERT_EMAIL_FROM` (repository variable) — sender address on a domain
+  verified in that Resend account, e.g. `"R2 Alerts <alerts@ybellrecords.com>"`.
+- `ALERT_EMAIL_TO` (repository variable, optional) — defaults to
+  `eric@ybellrecords.com`.
+- `ALERT_EMAIL_CC` (repository variable, optional) — comma-separated
+  addresses to cc.
