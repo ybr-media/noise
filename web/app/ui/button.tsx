@@ -2,7 +2,7 @@ import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "reac
 
 type ButtonProps = (ButtonHTMLAttributes<HTMLButtonElement> & { as?: "button" }) | (AnchorHTMLAttributes<HTMLAnchorElement> & { as: "a" });
 type ButtonOptions = {
-  variant?: "primary" | "secondary" | "neutral" | "link";
+  variant?: "primary" | "neutral" | "link";
   icon?: ReactNode;
 };
 

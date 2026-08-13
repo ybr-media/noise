@@ -110,19 +110,16 @@ button:disabled { cursor: not-allowed; }
 .variant-card { position: relative; padding: 22px 24px; }
 .variant-id { margin-bottom: 12px; color: var(--ink); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; overflow-wrap: anywhere; }
 .variant-meta { display: flex; justify-content: space-between; color: var(--ink-secondary); font-size: var(--text-base); }
-.chip, .status-pill { display: inline-flex; align-items: center; min-height: 28px; border-radius: var(--radius-chip); padding: 5px 10px; color: var(--ink-secondary); background: var(--surface-sunken); font-size: var(--text-sm); font-weight: 600; }
+.chip, .status-pill { display: inline-flex; align-items: center; min-height: 28px; border-radius: var(--radius-pill); padding: 5px 10px; color: var(--ink-secondary); background: var(--surface-sunken); font-size: var(--text-sm); font-weight: 600; }
 .chip-success, .status-pill-success { color: var(--success); background: var(--success-bg); }
 .chip-danger, .status-pill-danger { color: var(--danger); background: var(--danger-bg); }
 .chip-active, .status-pill-active { color: var(--ink-secondary); background: var(--surface-sunken); }
-.chip-brand { color: var(--danger); background: var(--danger-bg); font-size: var(--text-xs); font-weight: 700; }
-.status-pill { font-size: var(--text-2xs); font-weight: 800; }
 .ui-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; border: 0; border-radius: var(--radius-pill); padding: 0 16px; font-size: var(--text-base); font-weight: 600; }
 .ui-button-primary { color: var(--surface); background: var(--brand); box-shadow: 0 6px 14px rgba(229,72,60,.2); }
-.ui-button-secondary { color: var(--surface); background: var(--ink); }
 .ui-button-neutral { color: var(--ink); background: var(--surface-sunken); font-weight: 500; }
 .ui-button-link { min-height: 44px; border-radius: var(--radius-chip); color: var(--link); background: var(--link-bg); font-size: var(--text-xs); font-weight: 700; }
 .ui-button-primary:disabled { background: var(--brand-disabled); box-shadow: none; }
-.ui-button-neutral:disabled, .ui-button-secondary:disabled { color: var(--ink-tertiary); }
+.ui-button-neutral:disabled { color: var(--ink-tertiary); }
 .panel-section { margin-top: 5px; }
 .panel-heading { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
 .panel-heading-actions { display: flex; align-items: center; gap: 8px; }
@@ -140,7 +137,6 @@ button:disabled { cursor: not-allowed; }
 .banner strong, .banner span { display: block; }
 .banner strong { font-size: var(--text-base); }
 .banner span { margin-top: 2px; }
-.banner-info { color: var(--ink-secondary); background: var(--surface-sunken); }
 .banner-warning { color: var(--warning); background: var(--warning-bg); border-color: var(--warning-border); }
 .banner-danger { color: var(--danger); background: var(--danger-bg); }
 .release-card { width: 100%; padding: 20px; border: 0; color: inherit; text-align: left; cursor: pointer; }

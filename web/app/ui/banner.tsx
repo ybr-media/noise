@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from "react";
 
 type BannerProps = HTMLAttributes<HTMLDivElement> & {
-  tone: "info" | "warning" | "danger";
+  tone: "warning" | "danger";
 };
 
 export function Banner({ tone, className = "", ...props }: BannerProps) {
