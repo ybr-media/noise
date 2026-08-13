@@ -7,7 +7,7 @@ export function shouldBypassAuth(pathname: string): boolean {
     || pathname.startsWith("/_next/static/")
     || pathname.startsWith("/_next/image")
     || pathname === "/favicon.ico"
-    || /\/[^/]+\.[^/]+$/.test(pathname)
+    || (!pathname.startsWith("/api/") && /\/[^/]+\.[^/]+$/.test(pathname))
     || pathname.startsWith("/api/auth/")
     || pathname.startsWith("/api/audio/");
 }

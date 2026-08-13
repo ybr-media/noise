@@ -19,6 +19,7 @@ test("audio range URLs stay open while other APIs remain protected", () => {
   assert.equal(accessForRequest("/api/audio/example.wav", false), "next");
   assert.equal(accessForRequest("/api/audio/example.wav?download=1", false), "next");
   assert.equal(accessForRequest("/api/queue", false), "unauthorized");
+  assert.equal(accessForRequest("/api/bundle/variant.v1", false), "unauthorized");
 });
 
 test("missing auth configuration enables explicit open mode", () => {
