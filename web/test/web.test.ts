@@ -319,7 +319,7 @@ test("writes streamed stored ZIP entries with CRCs and expected sizes", async ()
   assert.equal(crc32(new TextEncoder().encode("123456789")), 0xcbf43926);
   const expectedDate = new Date("2026-08-09T12:34:56Z");
   const stream = streamZip([
-    { name: "master.wav", date: expectedDate, data: (async function* () { yield new TextEncoder().encode("RIFF"); })() },
+    { name: "máster.wav", date: expectedDate, data: (async function* () { yield new TextEncoder().encode("RIFF"); })() },
     { name: "stem_1.wav", date: new Date("1979-11-30T01:02:04Z"), data: (async function* () { yield new TextEncoder().encode("stem"); })() },
   ]);
   const chunks: Uint8Array[] = [];
@@ -347,10 +347,11 @@ test("writes streamed stored ZIP entries with CRCs and expected sizes", async ()
     sizes.push(size);
     offset = descriptor + 16;
   }
-  assert.deepEqual(names, ["master.wav", "stem_1.wav"]);
+  assert.deepEqual(names, ["máster.wav", "stem_1.wav"]);
   assert.deepEqual(sizes, [4, 4]);
   assert.equal(view.getUint32(offset, true), 0x02014b50);
-  assert.equal(view.getUint16(offset + 8, true), 8);
+  assert.equal(view.getUint16(offset + 8, true), 0x808);
+  assert.equal(view.getUint16(offset + 10, true), 0);
   const dosTime = (date: Date) => (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);
   const dosDate = (date: Date, year = date.getFullYear()) => ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
   assert.equal(view.getUint16(10, true), dosTime(expectedDate));
@@ -362,6 +363,8 @@ test("writes streamed stored ZIP entries with CRCs and expected sizes", async ()
   const clampedDate = new Date("1979-11-30T01:02:04Z");
   assert.equal(view.getUint16(secondCentralOffset + 12, true), dosTime(clampedDate));
   assert.equal(view.getUint16(secondCentralOffset + 14, true), dosDate(clampedDate, 1980));
+  assert.equal(view.getUint16(6, true) & 0x800, 0x800);
+  assert.equal(view.getUint16(centralOffset + 8, true) & 0x800, 0x800);
 });
 
 test("only a master can be named", async () => {

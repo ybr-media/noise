@@ -43,7 +43,7 @@ export function streamZip(entries: ZipEntry[]): ReadableStream<Uint8Array> {
     for (const entry of entries) {
       const name = encoder.encode(entry.name);
       const dos = entry.date && !Number.isNaN(entry.date.getTime()) ? dosDateTime(entry.date) : dosDateTime(new Date());
-      yield join([u32(0x04034b50), u16(20), u16(8), u16(0), u16(dos.time), u16(dos.date), u32(0), u32(0), u32(0), u16(name.length), u16(0), name]);
+      yield join([u32(0x04034b50), u16(20), u16(0x808), u16(0), u16(dos.time), u16(dos.date), u32(0), u32(0), u32(0), u16(name.length), u16(0), name]);
       const source = entry.data[Symbol.asyncIterator]();
       let size = 0;
       let crc = 0xffffffff;
@@ -60,7 +60,7 @@ export function streamZip(entries: ZipEntry[]): ReadableStream<Uint8Array> {
       central.push({ name, crc, size, offset, ...dos });
       offset += 30 + name.length + size + 16;
     }
-    const directory = central.map((entry) => join([u32(0x02014b50), u16(20), u16(20), u16(8), u16(0), u16(entry.time), u16(entry.date), u32(entry.crc), u32(entry.size), u32(entry.size), u16(entry.name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(entry.offset), entry.name]));
+    const directory = central.map((entry) => join([u32(0x02014b50), u16(20), u16(20), u16(0x808), u16(0), u16(entry.time), u16(entry.date), u32(entry.crc), u32(entry.size), u32(entry.size), u16(entry.name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(entry.offset), entry.name]));
     const centralBytes = join(directory);
     yield centralBytes;
     yield join([u32(0x06054b50), u16(0), u16(0), u16(central.length), u16(central.length), u32(centralBytes.length), u32(offset), u16(0)]);
