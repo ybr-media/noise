@@ -54,6 +54,7 @@ import {
   toFxBlock,
   wetGainDb,
   type EqPreset,
+  type EqState,
   type FxState,
   type ReverbPreset,
   type ReverbState,
@@ -69,6 +70,7 @@ import { Button } from "./ui/button";
 import { Banner } from "./ui/banner";
 import { EmptyState } from "./ui/empty-state";
 import { Disclosure } from "./ui/disclosure";
+import { Switch } from "./ui/switch";
 
 const TAB_ICONS = {
   design: SlidersHorizontal,
@@ -691,7 +693,11 @@ function useFxState(variantId: string | undefined): [FxState, (update: (old: FxS
     try {
       const saved = JSON.parse(localStorage.getItem(FX_STORAGE_KEY) ?? "{}") as Record<string, FxState>;
       const stored = saved[variantId];
-      setFx(stored && stored.eq && stored.reverb ? stored : defaultFx());
+      setFx(stored && stored.eq && stored.reverb ? {
+        ...stored,
+        eq: eqIsFlat(stored.eq) ? eqPresetState("flat") : stored.eq,
+        reverb: reverbIsOff(stored.reverb) ? reverbPresetState("off") : stored.reverb,
+      } : defaultFx());
     } catch { setFx(defaultFx()); }
   }, [variantId]);
   const update = useCallback((mutate: (old: FxState) => FxState) => {
@@ -729,19 +735,34 @@ function ChipRow({ options, value, onChange, label }: {
   );
 }
 
-function ToneSection({ fx, onChange }: { fx: FxState; onChange: (update: (old: FxState) => FxState) => void }) {
+function EqSection({ fx, onChange, variantId }: { fx: FxState; onChange: (update: (old: FxState) => FxState) => void; variantId?: string }) {
   const flat = eqIsFlat(fx.eq);
-  const chipPresets = EQ_PRESETS.filter((preset) => preset !== "custom" || fx.eq.preset === "custom");
+  const previousEq = useRef<EqState | null>(null);
+  useEffect(() => { previousEq.current = null; }, [variantId]);
+  const chipPresets = EQ_PRESETS.filter((preset) => preset !== "flat" && (preset !== "custom" || fx.eq.preset === "custom"));
+  const toggle = () => {
+    if (flat) {
+      const remembered = previousEq.current;
+      onChange((old) => ({ ...old, eq: remembered && !eqIsFlat(remembered) ? remembered : eqPresetState("warm-bed") }));
+    } else {
+      previousEq.current = fx.eq;
+      onChange((old) => ({ ...old, eq: eqPresetState("flat") }));
+    }
+  };
   return (
     <Card as="section" padding="md" className="controls-card">
       <div className="param-row">
         <div className="param-row-heading">
-          <div className="param-title">Tone</div>
-          <div className="param-caption"><span className="param-caption-text">{flat ? "Flat — untouched" : `${EQ_PRESET_LABELS[fx.eq.preset]} EQ`}</span></div>
+          <div className="param-title">EQ</div>
+          <div className="param-row-heading-actions">
+            <div className="param-caption"><span className="param-caption-text">{flat ? "Off" : `${EQ_PRESET_LABELS[fx.eq.preset]} EQ`}</span></div>
+            <Switch checked={!flat} aria-label="EQ on/off" onChange={toggle} />
+          </div>
         </div>
-        <ChipRow label="Tone preset" value={fx.eq.preset}
+        {!flat && <ChipRow label="EQ preset" value={fx.eq.preset}
           options={chipPresets.map((preset) => ({ id: preset, name: EQ_PRESET_LABELS[preset] }))}
           onChange={(id) => onChange((old) => ({ ...old, eq: id === "custom" ? { ...old.eq, preset: "custom" } : eqPresetState(id as Exclude<EqPreset, "custom">) }))} />
+        }
         {!flat && (
           <div className="fx-detail">
             <div className="fx-eq-grid" role="group" aria-label="EQ bands">
@@ -759,7 +780,6 @@ function ToneSection({ fx, onChange }: { fx: FxState; onChange: (update: (old: F
                 </div>
               ))}
             </div>
-            <button type="button" className="fx-link" onClick={() => onChange((old) => ({ ...old, eq: eqPresetState("flat") }))}>Reset to Flat</button>
           </div>
         )}
       </div>
@@ -778,21 +798,36 @@ function FxSlider({ label, value, min, max, step, unit, onChange }: { label: str
   );
 }
 
-function SpaceSection({ fx, onChange, nominalSeconds }: { fx: FxState; onChange: (update: (old: FxState) => FxState) => void; nominalSeconds: number }) {
+function ReverbSection({ fx, onChange, nominalSeconds, variantId }: { fx: FxState; onChange: (update: (old: FxState) => FxState) => void; nominalSeconds: number; variantId?: string }) {
   const [advanced, setAdvanced] = useState(false);
   const off = reverbIsOff(fx.reverb);
+  const previousReverb = useRef<ReverbState | null>(null);
+  useEffect(() => { previousReverb.current = null; }, [variantId]);
   const tail = reverbTailSeconds(fx.reverb);
+  const toggle = () => {
+    if (off) {
+      const remembered = previousReverb.current;
+      onChange((old) => ({ ...old, reverb: remembered && !reverbIsOff(remembered) ? remembered : reverbPresetState("medium-room") }));
+    } else {
+      previousReverb.current = fx.reverb;
+      onChange((old) => ({ ...old, reverb: reverbPresetState("off") }));
+    }
+  };
   const setReverb = (patch: Partial<ReverbState>) => onChange((old) => ({ ...old, reverb: { ...old.reverb, ...patch, preset: "custom" } }));
   return (
     <Card as="section" padding="md" className="controls-card">
       <div className="param-row">
         <div className="param-row-heading">
-          <div className="param-title">Space</div>
-          <div className="param-caption"><span className="param-caption-text">{off ? "Dry — no reverb" : `${REVERB_PRESET_LABELS[fx.reverb.preset]} · ${formatTail(nominalSeconds, tail)}`}</span></div>
+          <div className="param-title">Reverb</div>
+          <div className="param-row-heading-actions">
+            <div className="param-caption"><span className="param-caption-text">{off ? "Off" : `${REVERB_PRESET_LABELS[fx.reverb.preset]} · ${formatTail(nominalSeconds, tail)}`}</span></div>
+            <Switch checked={!off} aria-label="Reverb on/off" onChange={toggle} />
+          </div>
         </div>
-        <ChipRow label="Space preset" value={fx.reverb.preset}
-          options={REVERB_PRESETS.filter((preset) => preset !== "custom" || fx.reverb.preset === "custom").map((preset) => ({ id: preset, name: REVERB_PRESET_LABELS[preset] }))}
+        {!off && <ChipRow label="Reverb preset" value={fx.reverb.preset}
+          options={REVERB_PRESETS.filter((preset) => preset !== "off" && (preset !== "custom" || fx.reverb.preset === "custom")).map((preset) => ({ id: preset, name: REVERB_PRESET_LABELS[preset] }))}
           onChange={(id) => onChange((old) => ({ ...old, reverb: id === "custom" ? { ...old.reverb, preset: "custom" } : reverbPresetState(id as Exclude<ReverbPreset, "custom">) }))} />
+        }
         {!off && (
           <div className="fx-detail">
             <FxSlider label="Room amount" value={fx.reverb.mixPercent} min={0} max={100} step={1} unit="%" onChange={(value) => setReverb({ mixPercent: value })} />
@@ -1101,8 +1136,8 @@ export default function NoiseLab() {
               <ParamRow label="Motion" caption={PARAM_CAPTIONS[selection.motion]}><GlyphSegmented options={OPTIONS.motion} value={selection.motion} onChange={(value) => setSelection((old) => ({ ...old, motion: value }))} label="Motion" /></ParamRow>
               <ParamRow label="Balance" caption={PARAM_CAPTIONS[selection.balance]}><GlyphSegmented options={OPTIONS.balance} value={selection.balance} onChange={(value) => setSelection((old) => ({ ...old, balance: value }))} label="Balance" /></ParamRow>
             </Card>
-            <ToneSection fx={fx} onChange={setFx} />
-            <SpaceSection fx={fx} onChange={setFx} nominalSeconds={selected.durationSeconds} />
+            <EqSection fx={fx} onChange={setFx} variantId={selected.variantId} />
+            <ReverbSection fx={fx} onChange={setFx} nominalSeconds={selected.durationSeconds} variantId={selected.variantId} />
             <Card as="section" padding="md" className="variant-card">
               <div className="variant-id">{selected.variantId}</div>
               <div className="variant-meta"><span>Duration {reverbIsOff(fx.reverb) ? formatDuration(selected.durationSeconds) : formatTail(selected.durationSeconds, reverbTailSeconds(fx.reverb))}</span><span>Seed {selected.seeds.bed_l}</span></div>
