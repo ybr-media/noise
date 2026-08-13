@@ -71,6 +71,7 @@ import { Banner } from "./ui/banner";
 import { EmptyState } from "./ui/empty-state";
 import { Disclosure } from "./ui/disclosure";
 import { useFirstRun } from "@/lib/use-first-run";
+import { useTutorial, type TourStep } from "./ui/tutorial";
 
 const TAB_ICONS = {
   design: SlidersHorizontal,
@@ -836,6 +837,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
   const [documentVisible, setDocumentVisible] = useState(true);
   const libraryReturnTab = useRef<"design" | "queue" | "releases" | null>(null);
   const retryInFlight = useRef(false);
+  const queueRef = useRef<(ids: string[], label: "one" | "pilot" | "full") => Promise<void>>(async () => {});
   const tabsRef = useRef<HTMLElement>(null);
   const lensRef = useRef<HTMLDivElement>(null);
   const queueCount = jobs.filter((job) => job.status === "Queued" || job.status === "Rendering").length;
@@ -844,9 +846,38 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
   const selected = useMemo(() => variants.find((variant) => variant.color === selection.color && variant.band === selection.band && variant.motion === selection.motion && variant.balance === selection.balance), [selection, variants]);
   const pilotCount = variants.filter((variant) => variant.pilot !== null).length;
   const [fx, setFx] = useFxState(selected?.variantId);
+  const tourNotifyRef = useRef<(type: "param-selected" | "fx-changed" | "render-enqueued" | "tab-changed" | "track-played", group?: string) => void>(() => {});
+  const onTourDoItForMe = useCallback((step: TourStep) => {
+    if (step.id === "param-color") {
+      setSelection((old) => ({ ...old, color: "green" }));
+      tourNotifyRef.current("param-selected", "color");
+    } else if (step.id === "param-shape") {
+      setSelection((old) => ({ ...old, band: "broad" }));
+      tourNotifyRef.current("param-selected", "shape");
+    } else if (step.id === "fx") {
+      setFx((old) => ({ ...old, eq: eqPresetState("warm-bed") }));
+      tourNotifyRef.current("fx-changed");
+    } else if (step.id === "render") {
+      if (selected) void queueRef.current([selected.variantId], "one");
+    } else if (step.id === "queue-tab") {
+      document.querySelector<HTMLElement>('[data-tour="dock-queue"]')?.click();
+    } else if (step.id === "library-tab") {
+      document.querySelector<HTMLElement>('[data-tour="dock-library"]')?.click();
+    } else if (step.id === "track-play") {
+      document.querySelector<HTMLElement>('[data-tour="library-track"] .player-play')?.click();
+    }
+  }, [selected, setFx]);
+  const tour = useTutorial({ mode: renderMode, authConfigured, onDoItForMe: onTourDoItForMe });
+  tourNotifyRef.current = tour.notify;
+  const tourActive = tour.active;
+  const startTour = tour.start;
   const preview = useApproxPreview(selected, fx);
   const queueFetchInFlight = useRef(false);
   const initialLoad = loading && !everLoaded;
+  const updateFx = useCallback((update: (old: FxState) => FxState) => {
+    setFx(update);
+    tourNotifyRef.current("fx-changed");
+  }, [setFx]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -887,6 +918,9 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
     }
   }, []);
   useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    if (firstRun.shouldLaunch && variants.length > 0 && !tourActive) startTour();
+  }, [firstRun.shouldLaunch, startTour, tourActive, variants.length]);
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("noise.library.seen") ?? "[]") as unknown;
@@ -1042,11 +1076,13 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
           ? `${colorLabel} master and stems being rendered`
           : `${label === "pilot" ? "Pilot set" : `Full matrix (${variants.length} variants)`} sent to the ${target}.`,
       });
+      tour.notify("render-enqueued");
       await refresh();
     } finally {
       setQueueing(false);
     }
   }
+  queueRef.current = queue;
 
   async function retry(job: QueueJob) {
     if (queueing || retryInFlight.current) return false;
@@ -1085,7 +1121,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
               <div className="spectrum-frame"><Spectrum analyser={preview.analyser} playing={preview.playing} eqGains={fx.eq.gainsDb} eqBadge={eqIsFlat(fx.eq) ? null : EQ_PRESET_LABELS[fx.eq.preset]} /></div>
               <div className="spectrum-ticks"><span>30 Hz</span><span>500</span><span>2k</span><span>16k</span></div>
             </Card>
-            <div className="action-row">
+            <div className="action-row" data-tour="design-render">
               <button type="button" onClick={preview.toggle} aria-label={preview.playing ? "Stop approximate preview" : "Play approximate preview"} className="play-button">
                 {preview.playing ? <Pause size={27} fill="white" strokeWidth={0} /> : <Play size={27} fill="white" strokeWidth={0} className="ml-1" />}
               </button>
@@ -1094,19 +1130,18 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
                 <span>{queueing ? "Creating…" : "Create track"}</span>
               </Button>
             </div>
-            <Card as="section" padding="md" className="controls-card">
-              <ParamRow label="Color" caption={PARAM_CAPTIONS[selection.color]}><SwatchRow options={OPTIONS.color} value={selection.color} onChange={(value) => setSelection((old) => ({ ...old, color: value }))} label="Color" /></ParamRow>
-              <ParamRow label="Band" caption={PARAM_CAPTIONS[selection.band]}><GlyphSegmented options={OPTIONS.band} value={selection.band} onChange={(value) => setSelection((old) => ({ ...old, band: value }))} label="Band" /></ParamRow>
-              <ParamRow label="Motion" caption={PARAM_CAPTIONS[selection.motion]}><GlyphSegmented options={OPTIONS.motion} value={selection.motion} onChange={(value) => setSelection((old) => ({ ...old, motion: value }))} label="Motion" /></ParamRow>
-              <ParamRow label="Balance" caption={PARAM_CAPTIONS[selection.balance]}><GlyphSegmented options={OPTIONS.balance} value={selection.balance} onChange={(value) => setSelection((old) => ({ ...old, balance: value }))} label="Balance" /></ParamRow>
+            <Card as="section" padding="md" className="controls-card" data-tour="design-params">
+              <ParamRow label="Color" caption={PARAM_CAPTIONS[selection.color]}><SwatchRow options={OPTIONS.color} value={selection.color} onChange={(value) => { setSelection((old) => ({ ...old, color: value })); tour.notify("param-selected", "color"); }} label="Color" /></ParamRow>
+              <ParamRow label="Band" caption={PARAM_CAPTIONS[selection.band]}><GlyphSegmented options={OPTIONS.band} value={selection.band} onChange={(value) => { setSelection((old) => ({ ...old, band: value })); tour.notify("param-selected", "shape"); }} label="Band" /></ParamRow>
+              <ParamRow label="Motion" caption={PARAM_CAPTIONS[selection.motion]}><GlyphSegmented options={OPTIONS.motion} value={selection.motion} onChange={(value) => { setSelection((old) => ({ ...old, motion: value })); tour.notify("param-selected", "shape"); }} label="Motion" /></ParamRow>
+              <ParamRow label="Balance" caption={PARAM_CAPTIONS[selection.balance]}><GlyphSegmented options={OPTIONS.balance} value={selection.balance} onChange={(value) => { setSelection((old) => ({ ...old, balance: value })); tour.notify("param-selected", "shape"); }} label="Balance" /></ParamRow>
             </Card>
-            <ToneSection fx={fx} onChange={setFx} />
-            <SpaceSection fx={fx} onChange={setFx} nominalSeconds={selected.durationSeconds} />
+            <div data-tour="design-fx"><ToneSection fx={fx} onChange={updateFx} /><SpaceSection fx={fx} onChange={updateFx} nominalSeconds={selected.durationSeconds} /></div>
           </div>
           )}
         </div>
-        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} lastSync={lastLibrarySync} syncFailed={librarySyncFailed} /></div>
-        <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} initialLoad={initialLoad} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} onToast={setToast} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} lastSync={lastQueueSync} /></div>
+        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} lastSync={lastLibrarySync} syncFailed={librarySyncFailed} onTrackPlay={() => tour.notify("track-played")} /></div>
+        <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><div data-tour="queue-job"><Queue jobs={jobs} initialLoad={initialLoad} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} onToast={setToast} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} lastSync={lastQueueSync} /></div></div>
         <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} /></div>
       </div>
       <div className={`current-tab-title ${tabTitleVisible ? "" : "is-hidden"}`} aria-hidden={tabTitleVisible ? undefined : true}>
@@ -1119,6 +1154,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
             library: "Browse rendered masters and their QA evidence.",
             releases: "Assemble and ship releases from your rendered masters.",
           })[tab]}</div>
+          <button type="button" className="tooltip-replay" onClick={() => { setTabInfoOpen(false); tour.start(); }}>Replay tutorial</button>
           {authConfigured && <button type="button" className="tooltip-sign-out" onClick={() => void signOut({ callbackUrl: "/signin" })}>Sign out</button>}
         </div>}
       </div>
@@ -1128,7 +1164,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
           const count = item === "queue" ? queueCount : item === "library" ? libraryCount : item === "releases" ? releaseCount : 0;
           const label = item === "queue" ? "Queue" : item[0].toUpperCase() + item.slice(1);
           const Icon = TAB_ICONS[item];
-          return <button key={item} id={`tab-${item}`} type="button" data-tab={item} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${label}${count ? `, ${count}` : ""}`} title={label} onClick={() => {
+          return <button key={item} id={`tab-${item}`} type="button" data-tab={item} data-tour={item === "queue" ? "dock-queue" : item === "library" ? "dock-library" : undefined} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${label}${count ? `, ${count}` : ""}`} title={label} onClick={() => {
             if (item === "library") {
               libraryReturnTab.current = tab === "library" ? "queue" : tab;
               window.location.hash = "library";
@@ -1142,16 +1178,18 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
               libraryReturnTab.current = null;
               setTab(item);
             }
+            if (item === "queue" || item === "library") tour.notify("tab-changed", item);
             window.scrollTo({ top: 0, behavior: "smooth" });
           }} className={`dock-tab ${tab === item ? "is-active" : ""}`}><span className="dock-tab-icon" aria-hidden="true"><Icon size={22} strokeWidth={2.1} />{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</span></button>;
         })}
       </nav></div>
       {toast && <Toast message={toast.message} error={toast.error} action={toast.action} onClose={() => setToast(null)} />}
+      {tour.overlay}
     </main>
   );
 }
 
-function Library({ tracks, loading, initialLoad, onRefresh, onToast, lastSync, syncFailed }: { tracks: LibraryTrack[]; loading: boolean; initialLoad: boolean; onRefresh: () => void; onToast: (toast: { message: string; error?: boolean }) => void; lastSync: string | null; syncFailed: boolean }) {
+function Library({ tracks, loading, initialLoad, onRefresh, onToast, lastSync, syncFailed, onTrackPlay }: { tracks: LibraryTrack[]; loading: boolean; initialLoad: boolean; onRefresh: () => void; onToast: (toast: { message: string; error?: boolean }) => void; lastSync: string | null; syncFailed: boolean; onTrackPlay: () => void }) {
   const [, setSyncTick] = useState(0);
   const [view, setView] = useState<"cards" | "rows">("cards");
   const { pullDistance, refreshShellRef } = usePullRefresh(loading, onRefresh);
@@ -1182,13 +1220,13 @@ function Library({ tracks, loading, initialLoad, onRefresh, onToast, lastSync, s
       {syncFailed ? <button type="button" className="library-sync-caption is-failed" onClick={onRefresh} disabled={loading}>{syncCaption}</button> : <div className="library-sync-caption" aria-live="polite">{syncCaption}</div>}
       <div className="library-list">
         {tracks.filter((track) => track.exists).length === 0 && <Card padding="md"><EmptyState title="No rendered files found." /></Card>}
-        {tracks.filter((track) => track.exists).map((track) => <TrackCard key={track.variantId} track={track} compact={view === "rows"} onToast={onToast} />)}
+        {tracks.filter((track) => track.exists).map((track, index) => <TrackCard key={track.variantId} track={track} compact={view === "rows"} onToast={onToast} onTrackPlay={onTrackPlay} dataTour={index === 0 ? "library-track" : undefined} />)}
       </div>
     </section>
   );
 }
 
-function TrackCard({ track, compact = false, onToast }: { track: LibraryTrack; compact?: boolean; onToast: (toast: { message: string; error?: boolean }) => void }) {
+function TrackCard({ track, compact = false, onToast, onTrackPlay, dataTour }: { track: LibraryTrack; compact?: boolean; onToast: (toast: { message: string; error?: boolean }) => void; onTrackPlay: () => void; dataTour?: string }) {
   const [suggestion, setSuggestion] = useState<{ title: string; description: string; prompt: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
@@ -1237,7 +1275,7 @@ function TrackCard({ track, compact = false, onToast }: { track: LibraryTrack; c
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;
-    if (audio.paused) void audio.play(); else audio.pause();
+    if (audio.paused) { void audio.play(); onTrackPlay(); } else audio.pause();
   };
   const download = (url = track.downloadUrl, filename = track.filename) => {
     setDownloadBusy(true);
@@ -1258,7 +1296,7 @@ function TrackCard({ track, compact = false, onToast }: { track: LibraryTrack; c
   const audioElement = <audio ref={audioRef} preload="none" src={track.audioUrl} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onTimeUpdate={(event) => setElapsed(event.currentTarget.currentTime)} onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : track.durationSeconds)} />;
   if (compact) {
     return (
-      <Card as="article" id={`track-${track.variantId}`} padding="md" className="track-row">
+      <Card as="article" id={`track-${track.variantId}`} padding="md" className="track-row" data-tour={dataTour}>
         {audioElement}
         <button type="button" className="player-play track-row-play" aria-label={playing ? "Pause track" : "Play track"} onClick={togglePlay}>{playing ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}</button>
         <div className="track-row-body">
@@ -1270,8 +1308,8 @@ function TrackCard({ track, compact = false, onToast }: { track: LibraryTrack; c
     );
   }
   return (
-    <Card as="article" id={`track-${track.variantId}`} padding="md" className="track-card">
-      <div className="track-card-heading"><div className="track-card-title" title={title}>{title}{track.titleApproved && <span className="approved-marker">approved</span>}</div><div className="track-menu-wrap"><button type="button" className="icon-action" aria-label="More track actions" aria-haspopup="menu" aria-expanded={menu === "overflow"} onClick={() => setMenu(menu === "overflow" ? null : "overflow")}><MoreHorizontal size={19} /></button>{menu === "overflow" && <div className="track-menu" role="menu"><button type="button" role="menuitem" onClick={togglePlay}>{playing ? "Pause" : "Play"}</button><button type="button" role="menuitem" onClick={() => { setMenu(null); void generate(); }}><Sparkles size={14} /> Suggest SEO name</button><button type="button" role="menuitem" onClick={() => { setQaOpen(true); setMenu(null); document.getElementById(qaId)?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>View QA report</button><button type="button" role="menuitem" onClick={() => void copyUrl()}>Copy file URL <span className="developer-label">(developer)</span></button></div>}</div></div>
+    <Card as="article" id={`track-${track.variantId}`} padding="md" className="track-card" data-tour={dataTour}>
+      <div className="track-card-heading" data-tour="library-naming"><div className="track-card-title" title={title}>{title}{track.titleApproved && <span className="approved-marker">approved</span>}</div><div className="track-menu-wrap"><button type="button" className="icon-action" aria-label="More track actions" aria-haspopup="menu" aria-expanded={menu === "overflow"} onClick={() => setMenu(menu === "overflow" ? null : "overflow")}><MoreHorizontal size={19} /></button>{menu === "overflow" && <div className="track-menu" role="menu"><button type="button" role="menuitem" onClick={togglePlay}>{playing ? "Pause" : "Play"}</button><button type="button" role="menuitem" onClick={() => { setMenu(null); void generate(); }}><Sparkles size={14} /> Suggest SEO name</button><button type="button" role="menuitem" onClick={() => { setQaOpen(true); setMenu(null); document.getElementById(qaId)?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>View QA report</button><button type="button" role="menuitem" onClick={() => void copyUrl()}>Copy file URL <span className="developer-label">(developer)</span></button></div>}</div></div>
       <div className="track-chips"><Chip>Matrix {track.matrixIndex}</Chip><Chip>{track.color}</Chip><Chip>{track.band}</Chip><Chip>{track.motion}</Chip></div>
       {track.renderedAt && <div className="track-date">Created <time title={absoluteTime(track.renderedAt)}>{formatCreatedDate(track.renderedAt)}</time></div>}
       <div className="custom-player">{audioElement}<button type="button" className="player-play" aria-label={playing ? "Pause track" : "Play track"} onClick={togglePlay}>{playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}</button><span className="player-time">{formatDuration(elapsed)}</span><input className="player-scrubber" type="range" min={0} max={duration} step={0.1} value={Math.min(elapsed, duration)} aria-label="Seek track" onChange={(event) => seek(Number(event.target.value))} /><span className="player-time">{formatDuration(duration)}</span></div>
