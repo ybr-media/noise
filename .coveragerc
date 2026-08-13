@@ -1,0 +1,16 @@
+[run]
+branch = true
+source =
+    .
+omit =
+    tests/*
+    smoke_test.py
+    setup.py
+
+[report]
+show_missing = true
+skip_covered = false
+exclude_also =
+    if TYPE_CHECKING:
+    pragma: no cover
+    raise NotImplementedError
