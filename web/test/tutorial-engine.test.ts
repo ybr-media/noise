@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
+import demoSidecar from "../demo/demo_first_render.json";
+import { isDemoSidecar, shouldShowDemoTrack } from "../lib/demo";
 import { finaleCopy, shouldFireRenderBanner, shouldPersistTutorial, tourEventMatches, tutorialSteps } from "../app/ui/tutorial";
 
 test("the tour script is data-driven and branches render copy by mode", () => {
@@ -42,4 +44,16 @@ test("render banner fires exactly once when the tracked job is done", () => {
   assert.equal(shouldFireRenderBanner(false, "Queued"), false);
   assert.equal(shouldFireRenderBanner(false, "Done"), true);
   assert.equal(shouldFireRenderBanner(true, "Done"), false);
+});
+
+test("the demo is selected only when no real artifacts exist", () => {
+  assert.equal(shouldShowDemoTrack(0), true);
+  assert.equal(shouldShowDemoTrack(1), false);
+  assert.equal(shouldShowDemoTrack(144), false);
+});
+
+test("the seeded demo sidecar matches the library contract", () => {
+  assert.equal(isDemoSidecar(demoSidecar), true);
+  assert.equal(demoSidecar.variant_id, "demo_first_render");
+  assert.equal(demoSidecar.stem_filenames.length, 0);
 });

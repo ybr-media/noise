@@ -149,6 +149,7 @@ button:disabled { cursor: not-allowed; }
 .banner-danger { color: var(--danger); background: var(--danger-bg); }
 .banner-success { color: var(--success); background: var(--success-bg); border-color: var(--success); }
 .tutorial-render-banner button { padding: 0; border: 0; color: inherit; background: transparent; font: inherit; font-weight: 800; text-decoration: underline; cursor: pointer; }
+.demo-chip { padding: 0; border: 0; color: inherit; background: transparent; font: inherit; font-weight: 800; cursor: pointer; }
 .release-card { width: 100%; padding: 20px; border: 0; color: inherit; text-align: left; cursor: pointer; }
 .release-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .release-kicker { color: var(--ink-secondary); font-size: 11px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }

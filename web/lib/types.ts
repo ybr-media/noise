@@ -48,6 +48,7 @@ export type TrackStem = {
 };
 
 export type LibraryTrack = Variant & {
+  demo?: boolean;
   path: string;
   sizeBytes: number;
   audioUrl: string;

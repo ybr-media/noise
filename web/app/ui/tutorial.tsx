@@ -176,12 +176,14 @@ export function useTutorial({ mode, authConfigured, onDoItForMe, snapshot = {} }
   const onDoItForMeRef = useRef(onDoItForMe);
   const activeRef = useRef(active);
   const stepsRef = useRef<TourStep[]>([]);
+  const stepIndexRef = useRef(stepIndex);
   const replayRef = useRef(false);
   const celebrationTimerRef = useRef<number | null>(null);
   onDoItForMeRef.current = onDoItForMe;
   const steps = useMemo(() => tutorialSteps(mode), [mode]);
   activeRef.current = active;
   stepsRef.current = steps;
+  stepIndexRef.current = stepIndex;
   const step = steps[stepIndex] ?? steps[0];
 
   const complete = useCallback(() => {
@@ -197,20 +199,21 @@ export function useTutorial({ mode, authConfigured, onDoItForMe, snapshot = {} }
   const notify = useCallback((type: TourEventType, group?: string, meta?: TourEventMeta) => {
     if (!activeRef.current) return;
     void meta;
-    setStepIndex((current) => {
-      const currentSteps = stepsRef.current;
-      const currentStep = currentSteps[current];
-      if (!tourEventMatches(currentStep, { type, group })) return current;
-      if (celebrationTimerRef.current) window.clearTimeout(celebrationTimerRef.current);
-      const message = type === "render-enqueued" ? "Queued. That's a real render job." : "Nice — that's exactly it.";
-      setCelebration(message);
-      try { navigator.vibrate?.(10); } catch { /* vibration is optional */ }
-      celebrationTimerRef.current = window.setTimeout(() => {
-        setCelebration(null);
-        setStepIndex(Math.min(current + 1, currentSteps.length - 1));
-      }, 420);
-      return current;
-    });
+    const currentSteps = stepsRef.current;
+    const currentIndex = stepIndexRef.current;
+    const currentStep = currentSteps[currentIndex];
+    if (!tourEventMatches(currentStep, { type, group })) return;
+    if (celebrationTimerRef.current) window.clearTimeout(celebrationTimerRef.current);
+    const message = type === "render-enqueued" ? "Queued. That's a real render job." : "Nice — that's exactly it.";
+    setCelebration(message);
+    try { navigator.vibrate?.(10); } catch { /* vibration is optional */ }
+    celebrationTimerRef.current = window.setTimeout(() => {
+      setCelebration(null);
+      setStepIndex((current) => current === currentIndex ? Math.min(currentIndex + 1, currentSteps.length - 1) : current);
+    }, 420);
+  }, []);
+  useEffect(() => () => {
+    if (celebrationTimerRef.current) window.clearTimeout(celebrationTimerRef.current);
   }, []);
   const skip = useCallback(() => {
     if (celebrationTimerRef.current) window.clearTimeout(celebrationTimerRef.current);

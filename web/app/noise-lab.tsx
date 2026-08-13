@@ -836,10 +836,11 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
   const [tabTitleVisible, setTabTitleVisible] = useState(true);
   const [documentVisible, setDocumentVisible] = useState(true);
   const [renderBanner, setRenderBanner] = useState<{ variantId: string } | null>(null);
+  const [trackedRender, setTrackedRender] = useState<{ variantId: string } | null>(null);
+  const [queuedRenderLabel, setQueuedRenderLabel] = useState<string | null>(null);
   const [playedTrack, setPlayedTrack] = useState(false);
   const libraryReturnTab = useRef<"design" | "queue" | "releases" | null>(null);
   const retryInFlight = useRef(false);
-  const firstRenderJobRef = useRef<{ id: string; variantId: string } | null>(null);
   const queueRef = useRef<(ids: string[], label: "one" | "pilot" | "full") => Promise<void>>(async () => {});
   const tabsRef = useRef<HTMLElement>(null);
   const lensRef = useRef<HTMLDivElement>(null);
@@ -872,9 +873,9 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
   }, [selected, setFx]);
   const tourSnapshot = useMemo<TourSnapshot>(() => ({
     params: selected ? `${OPTIONS.color.find(([value]) => value === selected.color)?.[1] ?? selected.color} · ${selected.band} · ${selected.motion}` : undefined,
-    renderLabel: jobs.length ? `render #${jobs.length}` : undefined,
+    renderLabel: queuedRenderLabel ?? undefined,
     played: playedTrack,
-  }), [jobs.length, playedTrack, selected]);
+  }), [playedTrack, queuedRenderLabel, selected]);
   const tour = useTutorial({ mode: renderMode, authConfigured, onDoItForMe: onTourDoItForMe, snapshot: tourSnapshot });
   tourNotifyRef.current = tour.notify;
   const tourActive = tour.active;
@@ -990,17 +991,16 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
     return () => window.clearInterval(timer);
   }, [documentVisible, jobs, refreshQueue, tab]);
   useEffect(() => {
-    const tracked = firstRenderJobRef.current;
-    if (!tracked || renderBanner || localStorage.getItem("noise.tutorial.render-banner") === "1") return;
+    if (!trackedRender || renderBanner || localStorage.getItem("noise.tutorial.render-banner") === "1") return;
     const check = async () => {
       try {
         const response = await fetch("/api/queue", { cache: "no-store" });
         if (!response.ok) return;
         const payload = (await response.json()) as { jobs?: QueueJob[] };
-        const job = payload.jobs?.find((candidate) => candidate.id === tracked.id);
+        const job = payload.jobs?.find((candidate) => candidate.variantId === trackedRender.variantId);
         if (job?.status !== "Done") return;
         localStorage.setItem("noise.tutorial.render-banner", "1");
-        setRenderBanner({ variantId: tracked.variantId });
+        setRenderBanner({ variantId: trackedRender.variantId });
       } catch {
         // The watcher is supplemental; the console remains usable if polling fails.
       }
@@ -1008,7 +1008,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
     void check();
     const timer = window.setInterval(() => void check(), 10000);
     return () => window.clearInterval(timer);
-  }, [renderBanner]);
+  }, [renderBanner, trackedRender]);
   const openLibrary = useCallback((variantId?: string) => {
     libraryReturnTab.current = tab === "library" ? "queue" : tab;
     window.location.hash = variantId ? `library/${variantId}` : "library";
@@ -1100,13 +1100,18 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
       const payload = (await response.json()) as { jobs?: QueueJob[] };
       const target = renderMode === "dispatch" ? "GitHub Actions renderer" : "worker queue";
       const colorLabel = OPTIONS.color.find(([value]) => value === selection.color)?.[1] ?? selection.color;
+      const queuedVariant = variants.find((variant) => variant.variantId === ids[0]);
+      if (queuedVariant) {
+        const queuedColor = OPTIONS.color.find(([value]) => value === queuedVariant.color)?.[1] ?? queuedVariant.color;
+        setQueuedRenderLabel(`${queuedColor} ${queuedVariant.band} ${queuedVariant.motion} render`);
+      }
       setToast({
         message: label === "one"
           ? `${colorLabel} master and stems being rendered`
           : `${label === "pilot" ? "Pilot set" : `Full matrix (${variants.length} variants)`} sent to the ${target}.`,
       });
-      if (payload.jobs?.[0]) firstRenderJobRef.current = payload.jobs[0];
-      tour.notify("render-enqueued", undefined, { jobId: payload.jobs?.[0]?.id, variantId: payload.jobs?.[0]?.variantId });
+      if (ids[0]) setTrackedRender({ variantId: ids[0] });
+      tour.notify("render-enqueued", undefined, { jobId: payload.jobs?.[0]?.id, variantId: ids[0] });
       await refresh();
     } finally {
       setQueueing(false);
@@ -1267,6 +1272,7 @@ function TrackCard({ track, compact = false, onToast, onTrackPlay, dataTour, dat
   const [duration, setDuration] = useState(track.durationSeconds);
   const [qaOpen, setQaOpen] = useState(false);
   const [menu, setMenu] = useState<"overflow" | "download" | null>(null);
+  const [demoBadgeVisible, setDemoBadgeVisible] = useState(track.demo === true);
   const audioRef = useRef<HTMLAudioElement>(null);
   const qaId = `qa-${track.variantId}`;
   const title = track.title ?? formatDisplayName(track);
@@ -1331,7 +1337,7 @@ function TrackCard({ track, compact = false, onToast, onTrackPlay, dataTour, dat
         {audioElement}
         <button type="button" className="player-play track-row-play" aria-label={playing ? "Pause track" : "Play track"} onClick={togglePlay}>{playing ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}</button>
         <div className="track-row-body">
-          <div className="track-row-title" title={title}>{title}</div>
+          <div className="track-row-title" title={title}>{title}{track.demo && demoBadgeVisible && <button type="button" className="chip chip-neutral demo-chip" onClick={() => setDemoBadgeVisible(false)}>Demo ×</button>}</div>
           <div className="track-row-meta">{track.renderedAt && <><time title={absoluteTime(track.renderedAt)}>{formatCreatedDate(track.renderedAt)}</time> · </>}{formatDuration(duration)} · <span className={track.qaVerdict === "FAIL" ? "qa-fail-text" : undefined}>{track.qaVerdict}</span></div>
         </div>
         <button type="button" className="icon-action track-row-download" aria-label={`Download ${title}`} disabled={downloadBusy} onClick={() => download()}><Download size={17} /></button>
@@ -1341,7 +1347,7 @@ function TrackCard({ track, compact = false, onToast, onTrackPlay, dataTour, dat
   return (
     <Card as="article" id={`track-${track.variantId}`} padding="md" className="track-card" data-tour={dataTour}>
       <div className="track-card-heading" data-tour={dataTourName}><div className="track-card-title" title={title}>{title}{track.titleApproved && <span className="approved-marker">approved</span>}</div><div className="track-menu-wrap"><button type="button" className="icon-action" aria-label="More track actions" aria-haspopup="menu" aria-expanded={menu === "overflow"} onClick={() => setMenu(menu === "overflow" ? null : "overflow")}><MoreHorizontal size={19} /></button>{menu === "overflow" && <div className="track-menu" role="menu"><button type="button" role="menuitem" onClick={togglePlay}>{playing ? "Pause" : "Play"}</button><button type="button" role="menuitem" onClick={() => { setMenu(null); void generate(); }}><Sparkles size={14} /> Suggest SEO name</button><button type="button" role="menuitem" onClick={() => { setQaOpen(true); setMenu(null); document.getElementById(qaId)?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>View QA report</button><button type="button" role="menuitem" onClick={() => void copyUrl()}>Copy file URL <span className="developer-label">(developer)</span></button></div>}</div></div>
-      <div className="track-chips"><Chip>Matrix {track.matrixIndex}</Chip><Chip>{track.color}</Chip><Chip>{track.band}</Chip><Chip>{track.motion}</Chip></div>
+      <div className="track-chips"><Chip>{track.demo && demoBadgeVisible ? <button type="button" className="demo-chip" onClick={() => setDemoBadgeVisible(false)}>Demo ×</button> : `Matrix ${track.matrixIndex}`}</Chip><Chip>{track.color}</Chip><Chip>{track.band}</Chip><Chip>{track.motion}</Chip></div>
       {track.renderedAt && <div className="track-date">Created <time title={absoluteTime(track.renderedAt)}>{formatCreatedDate(track.renderedAt)}</time></div>}
       <div className="custom-player">{audioElement}<button type="button" className="player-play" aria-label={playing ? "Pause track" : "Play track"} onClick={togglePlay}>{playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}</button><span className="player-time">{formatDuration(elapsed)}</span><input className="player-scrubber" type="range" min={0} max={duration} step={0.1} value={Math.min(elapsed, duration)} aria-label="Seek track" onChange={(event) => seek(Number(event.target.value))} /><span className="player-time">{formatDuration(duration)}</span></div>
       <Disclosure open={qaOpen} onOpenChange={setQaOpen} className={metricClass} triggerClassName="qa-header" triggerId={qaId} contentId={`${qaId}-checks`} summary={<><span><span className="qa-metric-label">LUFS</span><strong>{track.measuredLufs ?? "—"}</strong></span><span><span className="qa-metric-label">True peak</span><strong>{track.measuredTruePeak ?? "—"}</strong></span><span className="qa-verdict">{track.qaVerdict}</span>{qaOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</>}>
