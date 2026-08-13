@@ -293,6 +293,7 @@ button:disabled { cursor: not-allowed; }
 .queue-detail-strip .disclosure-trigger svg { transition: transform .2s ease; }
 .queue-detail-strip.is-open .disclosure-trigger svg { transform: rotate(180deg); }
 .queue-failure-strip { background: var(--danger-bg); }
+.queue-failure-content { margin: 0 -14px -12px; border: 0; border-radius: 0 0 var(--radius-control) var(--radius-control); }
 .queue-history-strip { background: var(--surface-sunken); }
 .queue-history-strip .disclosure-trigger { color: var(--ink-secondary); }
 .queue-diagnostics { display: grid; gap: 7px; padding-top: 9px; border-top: 1px solid rgba(0,0,0,.08); color: var(--ink-secondary); font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
