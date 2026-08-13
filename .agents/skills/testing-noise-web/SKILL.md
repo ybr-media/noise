@@ -91,6 +91,21 @@ looking for a *sibling job sharing the same variantId*, a batch (`pilot`/`full`)
 show "Retried ✓" after a reload in local-worker mode, while single-variant rows can. Expect this
 asymmetry before filing it as a bug.
 
+## Fabricating Library sync-failure states
+`librarySyncFailed` flips when *any* of the four endpoints in `refresh()` (`/api/variants`,
+`/api/library`, `/api/queue`, `/api/releases`) fails — all four must return OK for a successful sync.
+The cheapest toggle is a **temporary, uncommitted** flag-file check at the top of the GET handler in
+`web/app/api/library/route.ts`:
+
+```ts
+if (existsSync("/tmp/noise-fail")) return new Response("fail", { status: 500 });
+```
+
+`touch /tmp/noise-fail` to break sync, `rm` it to recover — no server restart needed. Never commit
+this; verify `git status` before any push. Note the Library panel has no refresh round-action: a
+failed sync is reached via page reload (or pull-to-refresh on touch), and retried by clicking the
+sync caption itself when it shows the failed state.
+
 ## Observing in-flight / busy UI state (refresh spinners, disabled, aria-busy)
 Local API routes answer in a few ms, so in-flight state is otherwise impossible to catch. Add a
 **temporary, uncommitted** env-gated delay at the top of the GET handlers in
