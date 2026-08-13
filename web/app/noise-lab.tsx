@@ -1104,7 +1104,7 @@ export default function NoiseLab() {
         </div>
         <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} lastSync={lastLibrarySync} syncFailed={librarySyncFailed} /></div>
         <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} initialLoad={initialLoad} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} onToast={setToast} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} lastSync={lastQueueSync} /></div>
-        <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} /></div>
+        <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} /></div>
       </div>
       <div className={`current-tab-title ${tabTitleVisible ? "" : "is-hidden"}`} aria-hidden={tabTitleVisible ? undefined : true}>
         <span key={tab}>{tab === "queue" ? "Queue" : tab[0].toUpperCase() + tab.slice(1)}</span>
@@ -1278,20 +1278,19 @@ function TrackCard({ track, compact = false, onToast }: { track: LibraryTrack; c
   );
 }
 
-function Releases({ releases, releaseId, variants, tracks, mode, loading, initialLoad, onRefresh, onToast }: {
+function Releases({ releases, releaseId, variants, tracks, mode, initialLoad, onRefresh, onToast }: {
   releases: DerivedRelease[];
   releaseId?: string;
   variants: Variant[];
   tracks: LibraryTrack[];
   mode: "local" | "dispatch" | "unavailable";
-  loading: boolean;
   initialLoad: boolean;
   onRefresh: () => void;
   onToast: (toast: { message: string; error?: boolean }) => void;
 }) {
   const release = releases.find((candidate) => candidate.id === releaseId);
   const content = !releaseId || !release
-    ? <ReleaseList releases={releases} loading={loading} initialLoad={initialLoad} onRefresh={onRefresh} />
+    ? <ReleaseList releases={releases} initialLoad={initialLoad} />
     : <ReleaseDetail release={release} savedArtist={releases.find((candidate) => !candidate.unsaved)?.artist} variants={variants} tracks={tracks} mode={mode} onRefresh={onRefresh} onToast={onToast} />;
   return (
     <>
@@ -1304,13 +1303,9 @@ function Releases({ releases, releaseId, variants, tracks, mode, loading, initia
   );
 }
 
-function ReleaseList({ releases, loading, initialLoad, onRefresh }: { releases: DerivedRelease[]; loading: boolean; initialLoad: boolean; onRefresh: () => void }) {
+function ReleaseList({ releases, initialLoad }: { releases: DerivedRelease[]; initialLoad: boolean }) {
   return (
     <section className="panel-section">
-      <div className="panel-heading">
-        <div><h2>Releases</h2><p>Prepare rendered masters for distribution</p></div>
-        <button type="button" onClick={onRefresh} disabled={loading} aria-busy={loading} className={`round-action ${loading ? "is-refreshing" : ""}`} aria-label="Refresh releases"><RefreshCw size={14} /></button>
-      </div>
       {initialLoad && <ReleasesSkeleton />}
       <div className="release-list">
         {!initialLoad && releases.length === 0 && <Card padding="md"><EmptyState title="No releases yet." /></Card>}
