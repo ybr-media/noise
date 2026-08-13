@@ -1122,7 +1122,7 @@ export default function NoiseLab() {
   const queueSyncCaption = `${queueSyncStatus} · ${queueStrings.synced(lastQueueSync ? relativeTime(lastQueueSync) : "—")}`;
 
   return (
-    <main className="noise-shell min-h-screen w-full" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif' }}>
+    <main className={`noise-shell min-h-screen w-full ${tabTitleVisible ? "" : "is-tab-title-hidden"}`} style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif' }}>
       {introState !== "hidden" && <div className={`intro-splash ${introState === "fading" ? "is-fading" : ""}`} aria-hidden="true"><BellMark /><span className="intro-wordmark">Noise Labs</span></div>}
       <div className="ambient-field ambient-field-a" />
       <div className="ambient-field ambient-field-b" />
