@@ -240,16 +240,25 @@ function FxPresetIcon({ option }: { option: string }) {
     telephone: <path d="M2.5 13h4l1.2-5.5h4.6l1.2 5.5h4" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />,
     custom: <path d="M4 5h12M4 10h12M4 15h12M7 3v4M13 8v4M9 13v4" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" />,
   };
-  const reverbArcCounts: Record<string, number> = { "small-room": 1, "medium-room": 2, "large-room": 3, "church-hall": 4, cathedral: 5 };
-  const arcCount = reverbArcCounts[option];
-  if (arcCount) {
+  const reverbArcShapes: Record<string, { radii: readonly number[]; heights: readonly number[]; walls?: "short" | "tall" }> = {
+    "small-room": { radii: [2.5], heights: [2.3] },
+    "medium-room": { radii: [2.5, 4.3], heights: [2.3, 3.9] },
+    "large-room": { radii: [2.5, 4.3, 6.1], heights: [2.3, 3.9, 5.5] },
+    "church-hall": { radii: [2.5, 4.3, 6.1, 7.9], heights: [1.8, 3.1, 4.4, 5.3], walls: "short" },
+    cathedral: { radii: [2.5, 4.3, 6.1, 7.9, 9.4], heights: [2.5, 4.2, 5.9, 7.2, 8.2], walls: "tall" },
+  };
+  const arcShape = reverbArcShapes[option];
+  if (arcShape) {
     return (
       <svg viewBox="0 0 20 20" width={20} height={20} aria-hidden="true">
         <circle cx="10" cy="15.5" r="1.2" fill="currentColor" />
-        {Array.from({ length: arcCount }, (_, index) => {
-          const radius = 2.5 + index * 1.8;
-          return <path key={radius} d={`M ${10 - radius} 15.5 A ${radius} ${radius} 0 0 1 ${10 + radius} 15.5`} stroke="currentColor" strokeWidth="1.35" fill="none" strokeLinecap="round" />;
+        {arcShape.radii.map((radius, index) => {
+          const height = arcShape.heights[index];
+          return <path key={radius} d={`M ${10 - radius} 15.5 A ${radius} ${height} 0 0 1 ${10 + radius} 15.5`} stroke="currentColor" strokeWidth="1.35" fill="none" strokeLinecap="round" />;
         })}
+        {arcShape.walls && (
+          <path d={arcShape.walls === "short" ? "M3.1 12.5v3M16.9 12.5v3" : "M2.2 8.5v7M17.8 8.5v7"} stroke="currentColor" strokeWidth="1.35" fill="none" strokeLinecap="round" />
+        )}
       </svg>
     );
   }
