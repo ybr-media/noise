@@ -317,10 +317,6 @@ function DesignSkeleton() {
             </div>
           ))}
         </Card>
-        <Card as="section" padding="md" className="variant-card">
-          <Skeleton width="66%" height={14} />
-          <div className="variant-meta mt-4"><Skeleton width={104} /><Skeleton width={74} /></div>
-        </Card>
       </div>
     </SkeletonPanel>
   );
@@ -1103,11 +1099,6 @@ export default function NoiseLab() {
             </Card>
             <ToneSection fx={fx} onChange={setFx} />
             <SpaceSection fx={fx} onChange={setFx} nominalSeconds={selected.durationSeconds} />
-            <Card as="section" padding="md" className="variant-card">
-              <div className="variant-id">{selected.variantId}</div>
-              <div className="variant-meta"><span>Duration {reverbIsOff(fx.reverb) ? formatDuration(selected.durationSeconds) : formatTail(selected.durationSeconds, reverbTailSeconds(fx.reverb))}</span><span>Seed {selected.seeds.bed_l}</span></div>
-              {selected.pilot && <Chip>Pilot {selected.pilot}</Chip>}
-            </Card>
           </div>
           )}
         </div>
