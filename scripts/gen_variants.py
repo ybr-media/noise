@@ -110,7 +110,6 @@ def build_variants(config: Mapping[str, object], pilot: bool = False) -> list[Ya
         # The renderer derives the three stem filenames from this one by
         # replacing the "_master" suffix with "_stem_1".."_stem_3".
         row["filename"] = f"{variant_id}_s{seeds['bed_l']}_master.wav"
-        row.update(cast(YamlMapping, dict(_mapping(config["output"], "output"))))
         rows.append(row)
     return rows
 

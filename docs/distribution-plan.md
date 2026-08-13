@@ -97,7 +97,7 @@ DistroKid has no public upload API, and this console "never accepts work it cann
 
 - **Field-by-field, in DistroKid's form order:** artist name, release title, number of songs, genre + secondary, release date — each with a copy button. Then one row per track in release order: title (copy), songwriter (copy — stores require a legal name; captured once in release metadata), and the fixed answers stated plainly ("Not explicit · Instrumental · No radio edit"), plus **Download WAV** using the existing per-master download route.
 - **Art:** the Download PNG button, restated with the spec it already meets.
-- **Format note, honest and specific:** masters are 48 kHz/24-bit WAV at −20 LUFS / −3 dBTP (`config/dimensions.yaml` `output:`) — DistroKid accepts them as-is; no transcode step exists because none is needed.
+- **Format note, honest and specific:** masters are 96 kHz/24-bit WAV and stems are 48 kHz/24-bit WAV at −20 LUFS / −3 dBTP (`config/dimensions.yaml` `output:`).
 - **Mark submitted:** a manual confirm that stamps `submitted.at` and stores the DistroKid/Spotify URL — the one state transition that can't be derived. The release card then reads "Submitted · open in store."
 
 ### (d) Where release metadata writes go (per mode, same trichotomy as rendering)
@@ -182,7 +182,7 @@ Sweep the new tab: ladder announced via `aria-live` on state change, copy button
 - `SeoNameProvider` is already an interface with the stub as one implementation (`web/lib/naming.ts:13-15`) — a real provider is a drop-in.
 - The single-document-merged-on-publish pattern exists end to end: `manifest.json` built and merged in `scripts/publish_artifacts.py`, TTL-cached remote read in `web/lib/artifacts.ts:86-107`. `releases.json` copies it.
 - The hosted console's only side-effect channel is workflow dispatch (`web/lib/dispatch.ts`, `.github/workflows/render.yml`), which already holds the R2 secrets a metadata-publish workflow needs.
-- Masters are 48 kHz/24-bit stereo WAV, −20 LUFS target, −3 dBTP ceiling (`config/dimensions.yaml` `output:`); DistroKid accepts WAV at this resolution directly.
+- Masters are 96 kHz/24-bit stereo WAV and stems are 48 kHz/24-bit stereo WAV, with a −20 LUFS target and −3 dBTP ceiling (`config/dimensions.yaml` `output:`).
 - Tab state and hash routing precedent: `design | queue | library` union and `#library/<variantId>` handling (`web/app/noise-lab.tsx:269,479`).
 - No artist, album, genre, artwork, or release-date concept exists anywhere in the repo (verified by grep).
 - Everything renderable in this repo is already seeded and deterministic (`config/variants.yaml` `seeds:`), which the art generator extends to pixels.

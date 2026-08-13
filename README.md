@@ -34,7 +34,7 @@ uses the supported function and this discrepancy is recorded in
 
 ## Outputs per variant
 
-Every variant renders four aligned 48 kHz/24-bit stereo WAVs:
+Every variant renders a 96 kHz/24-bit stereo master and three 48 kHz/24-bit stereo stems:
 
 ```text
 <track-name>_master.wav   the mixed master, and the library track
@@ -43,13 +43,12 @@ Every variant renders four aligned 48 kHz/24-bit stereo WAVs:
 <track-name>_stem_3.wav   motion
 ```
 
-The three stems are the same audio the master was mixed from, so they sum back
-to it: QA's `Stem sum` check requires `max |sum(stems) - master| <= 1e-5`, and a
-real render measures about `2.4e-7` (`-132 dBFS`), which is 24-bit
-requantization of four files. That holds because loudness is measured once on
-the mix and the resulting gain is applied to all four tracks; the stems are
-never normalized on their own, and the finished-mix thresholds (loudness, true
-peak, tilt, seam) still apply to the master alone.
+The three stems are the same audio the master was mixed from, downsampled with
+the renderer's shared polyphase filter. QA resamples the master with that same
+filter before its null-depth `Stem sum` check; equal-rate fixtures retain the
+strict `max |sum(stems) - master| <= 1e-5` check. Loudness is measured once on
+the mix and the resulting gain is applied to all four tracks; the finished-mix
+thresholds (loudness, true peak, tilt, seam) still apply to the master alone.
 
 Four files per variant is four times the bytes: about 260 MB per four-minute
 variant, so the full 144-variant matrix is roughly 37 GB published. The renderer

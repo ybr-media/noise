@@ -268,3 +268,29 @@ def test_extracted_stems_sum_back_to_the_extracted_master(tmp_path: Path) -> Non
 
     with pytest.raises(Aup3Error, match="4 stereo track"):
         extract_stereo_tracks_to_wavs(project, xml, outputs[:3])
+
+
+def test_extraction_downsamples_stems_but_keeps_master_rate(tmp_path: Path) -> None:
+    project, master, _ = _four_track_project(tmp_path)
+    xml = tmp_path / "project.xml"
+    xml.write_text(_split_mono_xml(4, master.shape[0], rate=96000), encoding="utf-8")
+    outputs = tuple(
+        tmp_path / name
+        for name in ("stem_1.wav", "stem_2.wav", "stem_3.wav", "master.wav")
+    )
+    extract_stereo_tracks_to_wavs(project, xml, outputs, stem_rate=48000)
+    for path in outputs[:3]:
+        with sf.SoundFile(path) as info:
+            assert (info.samplerate, info.channels, info.subtype, info.frames) == (
+                48000,
+                2,
+                "PCM_24",
+                master.shape[0] // 2,
+            )
+    with sf.SoundFile(outputs[3]) as info:
+        assert (info.samplerate, info.channels, info.subtype, info.frames) == (
+            96000,
+            2,
+            "PCM_24",
+            master.shape[0],
+        )
