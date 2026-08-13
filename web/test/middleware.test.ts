@@ -6,6 +6,7 @@ test("signed-out console pages redirect and signed-in pages pass through", () =>
   assert.equal(accessForRequest("/", false), "redirect");
   assert.equal(accessForRequest("/", true), "next");
   assert.equal(accessForRequest("/api/library", false), "unauthorized");
+  assert.equal(accessForRequest("/api/me", false), "unauthorized");
 });
 
 test("auth, signin, static, and audio paths bypass the session gate", () => {

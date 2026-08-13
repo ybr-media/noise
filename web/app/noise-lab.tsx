@@ -70,6 +70,7 @@ import { Button } from "./ui/button";
 import { Banner } from "./ui/banner";
 import { EmptyState } from "./ui/empty-state";
 import { Disclosure } from "./ui/disclosure";
+import { useFirstRun } from "@/lib/use-first-run";
 
 const TAB_ICONS = {
   design: SlidersHorizontal,
@@ -809,6 +810,7 @@ function SpaceSection({ fx, onChange, nominalSeconds }: { fx: FxState; onChange:
 }
 
 export default function NoiseLab({ authConfigured }: { authConfigured: boolean }) {
+  const firstRun = useFirstRun(authConfigured);
   const [variants, setVariants] = useState<Variant[]>([]);
   const [tracks, setTracks] = useState<LibraryTrack[]>([]);
   const [releases, setReleases] = useState<DerivedRelease[]>([]);
@@ -1067,7 +1069,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
   }
 
   return (
-    <main className="noise-shell min-h-screen w-full" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif' }}>
+    <main className="noise-shell min-h-screen w-full" data-tutorial-ready={firstRun.ready ? "true" : "false"} style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif' }}>
       {introState !== "hidden" && <div className={`intro-splash ${introState === "fading" ? "is-fading" : ""}`} aria-hidden="true"><BellMark /><span className="intro-wordmark">Noise Labs</span></div>}
       <div className="ambient-field ambient-field-a" />
       <div className="ambient-field ambient-field-b" />

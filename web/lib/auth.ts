@@ -1,7 +1,8 @@
-import type { Adapter } from "@auth/core/adapters";
+import type { Adapter, AdapterUser } from "@auth/core/adapters";
 import NextAuth from "next-auth";
 import Resend from "next-auth/providers/resend";
 import { isAllowedEmail } from "@/lib/allowlist";
+import { TUTORIAL_VERSION } from "@/lib/tutorial";
 import { TOKENS } from "@/app/ui/tokens";
 
 const REQUIRED_AUTH_ENV = [
@@ -40,11 +41,20 @@ function lazyAdapter(): Adapter {
         const adapter = UpstashRedisAdapter(client);
         const method = Reflect.get(adapter, property);
         if (typeof method !== "function") return method;
+        if (property === "createUser" && args[0] && typeof args[0] === "object") {
+          args[0] = {
+            ...(args[0] as Record<string, unknown>),
+            tutorialCompletedAt: null,
+            tutorialVersion: TUTORIAL_VERSION,
+          };
+        }
         return method.apply(adapter, args);
       };
     },
   });
 }
+
+const authAdapter = lazyAdapter();
 
 const emailTemplate = (url: string) => `<!doctype html>
 <html lang="en"><body style="margin:0;background:#eef0f6;color:#1c1c1e;font-family:Arial,sans-serif">
@@ -60,7 +70,7 @@ const emailTemplate = (url: string) => `<!doctype html>
 </div></body></html>`;
 
 const authConfig = {
-  adapter: lazyAdapter(),
+  adapter: authAdapter,
   session: { strategy: "jwt" as const, maxAge: 30 * 24 * 60 * 60, updateAge: 24 * 60 * 60 },
   providers: [
     Resend({
@@ -99,3 +109,14 @@ const authConfig = {
 };
 
 export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
+
+export async function getAuthUserByEmail(email: string): Promise<AdapterUser | null> {
+  assertAuthEnv();
+  return (await authAdapter.getUserByEmail?.(email)) ?? null;
+}
+
+export async function updateAuthUser(user: Partial<AdapterUser> & Pick<AdapterUser, "id"> & Record<string, unknown>): Promise<AdapterUser> {
+  assertAuthEnv();
+  if (!authAdapter.updateUser) throw new Error("Auth adapter does not support user updates.");
+  return authAdapter.updateUser(user as Partial<AdapterUser> & Pick<AdapterUser, "id">);
+}
