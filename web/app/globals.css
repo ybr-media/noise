@@ -335,9 +335,9 @@ button:disabled { cursor: not-allowed; }
   .spectrum-card, .track-card { padding-right: 16px; padding-left: 16px; }
   .controls-card { padding-right: 16px; padding-left: 16px; }
   .param-caption { font-size: var(--text-xs); }
-  .action-row { position: sticky; z-index: 40; top: calc(env(safe-area-inset-top) + 58px); gap: 14px; padding: 12px; border-radius: var(--radius-pill); background: rgba(255,255,255,.86); box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 30px rgba(20,20,50,.1); -webkit-backdrop-filter: blur(18px) saturate(180%); backdrop-filter: blur(18px) saturate(180%); }
-  .play-button { width: 64px; height: 64px; flex-shrink: 0; }
-  .action-row .ui-button-primary { min-height: 64px; }
+  .action-row { position: sticky; z-index: 40; top: calc(env(safe-area-inset-top) + 53px); gap: 12px; padding: 9px; border-radius: var(--radius-pill); background: rgba(255,255,255,.86); box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 30px rgba(20,20,50,.1); -webkit-backdrop-filter: blur(18px) saturate(180%); backdrop-filter: blur(18px) saturate(180%); }
+  .play-button { width: 56px; height: 56px; flex-shrink: 0; }
+  .action-row .ui-button-primary { min-height: 56px; }
   .dock { right: 10px; left: 10px; transform: none; }
   .glassbar { justify-content: space-between; width: 100%; }
   .dock-tab { flex: 1; min-width: 0; min-height: 48px; justify-content: center; padding: 10px 6px; }
