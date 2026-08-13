@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { accessForRequest } from "@/lib/middleware-access";
+import { NextRequest, NextResponse, type NextFetchEvent } from "next/server";
+import { auth, missingAuthEnv } from "@/lib/auth";
+import { accessForRequest, isAuthOpenMode } from "@/lib/middleware-access";
 
-export default auth((request) => {
+let openModeWarningLogged = false;
+const guardedMiddleware = auth((request) => {
   const access = accessForRequest(request.nextUrl.pathname, Boolean(request.auth));
   if (access === "next") return NextResponse.next();
   if (access === "unauthorized") {
@@ -13,6 +14,17 @@ export default auth((request) => {
   return NextResponse.redirect(signInUrl);
 });
 
+export default function middleware(request: NextRequest, event: NextFetchEvent) {
+  if (isAuthOpenMode(missingAuthEnv())) {
+    if (!openModeWarningLogged) {
+      console.warn("[auth] Authentication env is not configured; middleware is running in open mode.");
+      openModeWarningLogged = true;
+    }
+    return NextResponse.next();
+  }
+  return guardedMiddleware(request, event as unknown as Parameters<typeof guardedMiddleware>[1]);
+}
+
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|signin(?:/.*)?|api/auth(?:/.*)?|api/audio(?:/.*)?).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|signin(?:/.*)?|api/auth(?:/.*)?|api/audio(?:/.*)?|.*\\.[^/]+$).*)"],
 };

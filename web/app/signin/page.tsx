@@ -5,7 +5,6 @@ import { signIn } from "next-auth/react";
 import { BellMark } from "@/app/bell-mark";
 import { Button } from "@/app/ui/button";
 import { Card } from "@/app/ui/card";
-import { TOKENS } from "@/app/ui/tokens";
 
 export default function SignInPage() {
   const [email, setEmail] = useState("");
@@ -40,7 +39,7 @@ export default function SignInPage() {
             <p>Use your invited email address to open the console.</p>
             <label htmlFor="email">Email address</label>
             <input id="email" name="email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" />
-            <Button type="submit" disabled={busy} style={{ background: TOKENS.brand }}>{busy ? "Sending…" : "Send sign-in link"}</Button>
+            <Button type="submit" disabled={busy}>{busy ? "Sending…" : "Send sign-in link"}</Button>
           </form>
         )}
       </Card>

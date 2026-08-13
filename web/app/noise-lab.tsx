@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { signOut } from "next-auth/react";
 import type { LibraryTrack, QueueJob, Release, ReleaseTrack, Variant } from "@/lib/types";
 import type { DismissalRecord } from "@/lib/dismissals";
 import { absoluteTime, batchMembersForJob, knownVariantId, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
@@ -807,7 +808,7 @@ function SpaceSection({ fx, onChange, nominalSeconds }: { fx: FxState; onChange:
   );
 }
 
-export default function NoiseLab() {
+export default function NoiseLab({ authConfigured }: { authConfigured: boolean }) {
   const [variants, setVariants] = useState<Variant[]>([]);
   const [tracks, setTracks] = useState<LibraryTrack[]>([]);
   const [releases, setReleases] = useState<DerivedRelease[]>([]);
@@ -1109,12 +1110,15 @@ export default function NoiseLab() {
       <div className={`current-tab-title ${tabTitleVisible ? "" : "is-hidden"}`} aria-hidden={tabTitleVisible ? undefined : true}>
         <span key={tab}>{tab === "queue" ? "Queue" : tab[0].toUpperCase() + tab.slice(1)}</span>
         <button type="button" className="info-button current-tab-title-info" tabIndex={tabTitleVisible ? 0 : -1} aria-label={tab === "queue" ? "How rendering works" : `How to use ${tab[0].toUpperCase() + tab.slice(1)}`} aria-expanded={tabInfoOpen} aria-controls="current-tab-tooltip" onClick={() => setTabInfoOpen((open) => !open)}><Info size={16} /></button>
-        {tabInfoOpen && <p id="current-tab-tooltip" role="note" className="current-tab-tooltip">{{
-          design: "Dial in a variant, audition it, and queue the render.",
-          queue: <><strong>How rendering works</strong><br />{queueStrings.queueNote[renderMode]}</>,
-          library: "Browse rendered masters and their QA evidence.",
-          releases: "Assemble and ship releases from your rendered masters.",
-        }[tab]}</p>}
+        {tabInfoOpen && <div id="current-tab-tooltip" role="note" className="current-tab-tooltip">
+          <div>{({
+            design: "Dial in a variant, audition it, and queue the render.",
+            queue: <><strong>How rendering works</strong><br />{queueStrings.queueNote[renderMode]}</>,
+            library: "Browse rendered masters and their QA evidence.",
+            releases: "Assemble and ship releases from your rendered masters.",
+          })[tab]}</div>
+          {authConfigured && <button type="button" className="tooltip-sign-out" onClick={() => void signOut({ callbackUrl: "/signin" })}>Sign out</button>}
+        </div>}
       </div>
       <div className="dock"><nav ref={tabsRef} className="glassbar" role="tablist" aria-label="Primary">
         <div ref={lensRef} className="tab-lens" aria-hidden="true" />

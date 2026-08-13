@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { accessForRequest, shouldBypassAuth } from "../lib/middleware-access";
+import { accessForRequest, isAuthOpenMode, shouldBypassAuth } from "../lib/middleware-access";
 
 test("signed-out console pages redirect and signed-in pages pass through", () => {
   assert.equal(accessForRequest("/", false), "redirect");
@@ -19,4 +19,16 @@ test("audio range URLs stay open while other APIs remain protected", () => {
   assert.equal(accessForRequest("/api/audio/example.wav", false), "next");
   assert.equal(accessForRequest("/api/audio/example.wav?download=1", false), "next");
   assert.equal(accessForRequest("/api/queue", false), "unauthorized");
+});
+
+test("missing auth configuration enables explicit open mode", () => {
+  assert.equal(isAuthOpenMode(["AUTH_SECRET"]), true);
+  assert.equal(isAuthOpenMode([]), false);
+});
+
+test("root static files bypass the session gate", () => {
+  for (const pathname of ["/apple-icon.png", "/icon.svg", "/robots.txt", "/sitemap.xml"]) {
+    assert.equal(shouldBypassAuth(pathname), true, pathname);
+    assert.equal(accessForRequest(pathname, false), "next", pathname);
+  }
 });
