@@ -350,6 +350,8 @@ test("writes streamed stored ZIP entries with CRCs and expected sizes", async ()
   assert.deepEqual(names, ["máster.wav", "stem_1.wav"]);
   assert.deepEqual(sizes, [4, 4]);
   assert.equal(view.getUint32(offset, true), 0x02014b50);
+  assert.equal(view.getUint16(offset + 4, true), 0x0314);
+  assert.equal(view.getUint16(offset + 6, true), 20);
   assert.equal(view.getUint16(offset + 8, true), 0x808);
   assert.equal(view.getUint16(offset + 10, true), 0);
   const dosTime = (date: Date) => (date.getHours() << 11) | (date.getMinutes() << 5) | Math.floor(date.getSeconds() / 2);

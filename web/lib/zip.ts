@@ -60,7 +60,7 @@ export function streamZip(entries: ZipEntry[]): ReadableStream<Uint8Array> {
       central.push({ name, crc, size, offset, ...dos });
       offset += 30 + name.length + size + 16;
     }
-    const directory = central.map((entry) => join([u32(0x02014b50), u16(20), u16(20), u16(0x808), u16(0), u16(entry.time), u16(entry.date), u32(entry.crc), u32(entry.size), u32(entry.size), u16(entry.name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(entry.offset), entry.name]));
+    const directory = central.map((entry) => join([u32(0x02014b50), u16(0x0314), u16(20), u16(0x808), u16(0), u16(entry.time), u16(entry.date), u32(entry.crc), u32(entry.size), u32(entry.size), u16(entry.name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(entry.offset), entry.name]));
     const centralBytes = join(directory);
     yield centralBytes;
     yield join([u32(0x06054b50), u16(0), u16(0), u16(central.length), u16(central.length), u32(centralBytes.length), u32(offset), u16(0)]);
