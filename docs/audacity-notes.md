@@ -205,13 +205,14 @@ interactive exporter would otherwise persist:
 
 ```ini
 [SamplingRate]
-DefaultProjectSampleRate=48000
+DefaultProjectSampleRate=96000
 [FileFormats]
 FLACBitDepth=24
 ```
 
-The first value makes newly created Audacity projects use the required 48 kHz
-rate; the second selects 24-bit FLAC encoding. These are configuration
+The first value makes newly created Audacity projects use the required 96 kHz
+master rate; stems are downsampled to 48 kHz after extraction. The second
+selects 24-bit FLAC encoding. These are configuration
 defaults only. End-to-end encoded-file verification remains blocked by the
 documented Audacity export failure, but the generated config and live
 temporary profile were read back after launch to confirm both values landed.
@@ -774,8 +775,9 @@ The approved export fallback is implemented in
 `aup3_serializer.py`. It performs no DSP: Audacity remains
 responsible for generation, filtering, gain staging, mixing, loudness
 normalization, and fades. The serializer only follows final-track references,
-reads the referenced little-endian float32 blocks, and writes 48 kHz,
-24-bit, stereo WAV.
+reads the referenced little-endian float32 blocks, and writes a 96 kHz,
+24-bit, stereo master plus 48 kHz, 24-bit stereo stems using the shared
+polyphase downsampler.
 
 The serializer accepts readable project XML, and now also decodes Audacity's
 semi-self-describing binary XML directly when no XML file is supplied. The
@@ -812,7 +814,8 @@ duration checks do not reconcile.
 
 The final deliverable is now WAV. Variant filenames and QA discovery use
 `wn_<color>_<band>_<motion>_<balance>_s<seed>.wav`. The serializer verifies
-the written file reports 48 kHz, two channels, and `PCM_24`.
+each written file reports two channels and `PCM_24` at its role's configured
+rate.
 
 ### Serializer verification
 
@@ -826,7 +829,7 @@ The serializer extracted the referenced non-contiguous channel blocks with
 the correct channel order and wrote a WAV reported by libsndfile as:
 
 ```text
-48000 Hz, 2 channels, PCM_24
+96000 Hz master or 48000 Hz stem, 2 channels, PCM_24
 ```
 
 Unit tests cover silent runs, non-contiguous IDs, multi-block sequences,
@@ -850,7 +853,7 @@ Loop seam         -6153.053 dBFS
 Spectral tilt     0.031 dB/oct
 Silence/dropout   0.0 ms
 Stereo correlation r=-0.00032
-Format            11,520,000 frames, 48 kHz, stereo PCM_24
+Format            23,040,000 frames, 96 kHz, stereo PCM_24
 Overall            PASS
 ```
 

@@ -267,14 +267,14 @@ class Variant:
 class Output:
     """The shared ``output`` block of the variant matrix."""
 
-    sample_rate: int
+    master_sample_rate: int
+    stem_sample_rate: int
     bit_depth: int
     cell_seconds: float
     repeats: int
     fade_seconds: float
     target_lufs: float
     true_peak_max_dbtp: float
-
 
 @dataclass(frozen=True)
 class RenderPlan:
@@ -354,12 +354,13 @@ def _number(row: Mapping[str, object], key: str, context: str) -> float:
 
 
 def cell_frames_for_variant(variant: Variant, sample_rate: int) -> int:
-    """Return the deterministic whole-sample cell length for one variant."""
+    """Return the deterministic cell length converted from the 48 kHz reference."""
     if sample_rate <= 0:
         raise PlanError("sample_rate must be positive")
-    minimum = MIN_CELL_SECONDS * sample_rate
-    span = (MAX_CELL_SECONDS - MIN_CELL_SECONDS) * sample_rate
-    return minimum + variant.seed("bed", "l") % (span + 1)
+    reference_minimum = MIN_CELL_SECONDS * 48000
+    reference_span = (MAX_CELL_SECONDS - MIN_CELL_SECONDS) * 48000
+    reference_frames = reference_minimum + variant.seed("bed", "l") % (reference_span + 1)
+    return round(reference_frames * sample_rate / 48000)
 
 
 def _integer(row: Mapping[str, object], key: str, context: str) -> int:
@@ -498,8 +499,19 @@ def parse_variant(row: Mapping[str, object]) -> Variant:
 def parse_output(block: Mapping[str, object]) -> Output:
     """Build an :class:`Output` from the matrix's ``output`` block."""
     context = "output"
+    master_sample_rate = (
+        _integer(block, "master_sample_rate", context)
+        if "master_sample_rate" in block
+        else _integer(block, "sample_rate", context)
+    )
+    stem_sample_rate = (
+        _integer(block, "stem_sample_rate", context)
+        if "stem_sample_rate" in block
+        else _integer(block, "sample_rate", context)
+    )
     return Output(
-        sample_rate=_integer(block, "sample_rate", context),
+        master_sample_rate=master_sample_rate,
+        stem_sample_rate=stem_sample_rate,
         bit_depth=_integer(block, "bit_depth", context),
         cell_seconds=_number(block, "cell_seconds", context),
         repeats=_integer(block, "repeats", context),
@@ -972,8 +984,8 @@ def build_plan(
     variant = parse_variant(variant_row)
     output = parse_output(output_row)
     fx = parse_fx(variant_row.get("fx"), variant.variant_id)
-    cell_frames = cell_frames_for_variant(variant, output.sample_rate)
-    output = replace(output, cell_seconds=cell_frames / output.sample_rate)
+    cell_frames = cell_frames_for_variant(variant, output.stem_sample_rate)
+    output = replace(output, cell_seconds=cell_frames / output.stem_sample_rate)
     if crossfade_seconds <= 0 or crossfade_seconds >= output.cell_seconds:
         raise PlanError("crossfade_seconds must be positive and shorter than the cell")
     if output.repeats < 1:
@@ -985,7 +997,7 @@ def build_plan(
     commands: list[str] = [
         "SelectAll:",
         "RemoveTracks:",
-        f"SetProject: Rate={output.sample_rate}",
+        f"SetProject: Rate={output.master_sample_rate}",
     ]
     commands += _bed_commands(variant, 0, stem_seconds)
     commands += _texture_commands(variant, 1, stem_seconds)
@@ -1030,10 +1042,10 @@ def build_plan(
     ]
 
     tail_seconds = reverb_tail_seconds(
-        fx.reverb if fx is not None else None, output.sample_rate
+        fx.reverb if fx is not None else None, output.master_sample_rate
     )
     commands += _fx_commands(
-        fx, total_seconds, tail_seconds, len(STEMS) + 1, output.sample_rate
+        fx, total_seconds, tail_seconds, len(STEMS) + 1, output.master_sample_rate
     )
 
     return RenderPlan(

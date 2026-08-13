@@ -14,6 +14,8 @@ import numpy as np
 import pyloudnorm as pyln
 import soundfile as sf
 
+from resampling import resample_stereo
+
 #: Half-width, in octaves, of the region around a bell center excluded from the
 #: tilt fit. The bell's skirts reach well past one octave, so a narrower window
 #: leaves them in the fit and lifts the baseline the bell is measured against.
@@ -27,6 +29,10 @@ BELL_MEASURE_WIDTH_OCTAVES: float = 1 / 6
 #: four 24-bit files, so the difference is bounded by requantizing four files
 #: (about -128 dBFS); this threshold is that with generous margin.
 STEM_SUM_TOLERANCE: float = 1e-5
+
+# Resampling the 96 kHz master to 48 kHz changes individual samples, so the
+# equal-rate bit-identical check becomes a null-depth check after conversion.
+RESAMPLED_STEM_SUM_TOLERANCE: float = 1e-4
 
 #: Frames read at a time when summing stems, so a four-minute master and its
 #: three stems never all sit in memory at once.
@@ -151,6 +157,7 @@ class Sidecar:
     stem_filenames: tuple[str, ...]
     tail_seconds: float = 0.0
     fx_eq: FxEq | None = None
+    expected_frames: int | None = None
 
     @property
     def tail_frames(self) -> int:
@@ -255,6 +262,11 @@ class Sidecar:
             raise SidecarError(f"{path.name}: sample_rate must be an integer")
         if not isinstance(bit_depth, int) or isinstance(bit_depth, bool):
             raise SidecarError(f"{path.name}: bit_depth must be an integer")
+        expected_frames_raw = raw.get("expected_frames")
+        if expected_frames_raw is not None and (
+            not isinstance(expected_frames_raw, int) or isinstance(expected_frames_raw, bool)
+        ):
+            raise SidecarError(f"{path.name}: expected_frames must be an integer")
         result = cls(
             variant_id=text("variant_id"),
             color=text("color"),
@@ -281,6 +293,7 @@ class Sidecar:
             stem_filenames=tuple(stems_raw),
             tail_seconds=float(tail_raw),
             fx_eq=fx_eq,
+            expected_frames=expected_frames_raw,
         )
         text("audacity_version")
         text("render_timestamp")
@@ -583,10 +596,20 @@ def stem_sum(master_path: Path, stem_paths: tuple[Path, ...]) -> CheckResult:
             "Stem sum", f"missing {', '.join(missing) or 'stem list'}", threshold, False
         )
     with sf.SoundFile(master_path) as master_info:
-        shape = (master_info.frames, master_info.samplerate, master_info.channels)
+        master_shape = (master_info.frames, master_info.samplerate, master_info.channels)
+    stem_rate: int | None = None
     for path in stem_paths:
         with sf.SoundFile(path) as info:
-            if (info.frames, info.samplerate, info.channels) != shape:
+            if stem_rate is None:
+                stem_rate = info.samplerate
+            if (
+                info.channels != master_shape[2]
+                or info.samplerate != stem_rate
+                or (
+                    stem_rate == master_shape[1]
+                    and info.frames != master_shape[0]
+                )
+            ):
                 return _result(
                     "Stem sum",
                     f"{path.name} is {info.frames} frames, {info.samplerate} Hz, "
@@ -594,25 +617,64 @@ def stem_sum(master_path: Path, stem_paths: tuple[Path, ...]) -> CheckResult:
                     threshold,
                     False,
                 )
-    worst = 0.0
-    readers = [
-        sf.blocks(path, blocksize=STEM_SUM_BLOCK_FRAMES, dtype="float64", always_2d=True)
-        for path in (master_path, *stem_paths)
-    ]
-    for master_block, *stem_blocks in zip(*readers):
-        residual = master_block - sum(stem_blocks)
-        worst = max(worst, float(np.max(np.abs(residual))))
+    if stem_rate == master_shape[1]:
+        readers = [
+            sf.blocks(path, blocksize=STEM_SUM_BLOCK_FRAMES, dtype="float64", always_2d=True)
+            for path in (master_path, *stem_paths)
+        ]
+        worst = 0.0
+        for master_block, *stem_blocks in zip(*readers):
+            residual = master_block - sum(stem_blocks)
+            worst = max(worst, float(np.max(np.abs(residual))))
+        return _result(
+            "Stem sum",
+            f"{worst:.3e} ({20 * math.log10(max(worst, np.finfo(float).tiny)):.1f} dBFS)",
+            threshold,
+            worst <= STEM_SUM_TOLERANCE,
+            {"stems": [path.name for path in stem_paths]},
+        )
+    residual = resample_stereo(
+        sf.read(master_path, dtype="float64", always_2d=True)[0],
+        master_shape[1],
+        stem_rate,
+    )
+    for path in stem_paths:
+        with sf.SoundFile(path) as stem:
+            if stem.frames != residual.shape[0]:
+                return _result(
+                    "Stem sum",
+                    f"{path.name} is {stem.frames} frames, expected {residual.shape[0]}",
+                    f"exactly {residual.shape[0]} frames at {stem_rate} Hz",
+                    False,
+                )
+            offset = 0
+            while offset < residual.shape[0]:
+                block = stem.read(
+                    min(STEM_SUM_BLOCK_FRAMES, residual.shape[0] - offset),
+                    dtype="float64",
+                    always_2d=True,
+                )
+                residual[offset : offset + len(block)] -= block
+                offset += len(block)
+    worst = float(np.max(np.abs(residual)))
+    threshold = f"max |resampled master - sum(stems)| <= {RESAMPLED_STEM_SUM_TOLERANCE:g}"
     return _result(
         "Stem sum",
         f"{worst:.3e} ({20 * math.log10(max(worst, np.finfo(float).tiny)):.1f} dBFS)",
         threshold,
-        worst <= STEM_SUM_TOLERANCE,
+        worst <= RESAMPLED_STEM_SUM_TOLERANCE,
         {"stems": [path.name for path in stem_paths]},
     )
 
 
 def duration_format(info: sf.SoundFile, sidecar: Sidecar) -> CheckResult:
-    expected = round(sidecar.cell_seconds * sidecar.sample_rate) * sidecar.repeats + sidecar.tail_frames
+    # Older published sidecars lack expected_frames, so derive it for compatibility.
+    expected = (
+        sidecar.expected_frames
+        if sidecar.expected_frames is not None
+        else round(sidecar.cell_seconds * sidecar.sample_rate) * sidecar.repeats
+        + sidecar.tail_frames
+    )
     subtype_bits = {"PCM_16": 16, "PCM_24": 24, "PCM_32": 32}.get(info.subtype, 0)
     passed = info.samplerate == sidecar.sample_rate and info.channels == 2 and subtype_bits == sidecar.bit_depth and info.frames == expected
     return _result("Duration/format", f"{info.frames} frames, {info.samplerate} Hz, {info.channels}ch, {info.subtype}", f"exactly {expected} frames; {sidecar.sample_rate} Hz stereo {sidecar.bit_depth}-bit", passed)

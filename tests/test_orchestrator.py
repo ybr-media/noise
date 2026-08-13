@@ -140,6 +140,8 @@ def test_sidecar_and_log_contract(tmp_path: Path) -> None:
     parsed = Sidecar.from_json(master_sidecar)
     assert parsed.variant_id
     assert parsed.is_master
+    assert parsed.sample_rate == 96000
+    assert parsed.expected_frames is not None
     sidecar_raw = json.loads(master_sidecar.read_text())
     assert sidecar_raw["audacity_version"] == "3.7.8"
     assert sidecar_raw["stem_filenames"] == [
@@ -157,6 +159,8 @@ def test_sidecar_and_log_contract(tmp_path: Path) -> None:
         assert stem_sidecar["role"] == f"stem_{number}"
         assert stem_sidecar["stem"] == ("bed", "texture", "motion")[number - 1]
         assert stem_sidecar["loudness_gain_db"] == gain
+        assert stem_sidecar["sample_rate"] == 48000
+        assert stem_sidecar["expected_frames"] * 2 == sidecar_raw["expected_frames"]
         assert not Sidecar.from_json(Path(stem_path).with_suffix(".json")).is_master
     assert len(list(output.glob("*.json"))) == 4
 
@@ -175,7 +179,9 @@ def test_sidecar_and_log_contract(tmp_path: Path) -> None:
     # The measurement export, the one shared gain, then the four outputs.
     exported = [EXPORT_FILENAME.match(command).group(1) for command in commands if command.startswith("Export2:")]
     assert exported[0].endswith(".measure.wav")
-    assert exported[1:] == list(plan.track_paths)
+    assert exported[1] == plan.master_path
+    assert all(path.endswith(".source.wav") for path in exported[2:])
+    assert all(Path(path).parent != output for path in exported[2:])
     assert not Path(exported[0]).exists()
     gains = [command for command in commands if command.startswith("Amplify:")]
     assert gains[len(plan.stem_paths):] == list(plan.gain_commands(gain)[1:])
@@ -239,8 +245,14 @@ def test_aup3_serializer_measures_the_mix_and_writes_four_files(
 
     written: list[tuple[Path, ...]] = []
 
-    def fake_extract(project: Path, project_xml: Path | None, paths: tuple[Path, ...]) -> None:
-        del project, project_xml
+    def fake_extract(
+        project: Path,
+        project_xml: Path | None,
+        paths: tuple[Path, ...],
+        *,
+        stem_rate: int,
+    ) -> None:
+        del project, project_xml, stem_rate
         written.append(paths)
         for path in paths:
             _fake_export(path)
