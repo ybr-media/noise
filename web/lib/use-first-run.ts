@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import {
   TUTORIAL_STORAGE_KEY,
-  TUTORIAL_VERSION,
   tutorialDoneFromStorage,
   tutorialDoneStorageValue,
   type TutorialUserRecord,
@@ -12,10 +11,11 @@ import {
 type FirstRunState = {
   ready: boolean;
   authenticated: boolean;
+  firstPaintGuard: boolean;
   user: TutorialUserRecord | null;
 };
 
-const UNKNOWN_STATE: FirstRunState = { ready: false, authenticated: false, user: null };
+const UNKNOWN_STATE: FirstRunState = { ready: false, authenticated: false, firstPaintGuard: false, user: null };
 
 export function useFirstRun(authConfigured: boolean) {
   const [state, setState] = useState<FirstRunState>(UNKNOWN_STATE);
@@ -23,21 +23,12 @@ export function useFirstRun(authConfigured: boolean) {
   useEffect(() => {
     let cancelled = false;
     if (!authConfigured) {
-      setState({ ready: true, authenticated: false, user: null });
+      setState({ ready: true, authenticated: false, firstPaintGuard: false, user: null });
       return () => { cancelled = true; };
     }
 
     const localDone = tutorialDoneFromStorage(localStorage.getItem(TUTORIAL_STORAGE_KEY));
-    if (localDone) {
-      setState((previous) => ({
-        ...previous,
-        user: previous.user ?? {
-          email: "",
-          tutorialCompletedAt: "local-storage-guard",
-          tutorialVersion: TUTORIAL_VERSION,
-        },
-      }));
-    }
+    if (localDone) setState((previous) => ({ ...previous, firstPaintGuard: true }));
 
     fetch("/api/me", { cache: "no-store" })
       .then(async (response) => {
@@ -49,10 +40,10 @@ export function useFirstRun(authConfigured: boolean) {
         const storageValue = tutorialDoneStorageValue(user.tutorialCompletedAt);
         if (storageValue) localStorage.setItem(TUTORIAL_STORAGE_KEY, storageValue);
         else localStorage.removeItem(TUTORIAL_STORAGE_KEY);
-        setState({ ready: true, authenticated: true, user });
+        setState({ ready: true, authenticated: true, firstPaintGuard: false, user });
       })
       .catch(() => {
-        if (!cancelled) setState({ ready: true, authenticated: false, user: null });
+        if (!cancelled) setState({ ready: true, authenticated: false, firstPaintGuard: false, user: null });
       });
 
     return () => { cancelled = true; };
@@ -61,6 +52,6 @@ export function useFirstRun(authConfigured: boolean) {
   return {
     ...state,
     completed: Boolean(state.user?.tutorialCompletedAt),
-    shouldLaunch: state.ready && state.authenticated && !state.user?.tutorialCompletedAt,
+    shouldLaunch: state.ready && state.authenticated && !state.firstPaintGuard && !state.user?.tutorialCompletedAt,
   };
 }
