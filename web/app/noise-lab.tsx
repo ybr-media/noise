@@ -326,7 +326,6 @@ function LibrarySkeleton() {
   return (
     <SkeletonPanel label="Loading rendered masters…">
       <div className="section-title"><Skeleton width={96} height={11} /></div>
-      <Skeleton className="library-sync-skeleton" width={92} height={10} />
       <div className="library-list">
         {[0, 1, 2].map((card) => (
           <Card as="article" key={card} padding="md" className="track-card">
@@ -1102,12 +1101,13 @@ export default function NoiseLab() {
           </div>
           )}
         </div>
-        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} lastSync={lastLibrarySync} syncFailed={librarySyncFailed} /></div>
+        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} /></div>
         <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} initialLoad={initialLoad} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} onToast={setToast} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} lastSync={lastQueueSync} /></div>
         <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} /></div>
       </div>
       <div className={`current-tab-title ${tabTitleVisible ? "" : "is-hidden"}`} aria-hidden={tabTitleVisible ? undefined : true}>
-        <span key={tab}>{tab === "queue" ? "Queue" : tab[0].toUpperCase() + tab.slice(1)}</span>
+        <span key={tab} className="current-tab-title-text">{tab === "queue" ? "Queue" : tab[0].toUpperCase() + tab.slice(1)}</span>
+        {tab === "library" && <HeaderSyncCaption lastSync={lastLibrarySync} syncFailed={librarySyncFailed} loading={loading} onRefresh={() => void refresh()} hidden={!tabTitleVisible} />}
         <button type="button" className="info-button current-tab-title-info" tabIndex={tabTitleVisible ? 0 : -1} aria-label={tab === "queue" ? "How rendering works" : `How to use ${tab[0].toUpperCase() + tab.slice(1)}`} aria-expanded={tabInfoOpen} aria-controls="current-tab-tooltip" onClick={() => setTabInfoOpen((open) => !open)}><Info size={16} /></button>
         {tabInfoOpen && <p id="current-tab-tooltip" role="note" className="current-tab-tooltip">{{
           design: "Dial in a variant, audition it, and queue the render.",
@@ -1145,8 +1145,18 @@ export default function NoiseLab() {
   );
 }
 
-function Library({ tracks, loading, initialLoad, onRefresh, onToast, lastSync, syncFailed }: { tracks: LibraryTrack[]; loading: boolean; initialLoad: boolean; onRefresh: () => void; onToast: (toast: { message: string; error?: boolean }) => void; lastSync: string | null; syncFailed: boolean }) {
+function HeaderSyncCaption({ lastSync, syncFailed, loading, onRefresh, hidden }: { lastSync: string | null; syncFailed: boolean; loading: boolean; onRefresh: () => void; hidden: boolean }) {
   const [, setSyncTick] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setSyncTick((tick) => tick + 1), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const caption = syncFailed ? "Sync failed — retry" : loading ? "Syncing…" : lastSync ? `Synced ${relativeTime(lastSync)}` : "Syncing…";
+  if (syncFailed) return <button type="button" className="header-sync-caption is-failed" tabIndex={hidden ? -1 : 0} onClick={onRefresh} disabled={loading}>{caption}</button>;
+  return <span className="header-sync-caption" aria-live="polite">{caption}</span>;
+}
+
+function Library({ tracks, loading, initialLoad, onRefresh, onToast }: { tracks: LibraryTrack[]; loading: boolean; initialLoad: boolean; onRefresh: () => void; onToast: (toast: { message: string; error?: boolean }) => void }) {
   const [view, setView] = useState<"cards" | "rows">("cards");
   const { pullDistance, refreshShellRef } = usePullRefresh(loading, onRefresh);
   useEffect(() => {
@@ -1157,11 +1167,6 @@ function Library({ tracks, loading, initialLoad, onRefresh, onToast, lastSync, s
     try { localStorage.setItem("noise.library.view", next); } catch { /* ignore storage failures */ }
     return next;
   });
-  useEffect(() => {
-    const timer = window.setInterval(() => setSyncTick((tick) => tick + 1), 30_000);
-    return () => window.clearInterval(timer);
-  }, []);
-  const syncCaption = syncFailed ? "Sync failed — retry" : loading ? "Syncing…" : lastSync ? `Synced ${relativeTime(lastSync)}` : "Syncing…";
   if (initialLoad) {
     return (
       <section className="panel-section">
@@ -1173,7 +1178,6 @@ function Library({ tracks, loading, initialLoad, onRefresh, onToast, lastSync, s
     <section ref={refreshShellRef} className="panel-section library-refresh-shell">
       {pullDistance > 0 && <div className={`pull-refresh-indicator ${pullDistance >= 56 ? "is-ready" : ""}`} aria-live="polite" style={{ height: pullDistance }}>{pullDistance >= 56 ? "Release to refresh" : "Pull to refresh"}</div>}
       <div className="library-toolbar"><div className="section-title">Masters · {tracks.filter((track) => track.exists).length}</div><button type="button" className="icon-action view-toggle" aria-label={view === "cards" ? "Switch to compact rows" : "Switch to expanded cards"} title={view === "cards" ? "Compact rows" : "Expanded cards"} onClick={toggleView}>{view === "cards" ? <List size={18} /> : <LayoutGrid size={18} />}</button></div>
-      {syncFailed ? <button type="button" className="library-sync-caption is-failed" onClick={onRefresh} disabled={loading}>{syncCaption}</button> : <div className="library-sync-caption" aria-live="polite">{syncCaption}</div>}
       <div className="library-list">
         {tracks.filter((track) => track.exists).length === 0 && <Card padding="md"><EmptyState title="No rendered files found." /></Card>}
         {tracks.filter((track) => track.exists).map((track) => <TrackCard key={track.variantId} track={track} compact={view === "rows"} onToast={onToast} />)}
