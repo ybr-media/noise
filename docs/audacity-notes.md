@@ -829,7 +829,7 @@ The serializer extracted the referenced non-contiguous channel blocks with
 the correct channel order and wrote a WAV reported by libsndfile as:
 
 ```text
-96000 Hz master or 48000 Hz stem, 2 channels, PCM_24
+48000 Hz, 2 channels, PCM_24
 ```
 
 Unit tests cover silent runs, non-contiguous IDs, multi-block sequences,
@@ -853,7 +853,7 @@ Loop seam         -6153.053 dBFS
 Spectral tilt     0.031 dB/oct
 Silence/dropout   0.0 ms
 Stereo correlation r=-0.00032
-Format            23,040,000 frames, 96 kHz, stereo PCM_24
+Format            11,520,000 frames, 48 kHz, stereo PCM_24
 Overall            PASS
 ```
 
