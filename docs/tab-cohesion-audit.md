@@ -375,9 +375,13 @@ with **no intended visual change on any tab except where the audit says the tab 
 
 These are Austin's calls, not Devin's — they change what the tokens say.
 
-1. **Brand red value.** Four candidates are in the code: `#e5483c` (buttons), `#e2483b` (selection
-   and focus), `#ff3b30` (the `--accent` token and `C.accent`), `#d23a2f` (play-button shadow).
-   §4.1 proposes `#e2483b` because it already owns focus rings and selected states. Confirm.
+1. ~~**Brand red value.**~~ **SETTLED — `--brand: #e2483b`.** Approved by Austin, 13 Aug 2026. Four
+   candidates were in the code: `#e5483c` (buttons), `#e2483b` (selection and focus), `#ff3b30` (the
+   unused `--accent` token and `C.accent`), `#d23a2f` (play-button shadow). `#e2483b` wins because it
+   already owns focus rings and selected states, so the most semantically load-bearing use of red
+   stays pixel-identical through the refactor. **Phase 1 is unblocked on this point:** every red in
+   §3D that is doing brand work — `#e5483c`, `#ff3b30`, `#d23a2f` — collapses to `--brand`, and the
+   play button's gradient is rebuilt from it rather than from three hand-picked stops.
 2. **Does error red equal brand red?** Right now they are the same family, which makes a failed
    render look like a call to action. §4.1 separates them (`--danger: #c4392b`). Confirm.
 3. **Queue's black buttons.** Phase 2 makes them neutral-grey secondary actions and gives Queue no

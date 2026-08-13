@@ -187,6 +187,9 @@ figcaption b{color:var(--seam); font-weight:500;}
 .ask p{margin:0; font-size:15px; line-height:1.55; color:var(--ink-2);}
 .ask .rec{display:inline-block; margin-top:9px; font-family:var(--mono); font-size:11px; letter-spacing:.04em;
   color:var(--warn); background:var(--warn-soft); border-radius:6px; padding:4px 9px;}
+.ask .rec.done{color:var(--ok); background:var(--ok-soft);}
+.ask.settled h4{color:var(--ink-2);}
+.ask.settled h4 s{text-decoration-color:var(--ink-3); text-decoration-thickness:1.5px;}
 
 /* ---- keep list ---- */
 .keep{display:grid; gap:10px; margin:24px 0 0; padding:0; list-style:none;}
@@ -518,16 +521,17 @@ figcaption b{color:var(--seam); font-weight:500;}
 <div class="seam"><span>Before phase one</span></div>
 <div class="col">
   <h2>Five calls that are yours, not Devin's</h2>
-  <p>These change what the tokens say, so they need answering first.</p>
+  <p>These change what the tokens say, so they need answering first. One is settled; four are open.</p>
 </div>
 
 <div class="asks">
-  <div class="ask">
-    <h4>Which red is the brand?</h4>
-    <p>Four candidates are already in the code: <span class="mono">#e5483c</span> on buttons,
+  <div class="ask settled">
+    <h4><s>Which red is the brand?</s></h4>
+    <p>Four candidates were in the code: <span class="mono">#e5483c</span> on buttons,
     <span class="mono">#e2483b</span> on selection and focus, <span class="mono">#ff3b30</span> in the
-    unused token, <span class="mono">#d23a2f</span> in the play button's shadow.</p>
-    <span class="rec">Recommend #e2483b — it already owns focus rings and selected states</span>
+    unused token, <span class="mono">#d23a2f</span> in the play button's shadow. The three doing brand
+    work collapse into one token, and the play button's gradient gets rebuilt from it.</p>
+    <span class="rec done">Settled 13 Aug — --brand: #e2483b</span>
   </div>
   <div class="ask">
     <h4>Does error red equal brand red?</h4>
