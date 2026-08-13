@@ -272,6 +272,9 @@ button:disabled { cursor: not-allowed; }
 .pull-refresh-indicator.is-ready { color: var(--ink); font-weight: 700; }
 .queue-refresh-shell { touch-action: pan-y; }
 .queue-sync-caption { display: flex; align-items: center; gap: 7px; margin: 0 2px 18px; color: var(--ink-secondary); font-size: 12px; }
+.queue-sync-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.current-tab-title .queue-sync-caption { flex: 1 1 auto; min-width: 0; margin: 6px 4px 0 12px; font-size: var(--text-xs); }
+.queue-refresh-shell > .queue-group:first-of-type > .section-title { margin-top: 0; }
 .queue-sync-dot { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: var(--success); }
 .queue-sync-dot.is-active { background: var(--link); animation: pulse-blue 1.4s ease-in-out infinite; }
 .queue-job-list { display: grid; gap: var(--gap-list); }
