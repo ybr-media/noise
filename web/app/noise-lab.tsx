@@ -54,6 +54,7 @@ import {
   toFxBlock,
   wetGainDb,
   type EqPreset,
+  type EqState,
   type FxState,
   type ReverbPreset,
   type ReverbState,
@@ -69,6 +70,7 @@ import { Button } from "./ui/button";
 import { Banner } from "./ui/banner";
 import { EmptyState } from "./ui/empty-state";
 import { Disclosure } from "./ui/disclosure";
+import { Switch } from "./ui/switch";
 
 const TAB_ICONS = {
   design: SlidersHorizontal,
@@ -209,24 +211,58 @@ function fireSelectionHaptic() {
   }
 }
 
-function GlyphSegmented({ options, value, onChange, label }: {
+function GlyphSegmented({ options, value, onChange, label, icon }: {
   options: readonly (readonly [string, string])[];
   value: string;
   onChange: (value: string) => void;
   label: string;
+  icon?: (option: string) => React.ReactNode;
 }) {
   return (
     <div className="glyph-segmented" role="radiogroup" aria-label={label} onKeyDown={radioArrowHandler(options, value, onChange)}>
       {options.map(([id, name]) => (
         <button key={id} type="button" role="radio" aria-checked={value === id} tabIndex={value === id ? 0 : -1} data-option={id}
-          aria-label={PARAM_ARIA_LABELS[id] ?? name}
+          aria-label={PARAM_ARIA_LABELS[id] ?? name} title={name}
           onClick={() => { if (value !== id) fireSelectionHaptic(); onChange(id); }}
           className={`glyph-segment ${value === id ? "is-selected" : ""}`}>
-          <ParamIcon option={id} />
+          {icon ? icon(id) : <ParamIcon option={id} />}
         </button>
       ))}
     </div>
   );
+}
+
+function FxPresetIcon({ option }: { option: string }) {
+  const paths: Record<string, React.ReactNode> = {
+    "warm-bed": <path d="M2.5 14c1.8-5 3.6-6.5 5.4-4.5s3.2 2.7 4.8 1.2 2.8-3.2 4.8-3.2" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />,
+    airy: <path d="M2.5 14c2.2 1.2 3.7.5 5.2-1.5s2.8-4.8 4.7-5.2 3.2.7 5.1-3" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />,
+    midnight: <path d="M2.5 5c2.1 2.7 3.8 3.8 5.3 3.3s2.7-1.4 4.5.1 3.1 4.2 5.2 6.6" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />,
+    telephone: <path d="M2.5 13h4l1.2-5.5h4.6l1.2 5.5h4" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />,
+    custom: <path d="M4 5h12M4 10h12M4 15h12M7 3v4M13 8v4M9 13v4" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" />,
+  };
+  const reverbArcShapes: Record<string, { radii: readonly number[]; heights: readonly number[]; walls?: "short" | "tall" }> = {
+    "small-room": { radii: [2.5], heights: [2.3] },
+    "medium-room": { radii: [2.5, 4.3], heights: [2.3, 3.9] },
+    "large-room": { radii: [2.5, 4.3, 6.1], heights: [2.3, 3.9, 5.5] },
+    "church-hall": { radii: [2.5, 4.3, 6.1, 7.9], heights: [1.8, 3.1, 4.4, 5.3], walls: "short" },
+    cathedral: { radii: [2.5, 4.3, 6.1, 7.9, 9.4], heights: [2.5, 4.2, 5.9, 7.2, 8.2], walls: "tall" },
+  };
+  const arcShape = reverbArcShapes[option];
+  if (arcShape) {
+    return (
+      <svg viewBox="0 0 20 20" width={20} height={20} aria-hidden="true">
+        <circle cx="10" cy="15.5" r="1.2" fill="currentColor" />
+        {arcShape.radii.map((radius, index) => {
+          const height = arcShape.heights[index];
+          return <path key={radius} d={`M ${10 - radius} 15.5 A ${radius} ${height} 0 0 1 ${10 + radius} 15.5`} stroke="currentColor" strokeWidth="1.35" fill="none" strokeLinecap="round" />;
+        })}
+        {arcShape.walls && (
+          <path d={arcShape.walls === "short" ? "M3.1 12.5v3M16.9 12.5v3" : "M2.2 8.5v7M17.8 8.5v7"} stroke="currentColor" strokeWidth="1.35" fill="none" strokeLinecap="round" />
+        )}
+      </svg>
+    );
+  }
+  return <svg viewBox="0 0 20 20" width={20} height={20} aria-hidden="true">{paths[option] ?? paths.custom}</svg>;
 }
 
 function SwatchRow({ options, value, onChange, label }: {
@@ -686,7 +722,11 @@ function useFxState(variantId: string | undefined): [FxState, (update: (old: FxS
     try {
       const saved = JSON.parse(localStorage.getItem(FX_STORAGE_KEY) ?? "{}") as Record<string, FxState>;
       const stored = saved[variantId];
-      setFx(stored && stored.eq && stored.reverb ? stored : defaultFx());
+      setFx(stored && stored.eq && stored.reverb ? {
+        ...stored,
+        eq: eqIsFlat(stored.eq) ? eqPresetState("flat") : stored.eq,
+        reverb: reverbIsOff(stored.reverb) ? reverbPresetState("off") : stored.reverb,
+      } : defaultFx());
     } catch { setFx(defaultFx()); }
   }, [variantId]);
   const update = useCallback((mutate: (old: FxState) => FxState) => {
@@ -705,38 +745,35 @@ function useFxState(variantId: string | undefined): [FxState, (update: (old: FxS
   return [fx, update];
 }
 
-function ChipRow({ options, value, onChange, label }: {
-  options: readonly { id: string; name: string }[];
-  value: string;
-  onChange: (id: string) => void;
-  label: string;
-}) {
-  return (
-    <div className="fx-chip-row" role="radiogroup" aria-label={label}>
-      {options.map((option) => (
-        <button key={option.id} type="button" role="radio" aria-checked={value === option.id}
-          onClick={() => { if (value !== option.id) fireSelectionHaptic(); onChange(option.id); }}
-          className={`fx-chip${value === option.id ? " is-selected" : ""}`}>
-          {option.name}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function ToneSection({ fx, onChange }: { fx: FxState; onChange: (update: (old: FxState) => FxState) => void }) {
+function EqSection({ fx, onChange, variantId }: { fx: FxState; onChange: (update: (old: FxState) => FxState) => void; variantId?: string }) {
   const flat = eqIsFlat(fx.eq);
-  const chipPresets = EQ_PRESETS.filter((preset) => preset !== "custom" || fx.eq.preset === "custom");
+  const previousEq = useRef<EqState | null>(null);
+  useEffect(() => { previousEq.current = null; }, [variantId]);
+  const chipPresets = EQ_PRESETS.filter((preset) => preset !== "flat" && (preset !== "custom" || fx.eq.preset === "custom"));
+  const toggle = () => {
+    if (flat) {
+      const remembered = previousEq.current;
+      onChange((old) => ({ ...old, eq: remembered && !eqIsFlat(remembered) ? remembered : eqPresetState("warm-bed") }));
+    } else {
+      previousEq.current = fx.eq;
+      onChange((old) => ({ ...old, eq: eqPresetState("flat") }));
+    }
+  };
   return (
     <Card as="section" padding="md" className="controls-card">
       <div className="param-row">
         <div className="param-row-heading">
-          <div className="param-title">Tone</div>
-          <div className="param-caption"><span className="param-caption-text">{flat ? "Flat — untouched" : `${EQ_PRESET_LABELS[fx.eq.preset]} EQ`}</span></div>
+          <div className="param-title">EQ</div>
+          <div className="param-row-heading-actions">
+            <div className="param-caption"><span className="param-caption-text">{flat ? "Off" : `${EQ_PRESET_LABELS[fx.eq.preset]} EQ`}</span></div>
+            <Switch checked={!flat} aria-label="EQ on/off" onChange={toggle} />
+          </div>
         </div>
-        <ChipRow label="Tone preset" value={fx.eq.preset}
-          options={chipPresets.map((preset) => ({ id: preset, name: EQ_PRESET_LABELS[preset] }))}
+        {!flat && <GlyphSegmented label="EQ preset" value={fx.eq.preset}
+          options={chipPresets.map((preset) => [preset, EQ_PRESET_LABELS[preset]] as const)}
+          icon={(option) => <FxPresetIcon option={option} />}
           onChange={(id) => onChange((old) => ({ ...old, eq: id === "custom" ? { ...old.eq, preset: "custom" } : eqPresetState(id as Exclude<EqPreset, "custom">) }))} />
+        }
         {!flat && (
           <div className="fx-detail">
             <div className="fx-eq-grid" role="group" aria-label="EQ bands">
@@ -754,7 +791,6 @@ function ToneSection({ fx, onChange }: { fx: FxState; onChange: (update: (old: F
                 </div>
               ))}
             </div>
-            <button type="button" className="fx-link" onClick={() => onChange((old) => ({ ...old, eq: eqPresetState("flat") }))}>Reset to Flat</button>
           </div>
         )}
       </div>
@@ -773,21 +809,37 @@ function FxSlider({ label, value, min, max, step, unit, onChange }: { label: str
   );
 }
 
-function SpaceSection({ fx, onChange, nominalSeconds }: { fx: FxState; onChange: (update: (old: FxState) => FxState) => void; nominalSeconds: number }) {
+function ReverbSection({ fx, onChange, nominalSeconds, variantId }: { fx: FxState; onChange: (update: (old: FxState) => FxState) => void; nominalSeconds: number; variantId?: string }) {
   const [advanced, setAdvanced] = useState(false);
   const off = reverbIsOff(fx.reverb);
+  const previousReverb = useRef<ReverbState | null>(null);
+  useEffect(() => { previousReverb.current = null; }, [variantId]);
   const tail = reverbTailSeconds(fx.reverb);
+  const toggle = () => {
+    if (off) {
+      const remembered = previousReverb.current;
+      onChange((old) => ({ ...old, reverb: remembered && !reverbIsOff(remembered) ? remembered : reverbPresetState("medium-room") }));
+    } else {
+      previousReverb.current = fx.reverb;
+      onChange((old) => ({ ...old, reverb: reverbPresetState("off") }));
+    }
+  };
   const setReverb = (patch: Partial<ReverbState>) => onChange((old) => ({ ...old, reverb: { ...old.reverb, ...patch, preset: "custom" } }));
   return (
     <Card as="section" padding="md" className="controls-card">
       <div className="param-row">
         <div className="param-row-heading">
-          <div className="param-title">Space</div>
-          <div className="param-caption"><span className="param-caption-text">{off ? "Dry — no reverb" : `${REVERB_PRESET_LABELS[fx.reverb.preset]} · ${formatTail(nominalSeconds, tail)}`}</span></div>
+          <div className="param-title">Reverb</div>
+          <div className="param-row-heading-actions">
+            <div className="param-caption"><span className="param-caption-text">{off ? "Off" : `${REVERB_PRESET_LABELS[fx.reverb.preset]} · ${formatTail(nominalSeconds, tail)}`}</span></div>
+            <Switch checked={!off} aria-label="Reverb on/off" onChange={toggle} />
+          </div>
         </div>
-        <ChipRow label="Space preset" value={fx.reverb.preset}
-          options={REVERB_PRESETS.filter((preset) => preset !== "custom" || fx.reverb.preset === "custom").map((preset) => ({ id: preset, name: REVERB_PRESET_LABELS[preset] }))}
+        {!off && <GlyphSegmented label="Reverb preset" value={fx.reverb.preset}
+          options={REVERB_PRESETS.filter((preset) => preset !== "off" && (preset !== "custom" || fx.reverb.preset === "custom")).map((preset) => [preset, REVERB_PRESET_LABELS[preset]] as const)}
+          icon={(option) => <FxPresetIcon option={option} />}
           onChange={(id) => onChange((old) => ({ ...old, reverb: id === "custom" ? { ...old.reverb, preset: "custom" } : reverbPresetState(id as Exclude<ReverbPreset, "custom">) }))} />
+        }
         {!off && (
           <div className="fx-detail">
             <FxSlider label="Room amount" value={fx.reverb.mixPercent} min={0} max={100} step={1} unit="%" onChange={(value) => setReverb({ mixPercent: value })} />
@@ -1096,8 +1148,8 @@ export default function NoiseLab() {
               <ParamRow label="Motion" caption={PARAM_CAPTIONS[selection.motion]}><GlyphSegmented options={OPTIONS.motion} value={selection.motion} onChange={(value) => setSelection((old) => ({ ...old, motion: value }))} label="Motion" /></ParamRow>
               <ParamRow label="Balance" caption={PARAM_CAPTIONS[selection.balance]}><GlyphSegmented options={OPTIONS.balance} value={selection.balance} onChange={(value) => setSelection((old) => ({ ...old, balance: value }))} label="Balance" /></ParamRow>
             </Card>
-            <ToneSection fx={fx} onChange={setFx} />
-            <SpaceSection fx={fx} onChange={setFx} nominalSeconds={selected.durationSeconds} />
+            <EqSection fx={fx} onChange={setFx} variantId={selected.variantId} />
+            <ReverbSection fx={fx} onChange={setFx} nominalSeconds={selected.durationSeconds} variantId={selected.variantId} />
           </div>
           )}
         </div>
