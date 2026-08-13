@@ -251,6 +251,7 @@ function TutorialOverlay({ step, stepIndex, total, snapshot = {}, celebration, o
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const [cardPlacement, setCardPlacement] = useState<"bottom" | "top">("bottom");
   const [doItVisible, setDoItVisible] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
@@ -274,6 +275,7 @@ function TutorialOverlay({ step, stepIndex, total, snapshot = {}, celebration, o
     const target = step.target ? document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`) : null;
     if (!target) {
       setRect(null);
+      setCardPlacement("bottom");
       return;
     }
     target.scrollIntoView({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
@@ -293,6 +295,33 @@ function TutorialOverlay({ step, stepIndex, total, snapshot = {}, celebration, o
       window.removeEventListener("scroll", measure);
     };
   }, [reducedMotion, step]);
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!card || !rect) {
+      setCardPlacement("bottom");
+      return;
+    }
+    const cardBox = card.getBoundingClientRect();
+    const topBox = {
+      left: cardBox.left,
+      right: cardBox.right,
+      top: 14,
+      bottom: 14 + cardBox.height,
+    };
+    const bottomBox = {
+      left: cardBox.left,
+      right: cardBox.right,
+      top: window.innerHeight - 18 - cardBox.height,
+      bottom: window.innerHeight - 18,
+    };
+    const overlap = (candidate: typeof topBox) => {
+      const width = Math.max(0, Math.min(rect.right, candidate.right) - Math.max(rect.left, candidate.left));
+      const height = Math.max(0, Math.min(rect.bottom, candidate.bottom) - Math.max(rect.top, candidate.top));
+      return width * height;
+    };
+    const nextPlacement = overlap(bottomBox) > overlap(topBox) ? "top" : "bottom";
+    setCardPlacement((current) => current === nextPlacement ? current : nextPlacement);
+  }, [rect]);
   useEffect(() => {
     const target = step.target ? document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`) : null;
     const first = cardRef.current?.querySelector<HTMLElement>("button, [href], input, [tabindex]:not([tabindex='-1'])");
@@ -346,7 +375,7 @@ function TutorialOverlay({ step, stepIndex, total, snapshot = {}, celebration, o
           {celebration && <Check className="tutorial-check" size={24} style={{ left: rect.left + rect.width / 2 - 12, top: rect.top + rect.height / 2 - 12 }} />}
         </>
       )}
-      <div ref={cardRef} className="soft-card card-padding-md tutorial-card" role="dialog" aria-labelledby="tutorial-title">
+      <div ref={cardRef} className={`soft-card card-padding-md tutorial-card${cardPlacement === "top" ? " is-top" : ""}`} role="dialog" aria-labelledby="tutorial-title">
         <button type="button" className="tutorial-skip" onClick={onSkip}>Skip</button>
         <div className="tutorial-step-count" aria-hidden="true">{Array.from({ length: total }, (_, index) => <span key={index} className={index === stepIndex ? "is-active" : ""} />)}</div>
         <span className="sr-only">Step {stepIndex + 1} of {total}</span>
