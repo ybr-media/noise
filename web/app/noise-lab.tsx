@@ -234,17 +234,25 @@ function GlyphSegmented({ options, value, onChange, label, icon }: {
 
 function FxPresetIcon({ option }: { option: string }) {
   const paths: Record<string, React.ReactNode> = {
-    "warm-bed": <path d="M3 13c2-5 4-5 6-2s4 3 8-4" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />,
-    airy: <path d="M3 13c2-2 3-5 5-5s3 3 5 3 2-2 4-6" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />,
-    midnight: <path d="M3 6c2 2 3 5 5 5s3-3 5-3 2 2 4 6" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />,
-    telephone: <path d="M3 11h3V7h3v6h3V9h5" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />,
+    "warm-bed": <path d="M2.5 14c1.8-5 3.6-6.5 5.4-4.5s3.2 2.7 4.8 1.2 2.8-3.2 4.8-3.2" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />,
+    airy: <path d="M2.5 14c2.2 1.2 3.7.5 5.2-1.5s2.8-4.8 4.7-5.2 3.2.7 5.1-3" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />,
+    midnight: <path d="M2.5 5c2.1 2.7 3.8 3.8 5.3 3.3s2.7-1.4 4.5.1 3.1 4.2 5.2 6.6" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" />,
+    telephone: <path d="M2.5 13h4l1.2-5.5h4.6l1.2 5.5h4" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />,
     custom: <path d="M4 5h12M4 10h12M4 15h12M7 3v4M13 8v4M9 13v4" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" />,
-    "small-room": <rect x="4" y="5" width="12" height="10" rx="2" stroke="currentColor" strokeWidth="1.8" fill="none" />,
-    "medium-room": <rect x="3" y="4" width="14" height="12" rx="2" stroke="currentColor" strokeWidth="1.8" fill="none" />,
-    "large-room": <rect x="2.5" y="3" width="15" height="14" rx="2" stroke="currentColor" strokeWidth="1.8" fill="none" />,
-    "church-hall": <path d="M3 16V8l6-4 8 4v8M7 16v-4h4v4M14 16v-5" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />,
-    cathedral: <path d="M3 16V7l6-4 8 4v9M6 16v-5h8v5M9 11V7" stroke="currentColor" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" />,
   };
+  const reverbArcCounts: Record<string, number> = { "small-room": 1, "medium-room": 2, "large-room": 3, "church-hall": 4, cathedral: 5 };
+  const arcCount = reverbArcCounts[option];
+  if (arcCount) {
+    return (
+      <svg viewBox="0 0 20 20" width={20} height={20} aria-hidden="true">
+        <circle cx="10" cy="15.5" r="1.2" fill="currentColor" />
+        {Array.from({ length: arcCount }, (_, index) => {
+          const radius = 2.5 + index * 1.8;
+          return <path key={radius} d={`M ${10 - radius} 15.5 A ${radius} ${radius} 0 0 1 ${10 + radius} 15.5`} stroke="currentColor" strokeWidth="1.35" fill="none" strokeLinecap="round" />;
+        })}
+      </svg>
+    );
+  }
   return <svg viewBox="0 0 20 20" width={20} height={20} aria-hidden="true">{paths[option] ?? paths.custom}</svg>;
 }
 
