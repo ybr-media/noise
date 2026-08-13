@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   // The variant matrix is read at runtime, so it is not traced automatically.
   outputFileTracingIncludes: {
     "/api/**": ["./config/*.yaml", "../config/*.yaml"],
+    "/api/audio/**": ["./demo/*"],
   },
 };
 

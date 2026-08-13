@@ -43,8 +43,10 @@ function withSidecar(variant: Variant, sidecar: Sidecar | null): Variant {
 
 export async function libraryTracks(releaseTitles: Map<string, { title: string; description: string }> = new Map()): Promise<LibraryTrack[]> {
   const index = await artifactIndex();
-  if (shouldShowDemoTrack(index.artifacts.size) && isDemoSidecar(demoSidecar)) {
-    const variant = demoVariant(loadVariants()[0]);
+  const variants = loadVariants();
+  const demoBase = variants[0];
+  if (shouldShowDemoTrack(index.artifacts.size) && isDemoSidecar(demoSidecar) && demoBase) {
+    const variant = demoVariant(demoBase);
     return [{
       ...variant,
       path: `/api/audio/${encodeURIComponent(DEMO_FILENAME)}`,
@@ -65,7 +67,7 @@ export async function libraryTracks(releaseTitles: Map<string, { title: string; 
       titleApproved: demoSidecar.seo_title_approved,
     }];
   }
-  const tracks = loadVariants().map((variant): LibraryTrack => {
+  const tracks = variants.map((variant): LibraryTrack => {
     const artifact = index.artifacts.get(variant.filename);
     const sidecar = artifact?.sidecar ?? null;
     const resolved = withSidecar(variant, sidecar);
