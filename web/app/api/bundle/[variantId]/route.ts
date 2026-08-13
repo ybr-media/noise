@@ -4,6 +4,8 @@ import { Readable } from "node:stream";
 import { RENDER_DIR } from "@/lib/config";
 import { ARTIFACTS_ARE_REMOTE, artifactUrl } from "@/lib/artifacts";
 import { bundleAssets } from "@/lib/library";
+import { bundleNaming } from "@/lib/bundle-naming";
+import { releaseList } from "@/lib/releases";
 import { streamZip, type ZipEntry } from "@/lib/zip";
 
 export const dynamic = "force-dynamic";
@@ -21,15 +23,18 @@ export async function GET(_request: Request, context: { params: Promise<{ varian
   const { variantId } = await context.params;
   const assets = await bundleAssets(variantId);
   if (!assets) return new Response("Variant not found", { status: 404 });
-  const entries: ZipEntry[] = assets.map((asset) => ({
-    name: asset.filename,
-    sizeBytes: asset.sizeBytes,
-    data: (async function* () { yield* await source(asset.filename); })(),
-  }));
+  const names = bundleNaming(assets.master, await releaseList());
+  const date = assets.master.renderedAt ? new Date(assets.master.renderedAt) : undefined;
+  const entries: ZipEntry[] = [
+    { name: names.masterPath, sizeBytes: assets.master.sizeBytes, date, data: (async function* () { yield* await source(assets.master.filename); })() },
+    ...assets.stems.map((stem) => ({ name: names.stemsPath(stem), sizeBytes: stem.sizeBytes, date, data: (async function* () { yield* await source(stem.filename); })() })),
+  ];
+  const asciiFilename = names.zipFilename.replace(/[^\x20-\x7e]/g, "_").replace(/["\\\r\n]/g, "_");
+  const encodedFilename = encodeURIComponent(names.zipFilename).replace(/[!'()*]/g, (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
   return new Response(streamZip(entries), {
     headers: {
       "Content-Type": "application/zip",
-      "Content-Disposition": `attachment; filename="${variantId}.zip"`,
+      "Content-Disposition": `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`,
     },
   });
 }

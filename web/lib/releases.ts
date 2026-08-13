@@ -4,6 +4,7 @@ import { ARTIFACTS_BASE_URL } from "./artifacts";
 import { DISPATCH_CONFIGURED, dispatchMetadata } from "./dispatch";
 import { dimensionValues, loadPilotVariants, loadVariants, RENDER_DIR, RENDER_MODE } from "./config";
 import { libraryTracks } from "./library";
+import { DEFAULT_ARTIST } from "./release-defaults";
 import type { Color, LibraryTrack, Release, ReleaseTrack, ReleaseType } from "./types";
 
 export type ReleaseMode = "local" | "dispatch" | "unavailable";
@@ -47,7 +48,7 @@ export async function loadReleases(): Promise<Release[]> {
 const baseRelease = (id: string, type: ReleaseType, title: string, tracks: ReleaseTrack[]): Release => ({
   id,
   type,
-  artist: "Noise Lab",
+  artist: DEFAULT_ARTIST,
   title,
   genre: "New Age",
   secondaryGenre: "Ambient",
