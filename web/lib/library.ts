@@ -1,6 +1,8 @@
 import { loadVariants } from "./config";
 import { artifactIndex, artifactUrl } from "./artifacts";
 import type { ArtifactIndex } from "./artifacts";
+import demoSidecar from "../demo/demo_first_render.json";
+import { DEMO_FILENAME, DEMO_VARIANT_ID, demoVariant, isDemoSidecar, shouldShowDemoTrack } from "./demo";
 import type { LibraryTrack, TrackStem, Variant } from "./types";
 
 type Sidecar = Record<string, unknown>;
@@ -41,7 +43,31 @@ function withSidecar(variant: Variant, sidecar: Sidecar | null): Variant {
 
 export async function libraryTracks(releaseTitles: Map<string, { title: string; description: string }> = new Map()): Promise<LibraryTrack[]> {
   const index = await artifactIndex();
-  const tracks = loadVariants().map((variant): LibraryTrack => {
+  const variants = loadVariants();
+  const demoBase = variants[0];
+  if (shouldShowDemoTrack(index.artifacts.size) && isDemoSidecar(demoSidecar) && demoBase) {
+    const variant = demoVariant(demoBase);
+    return [{
+      ...variant,
+      path: `/api/audio/${encodeURIComponent(DEMO_FILENAME)}`,
+      sizeBytes: 0,
+      audioUrl: `/api/audio/${encodeURIComponent(DEMO_FILENAME)}`,
+      downloadUrl: `/api/audio/${encodeURIComponent(DEMO_FILENAME)}?download=1`,
+      exists: true,
+      demo: true,
+      stems: [],
+      qaVerdict: "UNAVAILABLE",
+      qaChecks: [],
+      measuredLufs: null,
+      measuredTruePeak: null,
+      renderStatus: "Demo",
+      renderedAt: demoSidecar.render_timestamp,
+      title: releaseTitles.get(DEMO_VARIANT_ID)?.title || demoSidecar.seo_title,
+      description: releaseTitles.get(DEMO_VARIANT_ID)?.description || demoSidecar.seo_description,
+      titleApproved: demoSidecar.seo_title_approved,
+    }];
+  }
+  const tracks = variants.map((variant): LibraryTrack => {
     const artifact = index.artifacts.get(variant.filename);
     const sidecar = artifact?.sidecar ?? null;
     const resolved = withSidecar(variant, sidecar);
@@ -51,6 +77,7 @@ export async function libraryTracks(releaseTitles: Map<string, { title: string; 
     const peak = qaChecks.find((check) => check.name === "True peak")?.measured ?? null;
     return {
       ...resolved,
+      demo: false,
       path: artifactUrl(variant.filename),
       sizeBytes: artifact?.sizeBytes ?? 0,
       ...audioUrls(variant.filename),
@@ -83,6 +110,7 @@ export type AudioAsset = { filename: string; exists: boolean; isMaster: boolean 
 
 /** Resolve a served filename to a variant's master or to one of its stems. */
 export async function audioAsset(filename: string): Promise<AudioAsset | undefined> {
+  if (filename === DEMO_FILENAME) return { filename, exists: true, isMaster: true };
   for (const track of await libraryTracks()) {
     if (track.filename === filename) return { filename, exists: track.exists, isMaster: true };
     const stem = track.stems.find((candidate) => candidate.filename === filename);
