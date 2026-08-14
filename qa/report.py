@@ -144,5 +144,8 @@ def render_html(report: RunReport) -> str:
 
 
 def write_reports(report_path: Path, json_path: Path, report: RunReport) -> None:
+    for path in (report_path, json_path):
+        if path.parent != Path():
+            path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(render_html(report), encoding="utf-8")
     json_path.write_text(json.dumps(report.as_dict(), indent=2, sort_keys=True), encoding="utf-8")

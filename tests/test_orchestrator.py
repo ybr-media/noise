@@ -427,3 +427,81 @@ def test_persistent_failure_exhausts_retries(tmp_path: Path) -> None:
     records = [json.loads(line) for line in (output / "render_log.jsonl").read_text().splitlines()]
     assert len(records) == 3
     assert all(record["exit_state"].startswith("failure:") for record in records)
+
+
+def test_an_unusable_row_fails_only_itself(tmp_path: Path) -> None:
+    """A bad row is that variant's failure; the rest of the matrix still renders."""
+    source = yaml.safe_load((ROOT / "config" / "variants_pilot.yaml").read_text())
+    good, broken = source["variants"][0], dict(source["variants"][1])
+    broken["seeds"] = {}
+    source["variants"] = [broken, good]
+    matrix = tmp_path / "variants.yaml"
+    matrix.write_text(yaml.safe_dump(source), encoding="utf-8")
+    output = tmp_path / "out"
+
+    def factory(timeout: float) -> FakeTransport:
+        del timeout
+        return FakeTransport(["OK"] * 100)
+
+    def process_factory(binary: str) -> FakeProcess:
+        del binary
+        return FakeProcess()
+
+    assert render_batch(
+        matrix,
+        output,
+        "audacity",
+        3,
+        transport_factory=factory,
+        process_factory=process_factory,
+    ) == 1
+    records = [json.loads(line) for line in (output / "render_log.jsonl").read_text().splitlines()]
+    assert [record["variant_id"] for record in records] == [broken["variant_id"], good["variant_id"]]
+    assert records[0]["exit_state"].startswith("failure:")
+    assert "seed" in records[0]["exit_state"]
+    assert records[0]["commands"] == []
+    assert records[1]["exit_state"] == "success"
+    assert (output / str(good["filename"])).exists()
+
+
+def test_a_row_without_a_filename_fails_only_itself(tmp_path: Path) -> None:
+    source = yaml.safe_load((ROOT / "config" / "variants_pilot.yaml").read_text())
+    broken = dict(source["variants"][0])
+    broken.pop("filename")
+    source["variants"] = [broken]
+    matrix = tmp_path / "variants.yaml"
+    matrix.write_text(yaml.safe_dump(source), encoding="utf-8")
+    output = tmp_path / "out"
+
+    assert render_batch(
+        matrix,
+        output,
+        "audacity",
+        3,
+        transport_factory=lambda timeout: FakeTransport(["OK"] * 100),
+        process_factory=lambda binary: FakeProcess(),
+    ) == 1
+    record = json.loads((output / "render_log.jsonl").read_text().splitlines()[0])
+    assert "filename" in record["exit_state"]
+
+
+def test_a_failed_row_is_retried_by_a_later_run(tmp_path: Path) -> None:
+    """The resume path treats a row that never planned as unrendered."""
+    source = yaml.safe_load((ROOT / "config" / "variants_pilot.yaml").read_text())
+    row = dict(source["variants"][0])
+    broken = {**row, "seeds": {}}
+    matrix = tmp_path / "variants.yaml"
+    output = tmp_path / "out"
+    matrix.write_text(yaml.safe_dump({**source, "variants": [broken]}), encoding="utf-8")
+    assert render_batch(matrix, output, "audacity", 3) == 1
+
+    matrix.write_text(yaml.safe_dump({**source, "variants": [row]}), encoding="utf-8")
+    assert render_batch(
+        matrix,
+        output,
+        "audacity",
+        3,
+        transport_factory=lambda timeout: FakeTransport(["OK"] * 100),
+        process_factory=lambda binary: FakeProcess(),
+    ) == 0
+    assert (output / str(row["filename"])).exists()

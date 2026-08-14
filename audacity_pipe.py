@@ -30,7 +30,15 @@ class AudacityPipe:
         if missing:
             raise AudacityPipeError(f"Audacity script pipe(s) missing: {', '.join(missing)}")
         self._to = open(self.to_path, "w", encoding="utf-8", buffering=1)
-        read_fd = os.open(self.from_path, os.O_RDONLY | os.O_NONBLOCK)
+        # Opening the read side can fail on a half-created pipe pair; without
+        # this the write handle would outlive the failed __enter__ and keep the
+        # FIFO open for a process that is already being torn down.
+        try:
+            read_fd = os.open(self.from_path, os.O_RDONLY | os.O_NONBLOCK)
+        except OSError:
+            self._to.close()
+            self._to = None
+            raise
         # Consume Audacity's connection greeting before switching to the
         # blocking, line-oriented command protocol.
         deadline = time.monotonic() + 1.0
@@ -49,29 +57,41 @@ class AudacityPipe:
         return self
 
     def __exit__(self, *_exc) -> None:
-        if self._to is not None:
-            self._to.close()
-        if self._from_fd is not None:
-            os.close(self._from_fd)
+        # Both handles are released even if closing the first one raises, and
+        # the client is left closed rather than holding stale descriptors.
+        to, from_fd = self._to, self._from_fd
+        self._to = self._from_fd = None
+        try:
+            if to is not None:
+                to.close()
+        finally:
+            if from_fd is not None:
+                os.close(from_fd)
 
     def command(self, command: str, timeout: float | None = None) -> str:
         if self._to is None or self._from_fd is None:
             raise AudacityPipeError("AudacityPipe must be used as a context manager")
-        deadline = time.monotonic() + (self.timeout if timeout is None else timeout)
+        budget = self.timeout if timeout is None else timeout
+        deadline = time.monotonic() + budget
         self._to.write(command.rstrip("\n") + "\n")
         self._to.flush()
         lines: list[str] = []
         pending = b""
+
+        def timed_out() -> AudacityPipeError:
+            """One timeout message, whichever way the deadline is reached."""
+            return AudacityPipeError(
+                f"Timed out after {budget:.1f}s waiting for {command!r}; "
+                f"response so far: {''.join(lines)!r}"
+            )
+
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise AudacityPipeError(
-                    f"Timed out after {timeout or self.timeout:.1f}s waiting for {command!r}; "
-                    f"response so far: {''.join(lines)!r}"
-                )
+                raise timed_out()
             ready, _, _ = select.select([self._from_fd], [], [], remaining)
             if not ready:
-                raise AudacityPipeError(f"Timed out waiting for response to {command!r}")
+                raise timed_out()
             chunk = os.read(self._from_fd, 65536)
             if not chunk:
                 raise AudacityPipeError("Audacity closed the script pipe")

@@ -32,15 +32,30 @@ def apply_fx(selected: dict[str, object], fx_json: str | None) -> dict[str, obje
     return {**selected, "variants": variants}
 
 
+def _matrix(path: Path) -> dict[str, object]:
+    loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(loaded, dict):
+        raise SystemExit(f"{path}: variants file must be a mapping")
+    variants = loaded.get("variants", [])
+    if not isinstance(variants, list) or not all(
+        isinstance(row, dict) and isinstance(row.get("variant_id"), str)
+        for row in variants
+    ):
+        raise SystemExit(f"{path}: every variant needs a variant_id")
+    return loaded
+
+
 def select(spec: str) -> dict[str, object]:
     spec = spec.strip()
     if spec in {"full", "all"}:
-        return yaml.safe_load(FULL.read_text(encoding="utf-8"))
+        return _matrix(FULL)
     if spec == "pilot":
-        return yaml.safe_load(PILOT.read_text(encoding="utf-8"))
-    wanted = [item.strip() for item in spec.split(",") if item.strip()]
-    matrix = yaml.safe_load(FULL.read_text(encoding="utf-8"))
-    by_id = {row["variant_id"]: row for row in matrix.get("variants", [])}
+        return _matrix(PILOT)
+    # A repeated id is a typo in a dispatch field, not a request to render the
+    # same four files twice, so the first mention wins and the order is kept.
+    wanted = list(dict.fromkeys(item.strip() for item in spec.split(",") if item.strip()))
+    matrix = _matrix(FULL)
+    by_id = {row["variant_id"]: row for row in matrix["variants"]}  # type: ignore[union-attr]
     unknown = [item for item in wanted if item not in by_id]
     if unknown:
         raise SystemExit(f"Unknown variant id(s): {', '.join(unknown)}")
