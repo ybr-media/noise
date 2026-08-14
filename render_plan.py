@@ -120,7 +120,9 @@ def track_name_of_master(filename: str) -> str:
     """Return the base track name of a master filename."""
     stem, dot, _ = filename.rpartition(".")
     name = stem if dot else filename
-    if not name.endswith(MASTER_SUFFIX):
+    # A bare "_master.wav" would derive stem names from an empty track name,
+    # so a whole variant's four files would collide with any other such row.
+    if not name.endswith(MASTER_SUFFIX) or name == MASTER_SUFFIX:
         raise PlanError(f"not a master filename: {filename!r}")
     return name[: -len(MASTER_SUFFIX)]
 
@@ -206,6 +208,8 @@ class ReverbFx:
 
     @property
     def wet_gain_db(self) -> float:
+        if self.mix_percent <= 0.0:
+            return REVERB_WET_GAIN_MIN_DB
         wet = 20.0 * math.log10(self.mix_percent / 100.0)
         return max(REVERB_WET_GAIN_MIN_DB, min(0.0, wet))
 
@@ -443,11 +447,20 @@ def parse_fx(block: object, context: str) -> Fx | None:
             if isinstance(gain, bool) or not isinstance(gain, (int, float)):
                 raise PlanError(f"{eq_context}: gains_db entries must be numeric")
             gains.append(_bounded(float(gain), -EQ_MAX_ABS_DB, EQ_MAX_ABS_DB, "gains_db", eq_context))
-        trim = float(eq_block.get("trim_db", 0.0) or 0.0)
+        # An absent or explicitly null trim means no trim; anything else has to
+        # be a number, so a typo fails as a plan error rather than a TypeError
+        # from deep inside the builder.
+        trim_raw = eq_block.get("trim_db", 0.0)
+        if trim_raw is None:
+            trim_raw = 0.0
+        if isinstance(trim_raw, bool) or not isinstance(trim_raw, (int, float)):
+            raise PlanError(f"{eq_context}: trim_db must be numeric")
         eq = EqFx(
             preset=str(eq_block.get("preset", "custom")),
             gains_db=tuple(gains),
-            trim_db=_bounded(trim, -FX_TRIM_MAX_ABS_DB, FX_TRIM_MAX_ABS_DB, "trim_db", eq_context),
+            trim_db=_bounded(
+                float(trim_raw), -FX_TRIM_MAX_ABS_DB, FX_TRIM_MAX_ABS_DB, "trim_db", eq_context
+            ),
         )
     reverb_raw = fx_block.get("reverb")
     if reverb_raw is not None:
@@ -509,10 +522,18 @@ def parse_output(block: Mapping[str, object]) -> Output:
         if "stem_sample_rate" in block
         else _integer(block, "sample_rate", context)
     )
+    bit_depth = _integer(block, "bit_depth", context)
+    # Every downstream duration, cell length and export format divides by these,
+    # so a nonsensical value is rejected here rather than producing a project
+    # Audacity silently refuses to render.
+    if master_sample_rate <= 0 or stem_sample_rate <= 0:
+        raise PlanError(f"{context}: sample rates must be positive")
+    if bit_depth <= 0:
+        raise PlanError(f"{context}: bit_depth must be positive")
     return Output(
         master_sample_rate=master_sample_rate,
         stem_sample_rate=stem_sample_rate,
-        bit_depth=_integer(block, "bit_depth", context),
+        bit_depth=bit_depth,
         cell_seconds=_number(block, "cell_seconds", context),
         repeats=_integer(block, "repeats", context),
         fade_seconds=_number(block, "fade_seconds", context),

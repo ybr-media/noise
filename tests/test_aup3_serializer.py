@@ -294,3 +294,63 @@ def test_extraction_downsamples_stems_but_keeps_master_rate(tmp_path: Path) -> N
             "PCM_24",
             master.shape[0],
         )
+
+
+def test_a_non_numeric_attribute_names_itself(tmp_path: Path) -> None:
+    """Malformed project metadata reports the attribute, not a bare conversion error."""
+    xml = _xml('<sequence numsamples="two" sampleformat="262159"/>')
+    project = _project(tmp_path, xml, [])
+    with pytest.raises(Aup3Error, match="numsamples is not a number"):
+        extract_track(project, (tmp_path / "project.xml").read_text())
+
+
+def test_a_non_numeric_track_rate_names_itself(tmp_path: Path) -> None:
+    xml = """<audacityproject><wavetrack rate="fast">
+      <waveclip offset="0" trimleft="0" trimright="0"/>
+    </wavetrack></audacityproject>"""
+    project = _project(tmp_path, xml, [])
+    with pytest.raises(Aup3Error, match="rate is not a number"):
+        extract_track(project, (tmp_path / "project.xml").read_text())
+
+
+def test_a_block_that_is_not_whole_float32_samples_is_rejected(tmp_path: Path) -> None:
+    xml = _xml(
+        """
+        <sequence numsamples="2" sampleformat="262159">
+          <waveblock start="0" blockid="5"/>
+        </sequence>
+        <sequence numsamples="2" sampleformat="262159">
+          <waveblock start="0" blockid="6"/>
+        </sequence>
+        """
+    )
+    project = _project(tmp_path, xml, [(6, np.array([1, 2], dtype=np.float32))])
+    with sqlite3.connect(project) as db:
+        db.execute("INSERT INTO sampleblocks VALUES (?, ?, ?)", (5, 262159, b"\x00\x01\x02"))
+        db.commit()
+    with pytest.raises(Aup3Error, match="whole number of float32 samples"):
+        extract_track(project, (tmp_path / "project.xml").read_text())
+
+
+def test_a_missing_sampleblock_is_reported(tmp_path: Path) -> None:
+    xml = _xml(
+        """
+        <sequence numsamples="2" sampleformat="262159">
+          <waveblock start="0" blockid="42"/>
+        </sequence>
+        <sequence numsamples="2" sampleformat="262159">
+          <waveblock start="0" blockid="43"/>
+        </sequence>
+        """
+    )
+    project = _project(tmp_path, xml, [(43, np.array([1, 2], dtype=np.float32))])
+    with pytest.raises(Aup3Error, match="sampleblock 42 is missing"):
+        extract_track(project, (tmp_path / "project.xml").read_text())
+
+
+def test_project_xml_without_a_wavetrack_is_reported(tmp_path: Path) -> None:
+    project = _project(tmp_path, "<audacityproject></audacityproject>", [])
+    with pytest.raises(Aup3Error, match="no wavetrack"):
+        extract_track(project, "<audacityproject></audacityproject>")
+    with pytest.raises(Aup3Error, match="invalid project XML"):
+        stereo_track_indexes("<audacityproject>")

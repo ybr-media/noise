@@ -522,10 +522,31 @@ def render_batch(
             variant_id = _variant_id(row)
             if variant_id in completed:
                 continue
-            filename = row.get("filename")
-            if not isinstance(filename, str) or not filename:
-                raise ValueError(f"{variant_id}: missing filename")
-            plan = build_plan(row, output_row, str(output_dir / filename))
+            # One unusable row is that row's failure, not the batch's: the rest
+            # of the matrix still renders, and the log carries the reason.
+            try:
+                filename = row.get("filename")
+                if not isinstance(filename, str) or not filename:
+                    raise ValueError(f"{variant_id}: missing filename")
+                plan = build_plan(row, output_row, str(output_dir / filename))
+            except ValueError as exc:
+                log.write(
+                    json.dumps(
+                        {
+                            "variant_id": variant_id,
+                            "seeds": [],
+                            "params": {"variant": dict(row), "output": dict(output_row)},
+                            "commands": [],
+                            "responses": [],
+                            "wall_clock_seconds": 0.0,
+                            "exit_state": f"failure: {exc}",
+                        }
+                    )
+                    + "\n"
+                )
+                log.flush()
+                failures += 1
+                continue
             for attempt in range(max(0, retries) + 1):
                 started = time.monotonic()
                 commands: list[str] = []
