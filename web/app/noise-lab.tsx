@@ -402,11 +402,11 @@ function QueueSkeleton() {
           <div className="section-title"><Skeleton width={group.width} height={14} /></div>
           <div className="queue-job-list">{Array.from({ length: group.cards }, (_, card) => (
             <Card as="article" key={card} padding="md">
-              <div className="queue-title-row"><Skeleton className="queue-name" width={groupIndex ? "52%" : "58%"} height={17} /><Skeleton className="status-pill skeleton-fixed" width={58} height={28} radius={999} /></div>
+              <div className="queue-title-row"><Skeleton className="queue-name" width={groupIndex ? "52%" : "58%"} height={17} />{groupIndex === 0 ? <Skeleton className="icon-action queue-overflow skeleton-fixed" width={34} height={34} radius="50%" /> : <Skeleton className="status-pill skeleton-fixed" width={58} height={28} radius={999} />}</div>
               <div className="queue-chips"><Skeleton width={74} height={28} radius={999} /><Skeleton width={48} height={28} radius={999} /><Skeleton width={52} height={28} radius={999} /><Skeleton width={58} height={28} radius={999} /></div>
-              <Skeleton className="queue-active-copy" width="34%" height={12} />
+              {groupIndex === 1 && <Skeleton className="queue-active-copy" width="34%" height={12} />}
               <Skeleton className="queue-meta" width="28%" height={12} />
-              <div className="queue-card-actions"><Skeleton height={46} radius={999} /><Skeleton height={46} radius={999} /></div>
+              {groupIndex === 0 && <div className="queue-card-actions"><Skeleton height={46} radius={999} /><Skeleton height={46} radius={999} /></div>}
             </Card>
           ))}</div>
         </section>
