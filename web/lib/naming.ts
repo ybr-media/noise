@@ -71,3 +71,12 @@ export function approveName(filename: string, title: string, description: string
   sidecar.seo_approved_at = new Date().toISOString();
   fs.writeFileSync(sidecarPath, `${JSON.stringify(sidecar, null, 2)}\n`);
 }
+
+export function renameTrack(filename: string, title: string): void {
+  if (!/^[\w.-]+\.wav$/i.test(filename)) throw new Error("Invalid audio filename");
+  const sidecarPath = path.join(RENDER_DIR, filename.replace(/\.wav$/, ".json"));
+  const sidecar = JSON.parse(fs.readFileSync(sidecarPath, "utf8")) as Record<string, unknown>;
+  if ("role" in sidecar && sidecar.role !== "master") throw new Error("Only a master can be named");
+  sidecar.seo_title = title.trim();
+  fs.writeFileSync(sidecarPath, `${JSON.stringify(sidecar, null, 2)}\n`);
+}
