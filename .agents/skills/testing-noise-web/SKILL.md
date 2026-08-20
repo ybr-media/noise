@@ -1,6 +1,6 @@
 ---
 name: testing-noise-web
-description: How to run and visually test the Noise Lab Next.js console in web/ (dev and production servers, fabricating arbitrary Queue states from a JSONL fixture, making in-flight refresh/busy states observable, sampling CSS animation state reliably, seeding Library/Queue data for count badges, tab selectors and hash routing, stale .next pitfalls, inspecting SVG artwork and CSS load animations).
+description: How to run and visually test the Noise Lab Next.js console in web/ (dev and production servers, simulating an authenticated user for the first-run tutorial tour and other auth-gated features, fabricating arbitrary Queue states from a JSONL fixture, making in-flight refresh/busy states observable, sampling CSS animation state reliably, seeding Library/Queue data for count badges, tab selectors and hash routing, stale .next pitfalls, inspecting SVG artwork and CSS load animations).
 ---
 
 # Testing the Noise Lab web console (`web/`)
@@ -18,6 +18,52 @@ description: How to run and visually test the Noise Lab Next.js console in web/ 
   hydration is far slower and overstates flashes: `npm run build && npx next start -p 3001`.
   `next.config.ts` sets `output: standalone`, so `next start` prints a warning but still serves
   correctly; `node .next/standalone/server.js` is the officially supported path.
+
+## Simulating an authenticated user (first-run tutorial tour, `/api/me`)
+Anything gated on `authConfigured` (the first-run tour auto-launch, `/api/me`, `/api/me/tutorial`)
+needs `missingAuthEnv()` to be empty (`web/lib/auth.ts`) — i.e. `AUTH_SECRET`, `AUTH_RESEND_KEY`,
+`AUTH_EMAIL_FROM`, `ALLOWED_EMAILS` plus an Upstash/KV URL+token. Real sign-in is an emailed magic
+link through Resend backed by Upstash Redis, so a genuine local login is usually not reachable.
+
+Workable recipe: pass **dummy** values for all six env vars (they are only consumed lazily by the
+adapter, so no real Upstash is needed) and add **temporary, uncommitted** env-gated stubs:
+
+- `web/middleware.ts` — first line of the exported `middleware()`:
+  `if (process.env.NOISE_TEST_USER_EMAIL) return NextResponse.next();`
+  Without this, configured-auth mode redirects every page to `/signin`.
+- `web/app/api/me/route.ts` GET — when `NOISE_TEST_USER_EMAIL` is set, return
+  `{ email, tutorialCompletedAt, tutorialVersion: 1 }` read from a JSON file at
+  `NOISE_TEST_USER_FILE`.
+- `web/app/api/me/tutorial/route.ts` POST — when set, write `tutorialCompletedAt` into that file.
+
+File-backing (rather than a hardcoded value) matters: it makes the completion actually persist, so
+reload/relaunch behaviour is testable. Reset a "new user" between cases with
+`echo '{"email":"t@example.com","tutorialCompletedAt":null,"tutorialVersion":1}' > $NOISE_TEST_USER_FILE`
+then hard-reload. Revert the three files afterwards (`git checkout --`) and confirm `git status` is
+clean — this scaffolding must never be committed. Stubbing only the server identity is legitimate for
+client-side tour logic (`web/lib/use-first-run.ts`, `web/app/ui/tutorial.tsx`), but say so in the report.
+
+## First-run tutorial tour specifics
+- Auto-launch is `web/app/noise-lab.tsx`: `if (firstRun.shouldLaunch && variants.length > 0 &&
+  !tourActive) startTour()`. It needs `ready && authenticated && !firstPaintGuard &&
+  !user.tutorialCompletedAt`.
+- 11 steps. Card selectors: `div.tutorial-overlay[data-tour-overlay]`, `button.tutorial-skip`,
+  `button.tutorial-next` (labelled "Next", and "Done" on the last step), `button.tutorial-back`,
+  `button.tutorial-do-it` ("Do it for me", only on `kind: "action"` steps and only after a delay).
+- Action steps advance only on a real app event (`param-selected`, `fx-changed`, `render-enqueued`,
+  `tab-changed`, `track-played`), so you can walk the whole tour with genuine clicks: pick a Color,
+  pick a Band, pick an FX preset, **Create track**, Queue tab, Library tab, press play.
+- Replay: the top-centre ⓘ `button.current-tab-title-info` → `button.tooltip-replay`
+  ("Replay tutorial"). Replay intentionally does **not** persist completion
+  (`shouldPersistTutorial`), so assert on the absence of a new `POST /api/me/tutorial` in the
+  dev-server log rather than expecting a write.
+- **Testing "the tour reopened" is ambiguous if you Skip from step 1** — a relaunch at step 1 looks
+  identical to a click that never registered. Always advance to step 2 first, then Skip: a
+  regression visibly jumps back to "Welcome to Noise Lab" / step 1.
+- Completion also POSTs `/api/me/tutorial`, so a Skip during an exploratory run silently marks the
+  user done and the tour won't launch on the next reload. Reset the user fixture before each case.
+- Completion mirror: `localStorage["noise.tutorial.done"] === "1"`. Verify it in DevTools →
+  Application → Local storage (good on-camera evidence).
 
 ## Pitfalls with `.next`
 - **Stale `.next` serves a 404 CSS chunk.** If the page renders completely unstyled (raw `<h1>`
@@ -386,6 +432,13 @@ Two traps:
   reads `release.submitted.at` unguarded and `/api/releases` then 500s with
   `TypeError: Cannot read properties of undefined (reading 'at')`, which makes the Releases tab show
   "No releases yet."
+
+## Chrome / CDP caveat
+If you launch Chrome yourself (`google-chrome <url> &`), `browser_console` and `read_dom` fail with
+"Could not connect to Chrome via CDP", and a second Chrome window makes the DOM/HTML that comes back
+with screenshots belong to the *wrong* window (e.g. `chrome://new-tab-page`). Close stray windows
+(`wmctrl -c "New Tab - Google Chrome for Testing"`) and fall back to the DevTools UI (F12 →
+Application / Console) for value checks — which is better recording evidence anyway.
 
 ## Test-harness caveat
 The screenshot tool annotates the live DOM with `devin-hidden`/`offscreen` attributes. A screenshot
