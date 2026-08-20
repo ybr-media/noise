@@ -18,10 +18,10 @@ const variant = (id: string, filename: string, color: string) => ({
   repeats: 4,
   variant_id: id,
 });
-const whiteRendered = variant("wn_white_mid_drift_balanced", "white-rendered.wav", "white");
-const whiteUnrendered = variant("wn_white_mid_drift_texture-forward", "white-unrendered.wav", "white");
-const greenRendered = variant("wn_green_mid_drift_balanced", "green-rendered.wav", "green");
-const brownUnrendered = variant("wn_brown_mid_drift_balanced", "brown-unrendered.wav", "brown");
+const whiteRendered = variant("wn_white_mid_drift_balanced", "white-rendered_master.wav", "white");
+const whiteUnrendered = variant("wn_white_mid_drift_texture-forward", "white-unrendered_master.wav", "white");
+const greenRendered = variant("wn_green_mid_drift_balanced", "green-rendered_master.wav", "green");
+const brownUnrendered = variant("wn_brown_mid_drift_balanced", "brown-unrendered_master.wav", "brown");
 fs.writeFileSync(configPath, JSON.stringify({ output: { cell_seconds: 60, repeats: 4 }, variants: [whiteRendered, whiteUnrendered, greenRendered, brownUnrendered] }));
 fs.writeFileSync(pilotPath, JSON.stringify({ output: { cell_seconds: 60, repeats: 4 }, variants: [whiteRendered, brownUnrendered] }));
 
@@ -33,11 +33,11 @@ process.env.NOISE_MANIFEST_TTL_MS = "0";
 
 const manifest = {
   artifacts: [
-    { filename: "white-rendered.wav", sizeBytes: 1, sidecar: null, qaChecks: [], renderStatus: "ok" },
+    { filename: "white-rendered_master.wav", sizeBytes: 1, sidecar: { variant_id: whiteRendered.variant_id, role: "master" }, qaChecks: [], renderStatus: "ok" },
     {
-      filename: "green-rendered.wav",
+      filename: "green-rendered_master.wav",
       sizeBytes: 1,
-      sidecar: null,
+      sidecar: { variant_id: greenRendered.variant_id, role: "master" },
       qaChecks: [{ name: "Loudness", measured: "bad", threshold: "within", passed: false }],
       renderStatus: "qa-failed",
     },

@@ -89,6 +89,10 @@ function number(value: unknown, fallback = 0): number {
   return typeof value === "number" ? value : fallback;
 }
 
+function optionalNumber(value: unknown): number | undefined {
+  return typeof value === "number" ? value : undefined;
+}
+
 function string(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
@@ -133,6 +137,10 @@ export function loadVariants(configPath = CONFIG_PATH): Variant[] {
         texture: number(row.gain_texture_db),
       },
       seeds: Object.fromEntries(Object.entries(seeds).map(([key, value]) => [key, number(value)])),
+      cellSeconds: number(row.cell_seconds, number(output.cell_seconds)),
+      repeats: number(row.repeats, number(output.repeats)),
+      fadeSeconds: optionalNumber(row.fade_seconds) ?? optionalNumber(output.fade_seconds),
+      bitDepth: optionalNumber(row.bit_depth) ?? optionalNumber(output.bit_depth),
       durationSeconds: number(row.cell_seconds, number(output.cell_seconds)) * number(row.repeats, number(output.repeats)),
       sampleRate: number(row.sample_rate, number(output.master_sample_rate, 96000)),
       targetLufs: number(row.target_lufs, number(output.target_lufs, -20)),
@@ -160,7 +168,30 @@ export function findVariant(variantId: string): Variant | undefined {
   return loadVariants().find((variant) => variant.variantId === variantId);
 }
 
-export type RenderSelection = { variantIds?: unknown[]; pilot?: boolean; full?: boolean; fx?: unknown };
+export type RenderSelection = {
+  variantIds?: unknown[];
+  pilot?: boolean;
+  full?: boolean;
+  fx?: unknown;
+  repeats?: unknown;
+  takeMarker?: unknown;
+};
+
+export type RenderOverrides = { repeats: number; takeMarker: string };
+
+const TAKE_MARKER_PATTERN = /^[a-z0-9]{1,32}$/;
+const MAX_RENDER_REPEATS = 60;
+
+export function validateRenderOverrides(request: RenderSelection): RenderOverrides | undefined {
+  if (request.repeats === undefined && request.takeMarker === undefined) return undefined;
+  if (typeof request.repeats !== "number" || !Number.isInteger(request.repeats) || request.repeats < 1 || request.repeats > MAX_RENDER_REPEATS) {
+    throw new Error(`repeats must be an integer between 1 and ${MAX_RENDER_REPEATS}`);
+  }
+  if (typeof request.takeMarker !== "string" || !TAKE_MARKER_PATTERN.test(request.takeMarker)) {
+    throw new Error("takeMarker must use 1-32 lowercase letters and numbers");
+  }
+  return { repeats: request.repeats, takeMarker: request.takeMarker };
+}
 
 // A render request names either a set of ids or a whole manifest. `pilot` and
 // `full` are also render.yml's own selectors, so the whole matrix travels as one

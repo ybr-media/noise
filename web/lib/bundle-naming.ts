@@ -42,3 +42,9 @@ export function bundleNaming(track: LibraryTrack, releases: NamingRelease[]): Bu
     stemsPath: (stem) => `${stems}/${prefix} [Stems]/Stem ${stem.number}${extension(stem.filename)}`,
   };
 }
+
+export function bundleArchiveFilename(track: LibraryTrack, releases: NamingRelease[]): string {
+  const names = bundleNaming(track, releases);
+  const base = names.zipFilename.replace(/\.zip$/i, "");
+  return `${base} - ${clean(track.renderKey, track.variantId)}.zip`;
+}

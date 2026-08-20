@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -16,6 +17,9 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 FULL = ROOT / "config" / "variants.yaml"
 PILOT = ROOT / "config" / "variants_pilot.yaml"
+TAKE_MARKER_PATTERN = re.compile(r"^[a-z0-9]{1,32}$")
+MASTER_FILENAME_PATTERN = re.compile(r"^[\w.-]+_master\.wav$")
+MAX_REPEATS = 60
 
 
 def apply_fx(selected: dict[str, object], fx_json: str | None) -> dict[str, object]:
@@ -30,6 +34,58 @@ def apply_fx(selected: dict[str, object], fx_json: str | None) -> dict[str, obje
         raise SystemExit("--fx must be a JSON object")
     variants = [dict(row, fx=fx) for row in selected.get("variants", [])]
     return {**selected, "variants": variants}
+
+
+def validate_repeats(repeats: int | None) -> int | None:
+    if repeats is None:
+        return None
+    if isinstance(repeats, bool) or not isinstance(repeats, int) or not 1 <= repeats <= MAX_REPEATS:
+        raise ValueError(f"repeats must be an integer between 1 and {MAX_REPEATS}")
+    return repeats
+
+
+def validate_take_marker(take_marker: str | None) -> str | None:
+    if take_marker is None or not take_marker:
+        return None
+    if not TAKE_MARKER_PATTERN.fullmatch(take_marker):
+        raise ValueError("take marker must use 1-32 lowercase letters and numbers")
+    return take_marker
+
+
+def rewrite_master_filename(filename: str, take_marker: str) -> str:
+    if not MASTER_FILENAME_PATTERN.fullmatch(filename):
+        raise ValueError(f"not a valid master filename: {filename!r}")
+    rewritten = f"{filename[:-len('_master.wav')]}_{take_marker}_master.wav"
+    if not MASTER_FILENAME_PATTERN.fullmatch(rewritten):
+        raise ValueError(f"not a valid master filename: {rewritten!r}")
+    return rewritten
+
+
+def apply_render_overrides(
+    selected: dict[str, object],
+    repeats: int | None = None,
+    take_marker: str | None = None,
+) -> dict[str, object]:
+    repeats = validate_repeats(repeats)
+    take_marker = validate_take_marker(take_marker)
+    if (repeats is None) != (take_marker is None):
+        raise ValueError("repeats and take marker must be provided together")
+    if repeats is None:
+        return selected
+    output = dict(selected.get("output", {})) if isinstance(selected.get("output"), dict) else {}
+    output["repeats"] = repeats
+    variants = selected.get("variants", [])
+    if not isinstance(variants, list):
+        raise TypeError("variants must be a list")
+    rewritten_variants = []
+    for row in variants:
+        if not isinstance(row, dict) or not isinstance(row.get("filename"), str):
+            raise TypeError("selected variants must contain master filenames")
+        rewritten_variants.append({
+            **row,
+            "filename": rewrite_master_filename(row["filename"], take_marker),
+        })
+    return {**selected, "output": output, "variants": rewritten_variants}
 
 
 def _matrix(path: Path) -> dict[str, object]:
@@ -67,9 +123,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("spec", help='"full", "pilot", or a comma-separated list of variant ids')
     parser.add_argument("--out", type=Path, required=True, help="Where to write the filtered variants file")
     parser.add_argument("--fx", default="", help="Optional JSON FX block applied to every selected variant")
+    parser.add_argument("--repeats", type=int, default=None, help="Optional output repeat override for a new take")
+    parser.add_argument("--take-marker", default=None, help="Optional lowercase marker inserted into master filenames")
     args = parser.parse_args(argv)
 
-    selected = apply_fx(select(args.spec), args.fx)
+    try:
+        selected = apply_render_overrides(select(args.spec), args.repeats, args.take_marker)
+    except ValueError as exc:
+        parser.error(str(exc))
+    selected = apply_fx(selected, args.fx)
     args.out.write_text(yaml.safe_dump(selected, sort_keys=False), encoding="utf-8")
     count = len(selected.get("variants", []))
     if not count:

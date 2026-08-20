@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { absoluteTime, attemptNumber, formatMinutes, hasRepeatedVariant, isSuperseded, knownVariantId, median, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "../lib/eta";
 import { formatBatchLabel, formatDisplayName, formatVariantLabel } from "../lib/variant-labels";
 import { formatBytes } from "../lib/format";
-import { bundleNaming } from "../lib/bundle-naming";
+import { bundleArchiveFilename, bundleNaming } from "../lib/bundle-naming";
 import { streamZip, crc32 } from "../lib/zip";
 import type { LibraryTrack, Release } from "../lib/types";
 
@@ -50,13 +50,43 @@ for (const filename of stemFilenames.slice(0, 2)) {
 }
 fs.writeFileSync(path.join(renderDir, "present_master.json"), JSON.stringify({
   variant_id: "wn_white_mid_drift_balanced",
+  color: "green",
+  band: "high",
+  motion: "breathing",
+  balance: "texture-forward",
+  seeds: [101, 102, 103, 104, 105, 106],
+  band_low_hz: 1200,
+  band_high_hz: 8000,
+  lfo_depth: 0.25,
+  lfo_rate_hz: 0.04,
+  per_stem_gains: { bed: -8, texture: -4, motion: -11 },
+  target_lufs: -18,
+  true_peak_max_dbtp: -2,
   cell_seconds: 61.25,
   repeats: 4,
+  fade_seconds: 2,
+  sample_rate: 88200,
+  bit_depth: 24,
+  tilt_db_per_oct: -3,
+  bell: { gain_db: 2, center_hz: 1000, q: 1.2 },
+  fx: { eq: { preset: "custom", gains_db: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], trim_db: -2 } },
+  tail_seconds: 0,
+  audacity_version: "3.7.8",
+  render_timestamp: "2026-08-09T12:34:56.000Z",
   existing_key: "preserved",
   role: "master",
   stem: null,
   stem_filenames: stemFilenames,
   stem_map: { stem_1: "bed", stem_2: "texture", stem_3: "motion" },
+}));
+fs.writeFileSync(path.join(renderDir, "present_t123_master.wav"), "RIFFfixture-new");
+fs.writeFileSync(path.join(renderDir, "present_t123_master.json"), JSON.stringify({
+  variant_id: "wn_white_mid_drift_balanced",
+  role: "master",
+  cell_seconds: 60,
+  repeats: 2,
+  render_timestamp: "2026-08-10T12:34:56.000Z",
+  stem_filenames: [],
 }));
 fs.writeFileSync(path.join(renderDir, "present_stem_1.json"), JSON.stringify({
   variant_id: "wn_white_mid_drift_balanced",
@@ -124,6 +154,22 @@ test("numbers repeated queue attempts and detects superseded failures", () => {
   assert.equal(isSuperseded(jobs[0], jobs), false);
 });
 
+test("numbers and supersedes attempts within one take", () => {
+  const jobs = [
+    { id: "take-old", variantId: "same", takeMarker: "ta", status: "Failed" as const, queuedAt: "2026-08-09T12:00:00Z" },
+    { id: "take-retry", variantId: "same", takeMarker: "ta", status: "Failed" as const, queuedAt: "2026-08-09T12:01:00Z" },
+    { id: "take-sibling", variantId: "same", takeMarker: "tb", status: "Failed" as const, queuedAt: "2026-08-09T12:02:00Z" },
+  ];
+  assert.equal(attemptNumber(jobs[0], jobs), 1);
+  assert.equal(attemptNumber(jobs[1], jobs), 2);
+  assert.equal(attemptNumber(jobs[2], jobs), 1);
+  assert.equal(hasRepeatedVariant(jobs[0], jobs), true);
+  assert.equal(hasRepeatedVariant(jobs[2], jobs), false);
+  assert.equal(isSuperseded(jobs[0], jobs), true);
+  assert.equal(isSuperseded(jobs[1], jobs), false);
+  assert.equal(isSuperseded(jobs[2], jobs), false);
+});
+
 test("supersedes a batch only after every member has a newer job", () => {
   const members = ["pilot-a", "pilot-b"];
   const batch = { id: "batch", variantId: "pilot", status: "Failed" as const, queuedAt: "2026-08-09T12:00:00Z" };
@@ -184,21 +230,66 @@ test("resolves render selections to ids and a workflow input", async () => {
 test("assembles rendered and missing library tracks with QA evidence", async () => {
   const [, { libraryTracks }] = await modulesPromise;
   const tracks = await libraryTracks();
-  assert.equal(tracks.length, 2);
-  assert.equal(tracks[0].exists, true);
-  assert.equal(tracks[0].durationSeconds, 245);
-  assert.equal(tracks[0].measuredLufs, "-20.000 LUFS");
-  assert.equal(tracks[0].sizeBytes, 11);
-  assert.equal(tracks[0].qaVerdict, "PASS");
-  assert.equal(tracks[1].exists, false);
-  assert.equal(tracks[1].qaVerdict, "UNAVAILABLE");
-  assert.deepEqual(tracks[1].qaChecks, []);
-  assert.equal(tracks[1].sizeBytes, 0);
+  assert.equal(tracks.length, 3);
+  assert.deepEqual(tracks.filter((track) => track.exists).map((track) => track.renderKey), ["present_t123", "present"]);
+  const rendered = tracks.find((track) => track.renderKey === "present");
+  assert.ok(rendered);
+  assert.equal(rendered.durationSeconds, 245);
+  assert.equal(rendered.measuredLufs, "-20.000 LUFS");
+  assert.equal(rendered.sizeBytes, 11);
+  assert.equal(rendered.qaVerdict, "PASS");
+  const missing = tracks.find((track) => !track.exists);
+  assert.ok(missing);
+  assert.equal(missing.qaVerdict, "UNAVAILABLE");
+  assert.deepEqual(missing.qaChecks, []);
+  assert.equal(missing.sizeBytes, 0);
+});
+
+test("derives a recipe from the sidecar and preserves unknown legacy fields", async () => {
+  const [, { libraryTracks }] = await modulesPromise;
+  const tracks = await libraryTracks();
+  const rendered = tracks.find((track) => track.renderKey === "present");
+  const missing = tracks.find((track) => !track.exists);
+  assert.ok(rendered);
+  assert.ok(missing);
+  assert.deepEqual(rendered.recipe.seeds, {
+    bed_l: 101,
+    bed_r: 102,
+    texture_l: 103,
+    texture_r: 104,
+    motion_l: 105,
+    motion_r: 106,
+  });
+  assert.equal(rendered.recipe.color, "green");
+  assert.equal(rendered.recipe.bandLowHz, 1200);
+  assert.equal(rendered.recipe.gainsDb.texture, -4);
+  assert.equal(rendered.recipe.sampleRate, 88200);
+  assert.equal(rendered.recipe.bitDepth, 24);
+  assert.equal(rendered.recipe.fxRecorded, true);
+  assert.equal(rendered.recipe.eq?.preset, "custom");
+  assert.equal(rendered.recipe.reverb, null);
+  assert.equal(rendered.recipe.audacityVersion, "3.7.8");
+  assert.equal(rendered.recipe.renderedAt, "2026-08-09T12:34:56.000Z");
+  assert.equal(missing.recipe.fxRecorded, false);
+  assert.equal(missing.recipe.tailSeconds, null);
+  assert.equal(missing.recipe.audacityVersion, null);
+  assert.equal(missing.recipe.fadeSeconds, null);
+  assert.equal(missing.recipe.bitDepth, null);
+});
+
+test("resolves exact render keys and legacy variant links to the newest take", async () => {
+  const [, { bundleAssets }] = await modulesPromise;
+  assert.equal((await bundleAssets("present_t123"))?.master.renderKey, "present_t123");
+  assert.equal((await bundleAssets("wn_white_mid_drift_balanced"))?.master.renderKey, "present_t123");
 });
 
 test("groups the stems with their master and serves every file as audio", async () => {
   const [, { libraryTracks, audioAsset, bundleAssets }] = await modulesPromise;
-  const [master, missing] = await libraryTracks();
+  const tracks = await libraryTracks();
+  const master = tracks.find((track) => track.renderKey === "present");
+  const missing = tracks.find((track) => !track.exists);
+  assert.ok(master);
+  assert.ok(missing);
   assert.deepEqual(master.stems.map((stem) => [stem.number, stem.stem, stem.exists]), [
     [1, "bed", true],
     [2, "texture", true],
@@ -226,13 +317,14 @@ test("groups the stems with their master and serves every file as audio", async 
   });
   assert.equal(await audioAsset("not_a_render.wav"), undefined);
   const bundle = await bundleAssets("wn_white_mid_drift_balanced");
-  assert.equal(bundle?.master.filename, "present_master.wav");
-  assert.deepEqual(bundle?.stems.map((stem) => stem.filename), ["present_stem_1.wav", "present_stem_2.wav"]);
+  assert.equal(bundle?.master.filename, "present_t123_master.wav");
+  assert.deepEqual(bundle?.stems, []);
   assert.equal(await bundleAssets("wn_white_mid_drift_texture-forward"), undefined);
 });
 
 const namingTrack = (overrides: Partial<LibraryTrack> = {}): LibraryTrack => ({
   variantId: "wn_pink_mid_drift_balanced",
+  renderKey: "present",
   filename: "present_master.wav",
   matrixIndex: 14,
   color: "pink",
@@ -245,6 +337,8 @@ const namingTrack = (overrides: Partial<LibraryTrack> = {}): LibraryTrack => ({
   lfoRateHz: 0.02,
   gainsDb: { bed: -6, motion: -12, texture: -9 },
   seeds: {},
+  cellSeconds: 60,
+  repeats: 4,
   durationSeconds: 240,
   sampleRate: 48000,
   targetLufs: -20,
@@ -263,6 +357,33 @@ const namingTrack = (overrides: Partial<LibraryTrack> = {}): LibraryTrack => ({
   measuredTruePeak: null,
   renderStatus: "Done",
   renderedAt: null,
+  recipe: {
+    color: "pink",
+    band: "mid",
+    motion: "drift",
+    balance: "balanced",
+    bandLowHz: 800,
+    bandHighHz: 2500,
+    lfoDepth: 0.1,
+    lfoRateHz: 0.02,
+    gainsDb: { bed: -6, motion: -12, texture: -9 },
+    seeds: {},
+    tiltDbPerOct: 0,
+    bell: null,
+    eq: null,
+    reverb: null,
+    fxRecorded: false,
+    cellSeconds: 60,
+    repeats: 4,
+    fadeSeconds: null,
+    sampleRate: 48000,
+    bitDepth: null,
+    targetLufs: -20,
+    truePeakMaxDbtp: -3,
+    tailSeconds: null,
+    audacityVersion: null,
+    renderedAt: null,
+  },
   title: "SEO Title",
   titleApproved: true,
   ...overrides,
@@ -289,6 +410,18 @@ test("names a saved-release bundle and its master and stem paths", () => {
   assert.equal(names.zipFilename, "Eric - Quiet Album [Masters & Stems].zip");
   assert.equal(names.masterPath, "Eric - Quiet Album [Masters]/Eric - Quiet Album - 01 - Track One (Pink Noise) [Master].wav");
   assert.equal(names.stemsPath(track.stems[0]), "Eric - Quiet Album [Stems]/Eric - Quiet Album - 01 - Track One (Pink Noise) [Stems]/Stem 1.wav");
+});
+
+test("names bundle archives after the concrete render", () => {
+  const release = namingRelease();
+  assert.equal(
+    bundleArchiveFilename(namingTrack({ renderKey: "present" }), [release]),
+    "Eric - Quiet Album [Masters & Stems] - present.zip",
+  );
+  assert.equal(
+    bundleArchiveFilename(namingTrack({ renderKey: "present_t123" }), [release]),
+    "Eric - Quiet Album [Masters & Stems] - present_t123.zip",
+  );
 });
 
 test("falls back to a preset release and the approved SEO title", () => {
@@ -401,16 +534,21 @@ test("approval preserves existing sidecar keys", async () => {
 test("renaming updates only the sidecar title", async () => {
   const [, , { renameTrack }] = await modulesPromise;
   const sidecarPath = path.join(renderDir, "present_master.json");
+  const siblingSidecarPath = path.join(renderDir, "present_t123_master.json");
   const original = fs.readFileSync(sidecarPath, "utf8");
+  const siblingOriginal = fs.readFileSync(siblingSidecarPath, "utf8");
   try {
     renameTrack("present_master.wav", "  Renamed track  ");
     const sidecar = JSON.parse(fs.readFileSync(sidecarPath, "utf8")) as Record<string, unknown>;
+    const sibling = JSON.parse(fs.readFileSync(siblingSidecarPath, "utf8")) as Record<string, unknown>;
     assert.equal(sidecar.seo_title, "Renamed track");
     assert.equal(sidecar.existing_key, "preserved");
     assert.equal(sidecar.seo_description, undefined);
     assert.equal(sidecar.seo_title_approved, undefined);
+    assert.equal(sibling.seo_title, undefined);
   } finally {
     fs.writeFileSync(sidecarPath, original);
+    fs.writeFileSync(siblingSidecarPath, siblingOriginal);
   }
 });
 

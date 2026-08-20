@@ -23,12 +23,12 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { signOut } from "next-auth/react";
-import type { LibraryTrack, QueueJob, Release, ReleaseTrack, Variant } from "@/lib/types";
+import type { LibraryRecipe, LibraryTrack, QueueJob, Release, ReleaseTrack, Variant } from "@/lib/types";
 import type { DismissalRecord } from "@/lib/dismissals";
-import { absoluteTime, batchMembersForJob, knownVariantId, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
-import { groupCompletedByDay, partitionRenderJobs, type RenderJob } from "@/lib/render-jobs";
+import { absoluteTime, batchMembersForJob, knownVariantId, queueJobIdentity, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
+import { groupCompletedByDay, oldestFirstAttempts, partitionRenderJobs, pendingRenderJobCount, type RenderJob } from "@/lib/render-jobs";
 import { queueStrings } from "@/lib/queue-strings";
 import { formatDisplayName, formatQueueDisplayName, OPTIONS } from "@/lib/variant-labels";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
@@ -56,12 +56,15 @@ import {
   wetGainDb,
   type EqPreset,
   type EqState,
+  type FxBlock,
   type FxState,
   type ReverbPreset,
   type ReverbState,
 } from "@/lib/fx";
 import { lintNames } from "@/lib/name-lint";
 import { formatBytes } from "@/lib/format";
+import { newestTracksByVariant } from "@/lib/track-map";
+import { RERENDER_MINUTE_OPTIONS, repeatsForMinutes, rerenderOptionLabel } from "@/lib/render-overrides";
 import { BellMark } from "./bell-mark";
 import { TOKENS } from "./ui/tokens";
 import { Card } from "./ui/card";
@@ -385,10 +388,9 @@ function LibrarySkeleton({ compact = false }: { compact?: boolean }) {
         )) : [0, 1, 2].map((card) => (
           <Card as="article" key={card} padding="md" className="track-card">
             <div className="track-card-heading"><Skeleton width="58%" height={15} /><Skeleton className="skeleton-fixed" width={34} height={34} radius="50%" /></div>
-            <div className="track-chips"><Skeleton width={74} height={28} radius={999} /><Skeleton width={48} height={28} radius={999} /><Skeleton width={52} height={28} radius={999} /><Skeleton width={58} height={28} radius={999} /></div>
+            <div className="track-chips"><Skeleton width={110} height={28} radius={999} /><Skeleton width={78} height={28} radius={999} /></div>
             <Skeleton className="track-date" width="44%" height={11} />
             <div className="custom-player"><Skeleton height={28} radius={999} /></div>
-            <div className="qa-strip"><Skeleton height={52} /></div>
             <div className="download-menu-wrap"><div className="download-split"><Skeleton height={42} radius={999} /></div></div>
           </Card>
         ))}
@@ -919,8 +921,8 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
   const queueRef = useRef<(ids: string[], label: "one" | "pilot" | "full") => Promise<void>>(async () => {});
   const tabsRef = useRef<HTMLElement>(null);
   const lensRef = useRef<HTMLDivElement>(null);
-  const queueCount = jobs.filter((job) => job.status === "Queued" || job.status === "Rendering").length;
-  const libraryCount = tracks.filter((track) => track.exists && !seenLibraryIds.has(track.variantId)).length;
+  const queueCount = pendingRenderJobCount(jobs);
+  const libraryCount = tracks.filter((track) => track.exists && !seenLibraryIds.has(track.renderKey)).length;
   const releaseCount = releases.filter((release) => release.ladder.ready && !release.ladder.submitted).length;
   const selected = useMemo(() => variants.find((variant) => variant.color === selection.color && variant.band === selection.band && variant.motion === selection.motion && variant.balance === selection.balance), [selection, variants]);
   const pilotCount = variants.filter((variant) => variant.pilot !== null).length;
@@ -969,11 +971,14 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    let nextTracks: LibraryTrack[] | undefined;
     try {
       const [variantResponse, libraryResponse, queueResponse, releasesResponse] = await Promise.all([fetch("/api/variants"), fetch("/api/library"), fetch("/api/queue"), fetch("/api/releases")]);
       if (![variantResponse, libraryResponse, queueResponse, releasesResponse].every((response) => response.ok)) throw new Error("Refresh failed");
       setVariants((await variantResponse.json()).variants);
-      setTracks((await libraryResponse.json()).tracks);
+      const libraryPayload = (await libraryResponse.json()) as { tracks: LibraryTrack[] };
+      nextTracks = libraryPayload.tracks;
+      setTracks(libraryPayload.tracks);
       setLastLibrarySync(new Date().toISOString());
       setLibrarySyncFailed(false);
       const queuePayload = (await queueResponse.json()) as { jobs: QueueJob[]; mode?: "local" | "dispatch" | "unavailable"; stats?: typeof queueStats };
@@ -986,6 +991,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
       if (releasesPayload.mode) setReleaseMode(releasesPayload.mode);
     } catch { setLibrarySyncFailed(true); setToast({ message: "Could not load engine data.", error: true }); }
     finally { setLoading(false); setEverLoaded(true); }
+    return nextTracks;
   }, []);
   const refreshQueue = useCallback(async (showBusy = false) => {
     if (queueFetchInFlight.current || document.visibilityState !== "visible") return;
@@ -1017,7 +1023,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
   }, []);
   useEffect(() => {
     if (tab !== "library" || !tracks.length) return;
-    const existing = tracks.filter((track) => track.exists).map((track) => track.variantId);
+    const existing = tracks.filter((track) => track.exists).map((track) => track.renderKey);
     setSeenLibraryIds((previous) => {
       const next = new Set([...previous, ...existing]);
       try { localStorage.setItem("noise.library.seen", JSON.stringify([...next])); } catch { /* ignore storage failures */ }
@@ -1096,10 +1102,15 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
     const match = window.location.hash.match(/^#library\/(.+)$/);
     if (!match && window.location.hash !== "#library") return;
     setTab("library");
-    void refresh().then(() => {
-      const variantId = match ? decodeURIComponent(match[1]) : undefined;
+    void refresh().then((loadedTracks) => {
+      const renderId = match ? decodeURIComponent(match[1]) : undefined;
+      const targetTrack = renderId
+        ? loadedTracks?.find((track) => track.renderKey === renderId) ?? loadedTracks?.find((track) => track.variantId === renderId)
+        : undefined;
       window.requestAnimationFrame(() => {
-        const target = variantId ? document.getElementById(`track-${variantId}`) : null;
+        const target = targetTrack
+          ? [...document.querySelectorAll<HTMLElement>("[data-variant-id]")].find((element) => element.dataset.variantId === targetTrack.variantId) ?? null
+          : null;
         if (target) {
           target.scrollIntoView({ behavior: "smooth", block: "start" });
           target.classList.remove("track-highlight");
@@ -1164,12 +1175,17 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
     };
   }, [tab]);
 
-  async function queue(ids: string[], label: "one" | "pilot" | "full") {
+  async function queue(ids: string[], label: "one" | "pilot" | "full", overrides?: { repeats: number; takeMarker: string; fx?: FxBlock | null; toast?: string }) {
     if (queueing) return;
     setQueueing(true);
     try {
-      const fxBlock = label === "one" ? toFxBlock(fx) : null;
-      const selector = label === "pilot" ? { pilot: true } : label === "full" ? { full: true } : { variantIds: ids, ...(fxBlock ? { fx: fxBlock } : {}) };
+      const hasFxOverride = Boolean(overrides && Object.prototype.hasOwnProperty.call(overrides, "fx"));
+      const fxBlock = label === "one" ? (hasFxOverride ? overrides?.fx ?? null : toFxBlock(fx)) : null;
+      const selector = label === "pilot"
+        ? { pilot: true }
+        : label === "full"
+          ? { full: true }
+          : { variantIds: ids, ...(hasFxOverride || fxBlock ? { fx: fxBlock } : {}), ...(overrides ? { repeats: overrides.repeats, takeMarker: overrides.takeMarker } : {}) };
       const response = await fetch("/api/queue", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(selector) });
       if (!response.ok) {
         const reason = (await response.json().catch(() => ({}))) as { error?: string };
@@ -1180,9 +1196,9 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
       const target = renderMode === "dispatch" ? "GitHub Actions renderer" : "worker queue";
       const colorLabel = OPTIONS.color.find(([value]) => value === selection.color)?.[1] ?? selection.color;
       setToast({
-        message: label === "one"
+        message: overrides?.toast ?? (label === "one"
           ? `${colorLabel} master and stems being rendered`
-          : `${label === "pilot" ? "Pilot set" : `Full matrix (${variants.length} variants)`} sent to the ${target}.`,
+          : `${label === "pilot" ? "Pilot set" : `Full matrix (${variants.length} variants)`} sent to the ${target}.`),
       });
       if (ids[0]) setTrackedRender({ variantId: ids[0] });
       tour.notify("render-enqueued", undefined, { jobId: payload.jobs?.[0]?.id, variantId: ids[0] });
@@ -1260,7 +1276,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
           </div>
           )}
         </div>
-        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} tourVariantId={trackedRender?.variantId} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} onTrackPlay={(variantId) => { setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "playing")); tour.notify("track-played", undefined, { variantId }); }} onTrackPlayError={(variantId) => setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "error"))} /></div>
+        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} tourVariantId={trackedRender?.variantId} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onRenderAgain={(track, repeats) => queue([track.variantId], "one", { repeats, takeMarker: `t${Date.now().toString(36)}${window.crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`, fx: track.recipe.fxRecorded ? { ...(track.recipe.eq ? { eq: track.recipe.eq } : {}), ...(track.recipe.reverb ? { reverb: track.recipe.reverb } : {}) } : null, toast: `Matrix ${track.matrixIndex} take queued as a new library entry.` })} onToast={setToast} onTrackPlay={(variantId) => { setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "playing")); tour.notify("track-played", undefined, { variantId }); }} onTrackPlayError={(variantId) => setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "error"))} /></div>
         <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} tourVariantId={trackedRender?.variantId} initialLoad={initialLoad} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} onToast={setToast} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
         <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} /></div>
       </div>
@@ -1322,7 +1338,7 @@ function HeaderSyncCaption({ lastSync, syncFailed, loading, onRefresh, hidden }:
   return <span className="header-sync-caption" aria-live="polite">{caption}</span>;
 }
 
-function Library({ tracks, tourVariantId, loading, initialLoad, onRefresh, onToast, onTrackPlay, onTrackPlayError }: { tracks: LibraryTrack[]; tourVariantId?: string; loading: boolean; initialLoad: boolean; onRefresh: () => void; onToast: (toast: { message: string; error?: boolean }) => void; onTrackPlay: (variantId: string) => void; onTrackPlayError: (variantId: string) => void }) {
+function Library({ tracks, tourVariantId, loading, initialLoad, onRefresh, onRenderAgain, onToast, onTrackPlay, onTrackPlayError }: { tracks: LibraryTrack[]; tourVariantId?: string; loading: boolean; initialLoad: boolean; onRefresh: () => void; onRenderAgain: (track: LibraryTrack, repeats: number) => Promise<void>; onToast: (toast: { message: string; error?: boolean }) => void; onTrackPlay: (variantId: string) => void; onTrackPlayError: (variantId: string) => void }) {
   const [view, setView] = useState<"cards" | "rows">("cards");
   const { pullDistance, refreshShellRef } = usePullRefresh(loading, onRefresh);
   useEffect(() => {
@@ -1349,13 +1365,13 @@ function Library({ tracks, tourVariantId, loading, initialLoad, onRefresh, onToa
       <div className="library-toolbar"><div className="section-title">Masters · {tracks.filter((track) => track.exists).length}</div><button type="button" className="icon-action view-toggle" aria-label={view === "cards" ? "Switch to compact rows" : "Switch to expanded cards"} title={view === "cards" ? "Compact rows" : "Expanded cards"} onClick={toggleView}>{view === "cards" ? <List size={18} /> : <LayoutGrid size={18} />}</button></div>
       <div className="library-list">
         {tracks.filter((track) => track.exists).length === 0 && <Card padding="md"><EmptyState title="No rendered files found." /></Card>}
-        {tracks.filter((track) => track.exists).map((track) => <TrackCard key={track.variantId} track={track} compact={view === "rows"} onRefresh={onRefresh} onToast={onToast} onTrackPlay={onTrackPlay} onTrackPlayError={onTrackPlayError} dataTour={track.variantId === tourTrackId ? "library-track" : undefined} />)}
+        {tracks.filter((track) => track.exists).map((track) => <TrackCard key={track.renderKey} track={track} compact={view === "rows"} onRefresh={onRefresh} onRenderAgain={onRenderAgain} onToast={onToast} onTrackPlay={onTrackPlay} onTrackPlayError={onTrackPlayError} dataTour={track.variantId === tourTrackId ? "library-track" : undefined} />)}
       </div>
     </section>
   );
 }
 
-function TrackCard({ track, compact = false, onRefresh, onToast, onTrackPlay, onTrackPlayError, dataTour }: { track: LibraryTrack; compact?: boolean; onRefresh: () => void; onToast: (toast: { message: string; error?: boolean }) => void; onTrackPlay: (variantId: string) => void; onTrackPlayError: (variantId: string) => void; dataTour?: string }) {
+function TrackCard({ track, compact = false, onRefresh, onRenderAgain, onToast, onTrackPlay, onTrackPlayError, dataTour }: { track: LibraryTrack; compact?: boolean; onRefresh: () => void; onRenderAgain: (track: LibraryTrack, repeats: number) => Promise<void>; onToast: (toast: { message: string; error?: boolean }) => void; onTrackPlay: (variantId: string) => void; onTrackPlayError: (variantId: string) => void; dataTour?: string }) {
   const [suggestion, setSuggestion] = useState<{ title: string; description: string; prompt: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
@@ -1367,13 +1383,14 @@ function TrackCard({ track, compact = false, onRefresh, onToast, onTrackPlay, on
   const [elapsed, setElapsed] = useState(0);
   const [duration, setDuration] = useState(track.durationSeconds);
   const [qaOpen, setQaOpen] = useState(false);
+  const [recipeOpen, setRecipeOpen] = useState(false);
   const [menu, setMenu] = useState<"overflow" | "download" | null>(null);
   const [demoBadgeVisible, setDemoBadgeVisible] = useState(track.demo === true);
   const audioRef = useRef<HTMLAudioElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const titleSaveInFlightRef = useRef(false);
   const titleEditCancelledRef = useRef(false);
-  const qaId = `qa-${track.variantId}`;
+  const qaId = `qa-${track.renderKey}`;
   const title = optimisticTitle;
   useEffect(() => {
     const nextTitle = track.title ?? formatDisplayName(track);
@@ -1488,11 +1505,12 @@ function TrackCard({ track, compact = false, onRefresh, onToast, onTrackPlay, on
     onToast({ message: "Master URL copied." });
     setMenu(null);
   };
-  const metricClass = track.qaVerdict === "PASS" ? "qa-strip qa-pass" : track.qaVerdict === "FAIL" ? "qa-strip qa-fail" : "qa-strip";
-  const audioElement = <audio ref={audioRef} preload="none" src={track.audioUrl} onPlaying={() => { setPlaying(true); onTrackPlay(track.variantId); }} onPause={() => setPlaying(false)} onError={() => { setPlaying(false); onTrackPlayError(track.variantId); }} onTimeUpdate={(event) => setElapsed(event.currentTarget.currentTime)} onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : track.durationSeconds)} />;
+  const qaClass = track.qaVerdict === "PASS" ? "qa-disclosure qa-pass" : track.qaVerdict === "FAIL" ? "qa-disclosure qa-fail" : "qa-disclosure";
+  const qaTone = track.qaVerdict === "PASS" ? "success" : track.qaVerdict === "FAIL" ? "danger" : "neutral";
+  const audioElement = <audio ref={audioRef} preload="none" src={track.audioUrl} onPlay={() => { setPlaying(true); onTrackPlay(track.variantId); }} onPause={() => setPlaying(false)} onError={() => { setPlaying(false); onTrackPlayError(track.variantId); }} onTimeUpdate={(event) => setElapsed(event.currentTarget.currentTime)} onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : track.durationSeconds)} />;
   if (compact) {
     return (
-      <Card as="article" id={`track-${track.variantId}`} padding="md" className="track-row" data-tour={dataTour}>
+      <Card as="article" id={`track-${track.renderKey}`} data-variant-id={track.variantId} data-tour={dataTour} padding="md" className="track-row">
         {audioElement}
         <button type="button" className="player-play track-row-play" aria-label={playing ? "Pause track" : "Play track"} onClick={togglePlay}>{playing ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}</button>
         <div className="track-row-body">
@@ -1504,17 +1522,116 @@ function TrackCard({ track, compact = false, onRefresh, onToast, onTrackPlay, on
     );
   }
   return (
-    <Card as="article" id={`track-${track.variantId}`} padding="md" className="track-card" data-tour={dataTour}>
+    <Card as="article" id={`track-${track.renderKey}`} data-variant-id={track.variantId} data-tour={dataTour} padding="md" className="track-card">
       <div className="track-card-heading"><div className="track-card-title-wrap">{editingTitle ? <input ref={titleInputRef} className="track-card-title track-card-title-input" value={titleDraft} aria-label={`Rename ${title}`} onChange={(event) => setTitleDraft(event.target.value)} onBlur={() => void saveTitle()} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void saveTitle(); } else if (event.key === "Escape") { event.preventDefault(); cancelTitleEdit(); } }} /> : <button type="button" className="track-card-title" title={`Rename ${title}`} onClick={() => { titleEditCancelledRef.current = false; setTitleDraft(title); setEditingTitle(true); }}>{title}{track.titleApproved && <span className="approved-marker">approved</span>}</button>}<button type="button" className="icon-action track-name-action" aria-label="Generate track name" title="Generate track name" onMouseDown={(event) => event.preventDefault()} onClick={() => void generateTitle()} disabled={busy}><Sparkles size={15} /></button></div><div className="track-menu-wrap"><button type="button" className="icon-action" aria-label="More track actions" aria-haspopup="menu" aria-expanded={menu === "overflow"} onClick={() => setMenu(menu === "overflow" ? null : "overflow")}><MoreHorizontal size={19} /></button>{menu === "overflow" && <div className="track-menu" role="menu"><button type="button" role="menuitem" onClick={togglePlay}>{playing ? "Pause" : "Play"}</button><button type="button" role="menuitem" onClick={() => { setMenu(null); void generate(); }}><Sparkles size={14} /> Suggest SEO name</button><button type="button" role="menuitem" onClick={() => { setQaOpen(true); setMenu(null); document.getElementById(qaId)?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>View QA report</button><button type="button" role="menuitem" onClick={() => void copyUrl()}>Copy file URL <span className="developer-label">(developer)</span></button></div>}</div></div>
-      <div className="track-chips"><Chip>{track.demo && demoBadgeVisible ? <button type="button" className="demo-chip" onClick={() => setDemoBadgeVisible(false)}>Demo ×</button> : `Matrix ${track.matrixIndex}`}</Chip><Chip>{track.color}</Chip><Chip>{track.band}</Chip><Chip>{track.motion}</Chip></div>
+      <div className="track-chips">
+        <Disclosure
+          open={recipeOpen}
+          onOpenChange={setRecipeOpen}
+          className="recipe-disclosure"
+          triggerClassName="recipe-trigger"
+          triggerId={`recipe-${track.renderKey}`}
+          contentId={`recipe-${track.renderKey}-details`}
+          summary={<><Chip>{track.demo && demoBadgeVisible ? <button type="button" className="demo-chip" onClick={() => setDemoBadgeVisible(false)}>Demo ×</button> : `Matrix ${track.matrixIndex}`}</Chip>{recipeOpen ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}</>}
+        >
+          <RecipeDetails recipe={track.recipe} configuredCellSeconds={track.cellSeconds} variantId={track.variantId} renderKey={track.renderKey} onRenderAgain={(repeats) => onRenderAgain(track, repeats)} />
+        </Disclosure>
+        <Disclosure
+          open={qaOpen}
+          onOpenChange={setQaOpen}
+          className={qaClass}
+          triggerClassName="qa-trigger"
+          triggerId={qaId}
+          contentId={`${qaId}-checks`}
+          summary={<><Chip tone={qaTone}><span className="sr-only">QA </span>{track.qaVerdict}</Chip>{qaOpen ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}</>}
+        >
+          <div className="qa-details">
+            <div className="qa-metrics"><span><span className="qa-metric-label">LUFS</span><strong>{track.measuredLufs ?? "—"}</strong></span><span><span className="qa-metric-label">True peak</span><strong>{track.measuredTruePeak ?? "—"}</strong></span></div>
+            <div className="qa-checks">{track.qaChecks.length ? track.qaChecks.map((check) => <span key={check.name}><span>{check.passed ? "✓" : "×"} {check.name}</span><b>{check.measured}</b></span>) : "No QA checks available."}</div>
+          </div>
+        </Disclosure>
+      </div>
       {track.renderedAt && <div className="track-date">Created <time title={absoluteTime(track.renderedAt)}>{formatCreatedDate(track.renderedAt)}</time></div>}
       <div className="custom-player">{audioElement}<button type="button" className="player-play" aria-label={playing ? "Pause track" : "Play track"} onClick={togglePlay}>{playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}</button><span className="player-time">{formatDuration(elapsed)}</span><input className="player-scrubber" type="range" min={0} max={duration} step={0.1} value={Math.min(elapsed, duration)} aria-label="Seek track" onChange={(event) => seek(Number(event.target.value))} /><span className="player-time">{formatDuration(duration)}</span></div>
-      <Disclosure open={qaOpen} onOpenChange={setQaOpen} className={metricClass} triggerClassName="qa-header" triggerId={qaId} contentId={`${qaId}-checks`} summary={<><span><span className="qa-metric-label">LUFS</span><strong>{track.measuredLufs ?? "—"}</strong></span><span><span className="qa-metric-label">True peak</span><strong>{track.measuredTruePeak ?? "—"}</strong></span><span className="qa-verdict">{track.qaVerdict}</span>{qaOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</>}>
-        <div className="qa-checks">{track.qaChecks.length ? track.qaChecks.map((check) => <span key={check.name}><span>{check.passed ? "✓" : "×"} {check.name}</span><b>{check.measured}</b></span>) : "No QA checks available."}</div>
-      </Disclosure>
-      <div className="download-menu-wrap"><div className="download-split"><Button variant="neutral" type="button" onClick={() => download()} disabled={downloadBusy} className="download-main"><Download size={15} /> {downloadBusy ? "Preparing…" : "Download"}</Button><button type="button" className="download-chevron" aria-label="Download options" aria-haspopup="menu" aria-expanded={menu === "download"} onClick={() => setMenu(menu === "download" ? null : "download")}><ChevronDown size={15} /></button></div>{menu === "download" && <div className="track-menu download-menu" role="menu"><button type="button" role="menuitem" onClick={() => download()}><span>Master</span><small>{formatBytes(track.sizeBytes)}</small></button>{track.stems.filter((stem) => stem.exists).map((stem) => <button type="button" role="menuitem" key={stem.filename} onClick={() => download(stem.downloadUrl, stem.filename)}><span>Stem {stem.number} — {stem.stem}</span><small>{formatBytes(stem.sizeBytes)}</small></button>)}<div className="menu-separator" /><button type="button" role="menuitem" onClick={() => download(`/api/bundle/${encodeURIComponent(track.variantId)}`, `${track.variantId}.zip`)}><span>All as .zip</span><small>{formatBytes(track.sizeBytes + track.stems.filter((stem) => stem.exists).reduce((total, stem) => total + stem.sizeBytes, 0))}</small></button></div>}</div>
+      <div className="download-menu-wrap"><div className="download-split"><Button variant="neutral" type="button" onClick={() => download()} disabled={downloadBusy} className="download-main"><Download size={15} /> {downloadBusy ? "Preparing…" : "Download"}</Button><button type="button" className="download-chevron" aria-label="Download options" aria-haspopup="menu" aria-expanded={menu === "download"} onClick={() => setMenu(menu === "download" ? null : "download")}><ChevronDown size={15} /></button></div>{menu === "download" && <div className="track-menu download-menu" role="menu"><button type="button" role="menuitem" onClick={() => download()}><span>Master</span><small>{formatBytes(track.sizeBytes)}</small></button>{track.stems.filter((stem) => stem.exists).map((stem) => <button type="button" role="menuitem" key={stem.filename} onClick={() => download(stem.downloadUrl, stem.filename)}><span>Stem {stem.number} — {stem.stem}</span><small>{formatBytes(stem.sizeBytes)}</small></button>)}<div className="menu-separator" /><button type="button" role="menuitem" onClick={() => download(`/api/bundle/${encodeURIComponent(track.renderKey)}`, `${track.renderKey}.zip`)}><span>All as .zip</span><small>{formatBytes(track.sizeBytes + track.stems.filter((stem) => stem.exists).reduce((total, stem) => total + stem.sizeBytes, 0))}</small></button></div>}</div>
         {suggestion && <div className="mt-3 rounded-xl border border-[color:var(--separator)] p-3"><div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--ink-secondary)]">Review before approval</div><input value={suggestion.title} onChange={(event) => setSuggestion({ ...suggestion, title: event.target.value })} className="w-full border-b border-[color:var(--separator)] pb-1 text-sm font-semibold outline-none" /><textarea value={suggestion.description} onChange={(event) => setSuggestion({ ...suggestion, description: event.target.value })} className="mt-2 h-16 w-full resize-none text-xs leading-4 outline-none" /><div className="mt-2 flex justify-end gap-2"><Button variant="link" type="button" onClick={() => void regenerate()} disabled={busy}>Regenerate</Button><Button variant="primary" type="button" onClick={() => void approve()} disabled={busy}>{busy ? "Approving…" : "Approve"}</Button></div></div>}
     </Card>
+  );
+}
+
+function recipeNumber(value: number | null | undefined, suffix = ""): string {
+  return value === null || value === undefined || !Number.isFinite(value) ? "Not recorded" : `${value}${suffix}`;
+}
+
+function recipeDb(value: number): string {
+  return `${value > 0 ? "+" : ""}${value} dB`;
+}
+
+function RecipeField({ label, children }: { label: string; children: ReactNode }) {
+  return <div className="recipe-field"><span>{label}</span><strong>{children}</strong></div>;
+}
+
+function RecipeGroup({ title, children }: { title: string; children: ReactNode }) {
+  return <section className="recipe-group"><h4>{title}</h4><div className="recipe-fields">{children}</div></section>;
+}
+
+function RecipeDetails({ recipe, configuredCellSeconds, variantId, renderKey, onRenderAgain }: { recipe: LibraryRecipe; configuredCellSeconds: number; variantId: string; renderKey: string; onRenderAgain: (repeats: number) => Promise<void> }) {
+  const minuteOptions = RERENDER_MINUTE_OPTIONS;
+  const currentMinutes = recipe.cellSeconds * recipe.repeats / 60;
+  const defaultMinutes = minuteOptions.includes(currentMinutes)
+    ? currentMinutes
+    : minuteOptions.reduce((closest, option) => Math.abs(option - currentMinutes) < Math.abs(closest - currentMinutes) ? option : closest, minuteOptions[0]);
+  const [selectedMinutes, setSelectedMinutes] = useState(defaultMinutes);
+  const [renderingAgain, setRenderingAgain] = useState(false);
+  const eq = recipe.eq;
+  const reverb = recipe.reverb;
+  const nominalSeconds = recipe.cellSeconds * recipe.repeats;
+  const durationText = Number.isFinite(nominalSeconds)
+    ? formatTail(nominalSeconds, recipe.tailSeconds ?? 0)
+    : "Not recorded";
+  const eqLabel = !recipe.fxRecorded ? "Not recorded" : eq ? EQ_PRESET_LABELS[eq.preset as EqPreset] ?? "Custom" : "Flat / none";
+  const reverbLabel = !recipe.fxRecorded ? "Not recorded" : reverb ? REVERB_PRESET_LABELS[reverb.preset as ReverbPreset] ?? "Custom" : "Off";
+  return (
+    <div className="recipe-details">
+      <RecipeGroup title="Variant">
+        <RecipeField label="Identity">{recipe.color} · {recipe.band} · {recipe.motion} · {recipe.balance}</RecipeField>
+        <RecipeField label="Band">{formatBandLabel(recipe.bandLowHz)}–{formatBandLabel(recipe.bandHighHz)} Hz</RecipeField>
+        <RecipeField label="LFO">{recipeNumber(recipe.lfoDepth)} depth · {recipeNumber(recipe.lfoRateHz, " Hz")} rate</RecipeField>
+        <RecipeField label="Per-stem gains">Bed {recipeDb(recipe.gainsDb.bed)} · Texture {recipeDb(recipe.gainsDb.texture)} · Motion {recipeDb(recipe.gainsDb.motion)}</RecipeField>
+        <RecipeField label="Spectrum">{recipeNumber(recipe.tiltDbPerOct, " dB/oct")}{recipe.bell ? ` · green bell ${recipe.bell.gainDb > 0 ? "+" : ""}${recipe.bell.gainDb} dB @ ${formatBandLabel(recipe.bell.centerHz)} Hz (Q ${recipe.bell.q})` : ""}</RecipeField>
+      </RecipeGroup>
+      <RecipeGroup title="EQ">
+        <RecipeField label="Preset">{eqLabel}</RecipeField>
+        {eq && <div className="recipe-eq-grid" aria-label="EQ band gains">{EQ_BAND_HZ.map((hz, index) => <RecipeField key={hz} label={`${formatBandLabel(hz)} Hz`}>{recipeDb(eq.gains_db[index])}</RecipeField>)}</div>}
+        {eq && <RecipeField label="Trim">{recipeDb(eq.trim_db)}</RecipeField>}
+      </RecipeGroup>
+      <RecipeGroup title="Reverb">
+        <RecipeField label="Preset">{reverbLabel}</RecipeField>
+        {reverb && <><RecipeField label="Room">{reverb.room_size}% · pre-delay {reverb.pre_delay_ms} ms</RecipeField><RecipeField label="Decay / damping">{reverb.reverberance}% · {reverb.damping}%</RecipeField><RecipeField label="Mix">{reverb.mix_percent}%</RecipeField></>}
+      </RecipeGroup>
+      <RecipeGroup title="Output & length">
+        <RecipeField label="Duration">{durationText}</RecipeField>
+        <RecipeField label="Cell × repeats">{recipe.cellSeconds}s × {recipe.repeats}</RecipeField>
+        <RecipeField label="Fade / format">{recipeNumber(recipe.fadeSeconds, " s")} · {recipeNumber(recipe.sampleRate, " Hz")} / {recipeNumber(recipe.bitDepth, "-bit")}</RecipeField>
+        <RecipeField label="Level">{recipeNumber(recipe.targetLufs, " LUFS")} target · {recipeNumber(recipe.truePeakMaxDbtp, " dBTP")} ceiling</RecipeField>
+      </RecipeGroup>
+      <RecipeGroup title="Provenance">
+        <RecipeField label="Seeds"><span className="recipe-seeds">{Object.entries(recipe.seeds).map(([key, seed]) => `${key} ${seed}`).join(" · ") || "Not recorded"}</span></RecipeField>
+        <RecipeField label="Audacity">{recipe.audacityVersion ?? "Not recorded"}</RecipeField>
+        <RecipeField label="Rendered at">{recipe.renderedAt ? <time dateTime={recipe.renderedAt}>{absoluteTime(recipe.renderedAt)}</time> : "Not recorded"}</RecipeField>
+        <RecipeField label="Variant ID"><span className="recipe-seeds">{variantId}</span></RecipeField>
+      </RecipeGroup>
+      <div className="recipe-footer-actions">
+        <label htmlFor={`recipe-length-${renderKey}`}>Render a new library entry</label>
+        <div>
+          <select id={`recipe-length-${renderKey}`} value={selectedMinutes} onChange={(event) => setSelectedMinutes(Number(event.target.value))}>
+            {minuteOptions.map((minutes) => <option key={minutes} value={minutes}>{rerenderOptionLabel(minutes, configuredCellSeconds)}</option>)}
+          </select>
+          <Button variant="primary" type="button" disabled={renderingAgain} onClick={async () => { setRenderingAgain(true); try { await onRenderAgain(repeatsForMinutes(selectedMinutes, configuredCellSeconds)); } finally { setRenderingAgain(false); } }}>{renderingAgain ? "Queuing…" : "Render new take"}</Button>
+        </div>
+        <small>Creates a separate master; this take stays unchanged.</small>
+      </div>
+    </div>
   );
 }
 
@@ -1587,7 +1704,7 @@ function ReleaseDetail({ release, savedArtist, variants, tracks, mode, onRefresh
   }, [draft.tracks, variants]);
   const lint = useMemo(() => lintNames(draft.tracks.map((track) => track.title)), [draft.tracks]);
   const variantById = useMemo(() => new Map(variants.map((variant) => [variant.variantId, variant])), [variants]);
-  const libraryById = useMemo(() => new Map(tracks.map((track) => [track.variantId, track])), [tracks]);
+  const libraryById = useMemo(() => newestTracksByVariant(tracks), [tracks]);
   useEffect(() => {
     if (loadedReleaseId.current === release.id && dirty.current) return;
     const next = { ...release };
@@ -1765,7 +1882,7 @@ function DistroHandoff({ release, tracks, onBack, onCopy, onSubmit, mode }: {
   mode: "local" | "dispatch" | "unavailable";
 }) {
   const [storeUrl, setStoreUrl] = useState("");
-  const byId = new Map(tracks.map((track) => [track.variantId, track]));
+  const byId = newestTracksByVariant(tracks);
   return <section className="panel-section release-detail">
     <button type="button" className="back-link" onClick={onBack}><ChevronLeft size={17} /> Release checklist</button>
     <div className="panel-heading"><div><h2>Prepare for DistroKid</h2><p>Copy each field, then upload the downloaded files.</p></div></div>
@@ -1851,7 +1968,7 @@ function Queue({ jobs, tourVariantId, initialLoad, mode, stats, variants, tracks
     if (tourTarget) queueTourTargetAssigned = true;
     const failed = latest.status === "Failed" || latest.status === "Cancelled"; const done = latest.status === "Done"; const activeItem = latest.status === "Queued" || latest.status === "Rendering";
     const name = nameFor(latest.variantId); const failure = latest.failure?.step ? queueStrings.failedAt(latest.failure.step, latest.failure.exitCode) : latest.error ?? queueStrings.failure(name, latest.status); const displayTime = latest.finishedAt ?? latest.queuedAt;
-    return <Card as="article" padding="md" key={job.variantId} data-tour={tourTarget ? "queue-job" : undefined}>
+    return <Card as="article" padding="md" key={queueJobIdentity(latest)} data-tour={tourTarget ? "queue-job" : undefined}>
       <div className="queue-title-row"><div className="queue-name" title={name === "Unknown variant" ? latest.variantId : undefined}>{name}</div>{done ? <StatusPill state="ready">{queueStrings.status.done}</StatusPill> : failed && <div className="track-menu-wrap queue-menu-wrap"><button type="button" className="icon-action queue-overflow" aria-label="More queue actions" aria-haspopup="menu" aria-expanded={menu === latest.id} onClick={() => setMenu(menu === latest.id ? null : latest.id)}><MoreHorizontal size={19} /></button>{menu === latest.id && <div className="track-menu" role="menu">{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener" role="menuitem">{queueStrings.logs}</a>}<button type="button" role="menuitem" onClick={() => hasArtifacts(job) ? setConfirmRemove(job) : void remove(job)}>Remove from history</button></div>}</div>}</div>
       <div className="queue-chips">{failed && <StatusPill state="failed">{queueStrings.status.failed}</StatusPill>}{activeItem && <StatusPill state="active">{latest.status === "Rendering" ? queueStrings.status.rendering : queueStrings.status.queued}</StatusPill>}{chipsFor(latest.variantId).map((chip) => <Chip key={chip}>{chip}</Chip>)}{fxBadges(latest.fx).map((badge) => <Chip key={badge}>{badge}</Chip>)}</div>
       {activeItem && <div className="queue-active-copy">{activeCopy(job)}</div>}
@@ -1859,7 +1976,14 @@ function Queue({ jobs, tourVariantId, initialLoad, mode, stats, variants, tracks
         <Banner tone="danger" className="queue-failure-content"><div className="queue-diagnostics"><div>Failed step · {latest.failure?.step ?? "Unavailable"}</div><div>Exit code · {latest.failure?.exitCode ?? "—"}</div><div>Duration · {latest.failure?.durationSeconds ? formatQueueDuration(latest.failure.durationSeconds) : latest.durationSeconds ? formatQueueDuration(latest.durationSeconds) : "—"}</div><div>Runner · {latest.failure?.runner ?? (mode === "local" ? "Local worker" : "—")}</div>{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener">{queueStrings.logs} →</a>}</div></Banner>
       </Disclosure>}
       {job.attempts.length > 1 && <Disclosure open={openDisclosure === `${latest.id}-history`} onOpenChange={(open) => setOpenDisclosure(open ? `${latest.id}-history` : null)} className="queue-detail-strip queue-history-strip" summary={<>{queueStrings.runHistory(job.attempts.length)}<ChevronDown size={15} /></>}>
-        <div className="queue-diagnostics">{job.attempts.map((attempt, index) => <div key={attempt.id}><span>{queueStrings.attempt(index + 1, relativeTime(attempt.queuedAt))}</span> <span className={attempt.status === "Done" ? "duration-good" : "duration-bad"}>{attempt.status === "Done" ? "✓" : "✗"} {attempt.durationSeconds ? formatQueueDuration(attempt.durationSeconds) : "—"}</span></div>)}</div>
+        <div className="queue-diagnostics">{oldestFirstAttempts(job.attempts).map((attempt, index) => {
+          const failureReason = attempt.failure?.step
+            ? attempt.error ?? queueStrings.failedAt(attempt.failure.step, attempt.failure.exitCode)
+            : attempt.error;
+          const detail = failureReason ?? (attempt.durationSeconds ? formatQueueDuration(attempt.durationSeconds) : "—");
+          const tone = attempt.status === "Done" ? "duration-good" : attempt.status === "Failed" || attempt.status === "Cancelled" ? "duration-bad" : "";
+          return <div key={attempt.id}><span>{queueStrings.attempt(index + 1, relativeTime(attempt.queuedAt))}</span> <span className={tone}>{queueStrings.attemptStatus(attempt.status)} · {detail}</span></div>;
+        })}</div>
       </Disclosure>}
       <div className="queue-meta"><time title={absoluteTime(displayTime)}>{relativeTime(displayTime)}</time>{failed && ` · ${job.attempts.length} attempts`}</div>
       <div className="queue-card-actions">{done ? <Button variant="neutral" type="button" onClick={() => onDone(latest)}>{queueStrings.library}</Button> : failed && <><Button variant="neutral" type="button" className={retried.has(latest.id) ? "queue-retry-confirmed" : ""} disabled={queueing || retried.has(latest.id)} onClick={() => void retry(job)}>{retried.has(latest.id) ? "Queued ✓" : confirm === latest.id ? `Dispatch Actions run (${stats.sampleSize ? renderEstimate(stats.medianRenderSeconds, stats.sampleSize) : "~6 min"})?` : "Re-run render"}</Button><Button variant="neutral" type="button" onClick={() => hasArtifacts(job) ? setConfirmRemove(job) : void remove(job)}>Remove</Button></>}</div>
