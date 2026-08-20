@@ -61,6 +61,43 @@ Out of the box both are empty, so tab count badges never render and you cannot t
   increments the Render badge and pops a toast. No worker/Audacity is needed just to see queue
   state; actual rendering requires `setup.sh` + Audacity under Xvfb.
 
+### Seeding *named* library tracks (titles, dates, approved marker, rename tests)
+Zero-byte wavs alone give tracks with no title, no date and no sidecar, so anything that reads or
+writes sidecar metadata (`seo_title`, `seo_title_approved`, `render_timestamp`) cannot be exercised.
+Write a sidecar JSON next to each wav (same name, `.json` instead of `.wav`) — `web/lib/artifacts.ts`
+picks it up per file with no server restart:
+
+```bash
+cd /home/ubuntu/noisegen-out && python3 - <<'EOF'
+import json, urllib.request
+vs = json.load(urllib.request.urlopen('http://localhost:3000/api/variants'))['variants'][:3]
+for i, v in enumerate(vs):
+    fn = v['filename']
+    open(fn, 'wb').write(b'\0' * 4096)
+    sc = {"variant_id": v['variantId'], "role": "master", "cell_seconds": 150, "repeats": 4,
+          "render_timestamp": f"2026-02-1{i+1}T10:0{i}:00Z"}
+    if i == 0: sc["seo_title"] = "Original Seeded Title"
+    json.dump(sc, open(fn.replace('.wav', '.json'), 'w'), indent=2)
+EOF
+```
+
+Key fields: `variant_id` (required — `renderStatus` lookups key off it), `role: "master"` (both
+`approveName()` and `renderTrack()` in `web/lib/naming.ts` reject a sidecar whose `role` is anything
+else), `render_timestamp` (drives the "Created" line and the newest-first sort, so staggered
+timestamps give a deterministic card order), `cell_seconds * repeats` (the displayed duration), and
+optionally `seo_title` / `seo_title_approved: true` to start from a named / `approved` track.
+
+Note `/api/library` prefers a **release** title over the sidecar `seo_title`
+(`web/lib/library.ts:65`), so if the variant is also in a release the sidecar title will not show.
+The three `wn_white_low-mid_still_*` variants are not, which makes them the safe ones to seed.
+
+Sidecar writes are the objective proof for any naming UI: `grep seo_title <sidecar>.json` after the
+action distinguishes a real save from a purely optimistic title update. Note "Suggest SEO name" →
+Approve **overwrites** `seo_title` and adds `seo_title_approved`, whereas an inline rename writes only
+`seo_title` — assert on which keys changed, not just the title.
+
+These files live outside the repo; delete them when done.
+
 ## Fabricating arbitrary Queue states (failed rows, batches, repeated variants)
 Clicking "Queue this render" can only ever produce *queued* jobs, so failure/retry/batch rows must be
 fabricated. The queue is file-backed when you point it at a JSONL fixture, which makes every queue-row
@@ -200,6 +237,53 @@ The bell uses `rise` (.58s), `bell-eyes-in` (.18s @ .16s) and `bell-smile-in` (.
   take the screenshot immediately after `Ctrl+Shift+R` (no `wait` first) to catch the first frame.
 - Accessible-name checks (visually hidden `.sr-only` title, `aria-hidden` SVG) are best shown via
   DevTools → Elements → **Accessibility** pane.
+
+## Verifying CSS-only PRs (never trust the diff — read `getComputedStyle`)
+`globals.css` is a flat, source-ordered sheet with many `.foo:hover, .foo:focus-visible { ... }`
+rules sitting *above* the more specific-looking element rules. A new rule like
+`.track-card-title-input { outline: 2px solid var(--brand); }` (specificity 0-1-0) is silently beaten
+by an earlier `.track-card-title:focus-visible { outline: none; }` (0-2-0) whenever the element
+carries **both** classes — which several components do (`className="track-card-title
+track-card-title-input"`). The diff looks correct and the property never renders.
+- For every property a CSS PR claims to add, assert it objectively in the browser console *in the
+  state the user actually sees* (focused, hovered, open):
+  ```js
+  const el = document.querySelector('.track-card-title-input');
+  const cs = getComputedStyle(el);
+  console.log(JSON.stringify({border: cs.border, borderRadius: cs.borderRadius,
+    padding: cs.padding, outlineWidth: cs.outlineWidth, outlineStyle: cs.outlineStyle}));
+  ```
+  A thin ring in a screenshot is ambiguous; `outlineStyle: "none"` is not.
+- Enumerate the competing rules in source order to find the culprit:
+  ```js
+  for (const sheet of document.styleSheets) { let r; try { r = sheet.cssRules } catch { continue }
+    for (const rule of r) if (rule.selectorText?.includes('track-card-title'))
+      console.log(rule.selectorText + ' => ' + rule.style.cssText); }
+  ```
+- Prove the fix before reporting by injecting the corrected rule as a `<style>` element, re-screenshot,
+  then `.remove()` it and re-verify the computed value reverted. This turns "looks wrong" into a
+  concrete one-line suggestion.
+- Focus-ring rules only apply while `el.matches(':focus-visible')` is true. Text inputs match
+  `:focus-visible` even when focused programmatically (`.focus()`), so an auto-focused edit input is
+  *always* in the overridden state — the ring never renders for any user.
+
+## Proving "no layout jump" on style changes
+Eyeballing a 1px shift is not evidence. Install a measurement helper and diff the same rects across
+before / during / after states:
+```js
+window.__m = () => { const c = document.getElementById('track-<variantId>'); const g = s => {
+  const e = c.querySelector(s); const r = e.getBoundingClientRect();
+  return {x:r.x, y:r.y, w:r.width, h:r.height}; };
+  return {wrap: g('.track-card-title-wrap'), sparkles: g('.track-name-action'),
+          chips: g('.track-chips'), card: (({x,y,width,height}) =>
+          ({x,y,w:width,h:height}))(c.getBoundingClientRect())}; };
+console.log('BEFORE ' + JSON.stringify(window.__m()));
+```
+Measure the *surrounding* elements (sibling icon buttons, the next row, the card), not the swapped
+element itself — an input replacing a button legitimately changes its own rect (e.g. +2px height from
+a border, text inset by `padding`), and that is only a defect if neighbours move. A `margin: -1px 0`
+paired with a new `1px` border is the usual trick to keep the row height stable; confirm it works
+rather than assuming.
 
 ## Inspecting small artwork (bell mark, icons)
 The bell mark renders small in-app, so screen zoom alone is not enough detail. Chrome page zoom maxes
