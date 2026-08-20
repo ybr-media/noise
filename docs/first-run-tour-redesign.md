@@ -49,9 +49,10 @@ Targets in brackets. `[+]` = new `data-tour` hook needed.
 3. **action** `param-selected/shape` [`design-shape` +] — *Now narrow it down* — "Band, Motion
    and Balance decide which part of the spectrum you keep, how much it moves, and how it's
    mixed. Change any one — the caption and the spectrum follow."
-4. **action** `fx-changed` [`design-fx`] — *Optional: EQ and reverb* — "Switch EQ on and it loads
-   a preset — Warm Bed, Airy, Midnight, Telephone — that you can nudge band by band. Reverb adds
-   a room. Both bake into the render, not just the preview."
+4. **action** `fx-changed` [`design-fx`] — *Optional: EQ and reverb* — "EQ presets — Warm Bed,
+   Airy, Midnight, Telephone — are starting points you can nudge band by band, whether EQ is
+   already on or you switch it on. Reverb adds a room. Both bake into the render, not just the
+   preview."
 5. **action** `render-enqueued` [`design-render`] — *Create the track* — "Create track queues a
    real job with the engine: full-length master plus stems. Nothing here is a mock."
 6. **action** `tab-changed/queue` [`dock-queue`] — *Follow it to Queue* — "That badge on Queue is
