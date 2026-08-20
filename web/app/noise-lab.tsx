@@ -338,38 +338,55 @@ function DesignSkeleton() {
     <SkeletonPanel label="Loading design controls…">
       <div className="design-stack">
         <Card as="section" padding="md" className="spectrum-card">
-          <Skeleton height={150} radius={16} />
-          <div className="spectrum-ticks">{["30", "500", "2k", "16k"].map((tick) => <Skeleton key={tick} width={34} />)}</div>
+          <div className="spectrum-frame"><Skeleton height="100%" radius={16} /></div>
+          <div className="spectrum-ticks"><Skeleton width={38} height={13} /><Skeleton width={28} height={13} /><Skeleton width={20} height={13} /><Skeleton width={24} height={13} /></div>
         </Card>
         <div className="action-row">
-          <Skeleton className="skeleton-fixed" width={88} height={88} radius="50%" />
-          <Skeleton className="skeleton-grow" height={52} radius={999} />
+          <Skeleton className="skeleton-fixed skeleton-play-button" />
+          <Skeleton className="skeleton-grow skeleton-action-button" />
         </div>
         <Card as="section" padding="md" className="controls-card">
-          {["color", "band", "motion", "balance"].map((row) => (
+          {["color", "band", "motion", "balance"].map((row, index) => (
             <div key={row} className="param-row">
-              <div className="param-row-heading"><Skeleton width={68} height={15} /><Skeleton width={120} height={11} /></div>
-              <Skeleton height={48} radius={16} />
+              <div className="param-row-heading"><div className="param-title"><Skeleton width={68} height={16} /></div><div className="param-caption"><Skeleton width={120} height={12} /></div></div>
+              {index === 0 ? <div className="swatch-row">{[0, 1, 2, 3].map((swatch) => <Skeleton key={swatch} width={38} height={38} radius="50%" />)}</div> : <Skeleton height={48} radius={16} />}
             </div>
           ))}
         </Card>
+        {["eq", "reverb"].map((fx) => (
+          <Card as="section" key={fx} padding="md" className="controls-card">
+            <div className="param-row">
+              <div className="param-row-heading">
+                <div className="param-title"><Skeleton width={fx === "eq" ? 30 : 56} height={16} /></div>
+                <div className="param-row-heading-actions"><div className="param-caption"><Skeleton width={42} height={12} /></div><Skeleton className="skeleton-fixed" width={44} height={28} radius={999} /></div>
+              </div>
+            </div>
+          </Card>
+        ))}
       </div>
     </SkeletonPanel>
   );
 }
 
-function LibrarySkeleton() {
+function LibrarySkeleton({ compact = false }: { compact?: boolean }) {
   return (
     <SkeletonPanel label="Loading rendered masters…">
-      <div className="section-title"><Skeleton width={96} height={11} /></div>
+      <div className="library-toolbar"><div className="section-title"><Skeleton width={96} height={14} /></div><Skeleton className="icon-action view-toggle skeleton-fixed" width={34} height={34} radius="50%" /></div>
       <div className="library-list">
-        {[0, 1, 2].map((card) => (
+        {compact ? [0, 1, 2].map((card) => (
+          <Card as="article" key={card} padding="md" className="track-row">
+            <Skeleton className="player-play track-row-play skeleton-fixed" width={32} height={32} radius="50%" />
+            <div className="skeleton-row-body"><Skeleton width="68%" height={14} /><Skeleton width="54%" height={11} /></div>
+            <Skeleton className="icon-action track-row-download skeleton-fixed" width={34} height={34} radius="50%" />
+          </Card>
+        )) : [0, 1, 2].map((card) => (
           <Card as="article" key={card} padding="md" className="track-card">
-            <Skeleton width="46%" height={12} />
-            <Skeleton className="mt-3" width="64%" height={15} />
-            <Skeleton className="mt-3" height={38} radius={12} />
-            <Skeleton className="mt-3" height={62} radius={12} />
-            <div className="mt-3 flex gap-2"><Skeleton height={40} radius={12} /><Skeleton height={40} radius={12} /></div>
+            <div className="track-card-heading"><Skeleton width="58%" height={15} /><Skeleton className="skeleton-fixed" width={34} height={34} radius="50%" /></div>
+            <div className="track-chips"><Skeleton width={74} height={28} radius={999} /><Skeleton width={48} height={28} radius={999} /><Skeleton width={52} height={28} radius={999} /><Skeleton width={58} height={28} radius={999} /></div>
+            <Skeleton className="track-date" width="44%" height={11} />
+            <div className="custom-player"><Skeleton height={28} radius={999} /></div>
+            <div className="qa-strip"><Skeleton height={52} /></div>
+            <div className="download-menu-wrap"><div className="download-split"><Skeleton height={42} radius={999} /></div></div>
           </Card>
         ))}
       </div>
@@ -380,10 +397,18 @@ function LibrarySkeleton() {
 function QueueSkeleton() {
   return (
     <SkeletonPanel label="Loading render queue…">
-      {["Active", "Today", "This week"].map((group) => (
-        <section key={group} className="queue-group">
-          <div className="section-title">{group}</div>
-          <div className="queue-job-list">{[0, 1].map((card) => <Card as="article" key={card} padding="md"><Skeleton width="58%" height={17} /><div className="mt-3 flex gap-2"><Skeleton width={62} height={24} radius={8} /><Skeleton width={52} height={24} radius={8} /><Skeleton width={64} height={24} radius={8} /></div><Skeleton className="mt-3" width="34%" height={11} /><Skeleton className="mt-3" height={42} radius={999} /></Card>)}</div>
+      {[{ width: 128, cards: 2 }, { width: 76, cards: 1 }].map((group, groupIndex) => (
+        <section key={groupIndex} className="queue-group queue-section">
+          <div className="section-title"><Skeleton width={group.width} height={14} /></div>
+          <div className="queue-job-list">{Array.from({ length: group.cards }, (_, card) => (
+            <Card as="article" key={card} padding="md">
+              <div className="queue-title-row"><Skeleton className="queue-name" width={groupIndex ? "52%" : "58%"} height={17} />{groupIndex === 0 ? <Skeleton className="icon-action queue-overflow skeleton-fixed" width={34} height={34} radius="50%" /> : <Skeleton className="status-pill skeleton-fixed" width={58} height={28} radius={999} />}</div>
+              <div className="queue-chips"><Skeleton width={74} height={28} radius={999} /><Skeleton width={48} height={28} radius={999} /><Skeleton width={52} height={28} radius={999} /><Skeleton width={58} height={28} radius={999} /></div>
+              {groupIndex === 1 && <Skeleton className="queue-active-copy" width="34%" height={12} />}
+              <Skeleton className="queue-meta" width="28%" height={12} />
+              {groupIndex === 0 && <div className="queue-card-actions"><Skeleton height={46} radius={999} /><Skeleton height={46} radius={999} /></div>}
+            </Card>
+          ))}</div>
         </section>
       ))}
     </SkeletonPanel>
@@ -397,10 +422,10 @@ function ReleasesSkeleton() {
         {[0, 1, 2].map((card) => (
           <Card as="article" key={card} padding="md" className="release-card">
             <div className="release-card-heading">
-              <div className="min-w-0 flex-1"><Skeleton width={72} height={10} /><Skeleton className="mt-2" width="58%" height={18} /><Skeleton className="mt-2" width="42%" height={11} /></div>
-              <Skeleton className="skeleton-fixed" width={58} height={20} radius={999} />
+              <div className="min-w-0 flex-1"><Skeleton width={72} height={11} /><Skeleton className="mt-2" width="58%" height={21} /><Skeleton className="mt-2" width="42%" height={12} /></div>
+              <Skeleton className="skeleton-fixed" width={58} height={28} radius={999} />
             </div>
-            <div className="release-checklist"><Skeleton width={64} height={11} /><Skeleton width={48} height={11} /><Skeleton width={56} height={11} /><Skeleton width="70%" height={11} /></div>
+            <div className="release-checklist"><Skeleton width={64} height={12} /><Skeleton width={48} height={12} /><Skeleton width={56} height={12} /><Skeleton width="70%" height={12} /></div>
           </Card>
         ))}
       </div>
@@ -1228,7 +1253,7 @@ function Library({ tracks, loading, initialLoad, onRefresh, onToast }: { tracks:
   if (initialLoad) {
     return (
       <section className="panel-section">
-        <LibrarySkeleton />
+        <LibrarySkeleton compact={view === "rows"} />
       </section>
     );
   }

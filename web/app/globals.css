@@ -310,11 +310,11 @@ button:disabled { cursor: not-allowed; }
 @keyframes track-highlight { 0% { box-shadow: 0 0 0 5px rgba(0,122,255,.35), 0 12px 32px rgba(20,20,50,.06); } 100% { box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px rgba(20,20,50,.06); } }
 .skeleton { display: block; width: 100%; height: 12px; border-radius: var(--radius-chip); background: linear-gradient(100deg, var(--surface-skeleton) 28%, var(--surface-skeleton-highlight) 50%, var(--surface-skeleton) 72%) 0 0 / 220% 100%; animation: skeleton-sheen 1.3s ease-in-out infinite; }
 .skeleton-panel { opacity: .82; }
-.skeleton-row { display: flex; align-items: center; gap: 14px; padding: 16px 0; }
-.skeleton-row + .skeleton-row { border-top: 1px solid rgba(0,0,0,.06); }
 .skeleton-row-body { display: grid; flex: 1; min-width: 0; gap: 7px; }
 .skeleton-grow { flex: 1; min-width: 0; }
 .skeleton-fixed { flex-shrink: 0; }
+.skeleton-play-button { width: 88px; height: 88px; border-radius: 50%; }
+.skeleton-action-button { min-height: 88px; border-radius: var(--radius-pill); }
 @keyframes skeleton-sheen { from { background-position: 180% 0; } to { background-position: -40% 0; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 .round-action.is-refreshing svg { animation: spin .8s linear infinite; }
@@ -339,6 +339,8 @@ button:disabled { cursor: not-allowed; }
   .noise-shell.is-tab-title-hidden .action-row { top: calc(env(safe-area-inset-top) + 10px); }
   .play-button { width: 56px; height: 56px; flex-shrink: 0; }
   .action-row .ui-button-primary { min-height: 56px; }
+  .skeleton-play-button { width: 56px; height: 56px; }
+  .skeleton-action-button { min-height: 56px; }
   .dock { right: 10px; left: 10px; transform: none; }
   .glassbar { justify-content: space-between; width: 100%; }
   .dock-tab { flex: 1; min-width: 0; min-height: 48px; justify-content: center; padding: 10px 6px; }
