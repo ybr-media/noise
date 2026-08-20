@@ -17,6 +17,7 @@ export const queueStrings = {
   rendering: "Worker is rendering",
   failedAt: (step: string, exitCode?: number | null) => `Failed at step: ${step}${exitCode === null || exitCode === undefined ? "" : ` (exit ${exitCode})`}`,
   attempt: (number: number, time: string) => `Attempt ${number} · ${time}`,
+  attemptStatus: (status: QueueJob["status"]) => status === "Done" ? "✓ Ready" : status === "Failed" ? "✗ Failed" : status === "Cancelled" ? "× Cancelled" : status === "Rendering" ? "Running" : "Queued",
   failure: (name: string, status: QueueJob["status"]) => status === "Cancelled" ? "Cancelled" : `${name} render failed — see logs for details`,
   queueNote: {
     local: "Queueing writes a JSONL job for the separate Python worker.",

@@ -1,8 +1,9 @@
 import type { QueueJob } from "./types";
-import { batchMembersForJob, isSuperseded } from "./eta";
+import { batchMembersForJob, isSuperseded, queueJobIdentity } from "./eta";
 
 export type RenderJob = {
   variantId: string;
+  takeMarker?: string;
   attempts: QueueJob[];
   latest: QueueJob;
   status: QueueJob["status"];
@@ -22,13 +23,28 @@ function newestFirst(a: QueueJob, b: QueueJob): number {
 
 export function groupJobs(jobs: QueueJob[]): RenderJob[] {
   const grouped = new Map<string, QueueJob[]>();
-  for (const job of jobs) grouped.set(job.variantId, [...(grouped.get(job.variantId) ?? []), job]);
-  return [...grouped.entries()]
-    .map(([variantId, attempts]) => {
+  for (const job of jobs) {
+    const identity = queueJobIdentity(job);
+    grouped.set(identity, [...(grouped.get(identity) ?? []), job]);
+  }
+  return [...grouped.values()]
+    .map((attempts) => {
       const ordered = attempts.sort(newestFirst);
-      return { variantId, attempts: ordered, latest: ordered[0], status: ordered[0].status };
+      const latest = ordered[0];
+      return { variantId: latest.variantId, takeMarker: latest.takeMarker, attempts: ordered, latest, status: latest.status };
     })
     .sort((a, b) => newestFirst(a.latest, b.latest));
+}
+
+export function oldestFirstAttempts(attempts: QueueJob[]): QueueJob[] {
+  return [...attempts].sort((a, b) => {
+    const byTime = new Date(a.queuedAt).getTime() - new Date(b.queuedAt).getTime();
+    return byTime || a.id.localeCompare(b.id);
+  });
+}
+
+export function pendingRenderJobCount(jobs: QueueJob[]): number {
+  return groupJobs(jobs).filter((job) => job.status === "Queued" || job.status === "Rendering").length;
 }
 
 export function partitionRenderJobs(
