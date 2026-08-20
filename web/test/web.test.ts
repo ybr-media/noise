@@ -79,6 +79,15 @@ fs.writeFileSync(path.join(renderDir, "present_master.json"), JSON.stringify({
   stem_filenames: stemFilenames,
   stem_map: { stem_1: "bed", stem_2: "texture", stem_3: "motion" },
 }));
+fs.writeFileSync(path.join(renderDir, "present_t123_master.wav"), "RIFFfixture-new");
+fs.writeFileSync(path.join(renderDir, "present_t123_master.json"), JSON.stringify({
+  variant_id: "wn_white_mid_drift_balanced",
+  role: "master",
+  cell_seconds: 60,
+  repeats: 2,
+  render_timestamp: "2026-08-10T12:34:56.000Z",
+  stem_filenames: [],
+}));
 fs.writeFileSync(path.join(renderDir, "present_stem_1.json"), JSON.stringify({
   variant_id: "wn_white_mid_drift_balanced",
   role: "stem_1",
@@ -205,21 +214,28 @@ test("resolves render selections to ids and a workflow input", async () => {
 test("assembles rendered and missing library tracks with QA evidence", async () => {
   const [, { libraryTracks }] = await modulesPromise;
   const tracks = await libraryTracks();
-  assert.equal(tracks.length, 2);
-  assert.equal(tracks[0].exists, true);
-  assert.equal(tracks[0].durationSeconds, 245);
-  assert.equal(tracks[0].measuredLufs, "-20.000 LUFS");
-  assert.equal(tracks[0].sizeBytes, 11);
-  assert.equal(tracks[0].qaVerdict, "PASS");
-  assert.equal(tracks[1].exists, false);
-  assert.equal(tracks[1].qaVerdict, "UNAVAILABLE");
-  assert.deepEqual(tracks[1].qaChecks, []);
-  assert.equal(tracks[1].sizeBytes, 0);
+  assert.equal(tracks.length, 3);
+  assert.deepEqual(tracks.filter((track) => track.exists).map((track) => track.renderKey), ["present_t123", "present"]);
+  const rendered = tracks.find((track) => track.renderKey === "present");
+  assert.ok(rendered);
+  assert.equal(rendered.durationSeconds, 245);
+  assert.equal(rendered.measuredLufs, "-20.000 LUFS");
+  assert.equal(rendered.sizeBytes, 11);
+  assert.equal(rendered.qaVerdict, "PASS");
+  const missing = tracks.find((track) => !track.exists);
+  assert.ok(missing);
+  assert.equal(missing.qaVerdict, "UNAVAILABLE");
+  assert.deepEqual(missing.qaChecks, []);
+  assert.equal(missing.sizeBytes, 0);
 });
 
 test("derives a recipe from the sidecar and preserves unknown legacy fields", async () => {
   const [, { libraryTracks }] = await modulesPromise;
-  const [rendered, missing] = await libraryTracks();
+  const tracks = await libraryTracks();
+  const rendered = tracks.find((track) => track.renderKey === "present");
+  const missing = tracks.find((track) => !track.exists);
+  assert.ok(rendered);
+  assert.ok(missing);
   assert.deepEqual(rendered.recipe.seeds, {
     bed_l: 101,
     bed_r: 102,
@@ -245,9 +261,19 @@ test("derives a recipe from the sidecar and preserves unknown legacy fields", as
   assert.equal(missing.recipe.bitDepth, null);
 });
 
+test("resolves exact render keys and legacy variant links to the newest take", async () => {
+  const [, { bundleAssets }] = await modulesPromise;
+  assert.equal((await bundleAssets("present_t123"))?.master.renderKey, "present_t123");
+  assert.equal((await bundleAssets("wn_white_mid_drift_balanced"))?.master.renderKey, "present_t123");
+});
+
 test("groups the stems with their master and serves every file as audio", async () => {
   const [, { libraryTracks, audioAsset, bundleAssets }] = await modulesPromise;
-  const [master, missing] = await libraryTracks();
+  const tracks = await libraryTracks();
+  const master = tracks.find((track) => track.renderKey === "present");
+  const missing = tracks.find((track) => !track.exists);
+  assert.ok(master);
+  assert.ok(missing);
   assert.deepEqual(master.stems.map((stem) => [stem.number, stem.stem, stem.exists]), [
     [1, "bed", true],
     [2, "texture", true],
@@ -275,13 +301,14 @@ test("groups the stems with their master and serves every file as audio", async 
   });
   assert.equal(await audioAsset("not_a_render.wav"), undefined);
   const bundle = await bundleAssets("wn_white_mid_drift_balanced");
-  assert.equal(bundle?.master.filename, "present_master.wav");
-  assert.deepEqual(bundle?.stems.map((stem) => stem.filename), ["present_stem_1.wav", "present_stem_2.wav"]);
+  assert.equal(bundle?.master.filename, "present_t123_master.wav");
+  assert.deepEqual(bundle?.stems, []);
   assert.equal(await bundleAssets("wn_white_mid_drift_texture-forward"), undefined);
 });
 
 const namingTrack = (overrides: Partial<LibraryTrack> = {}): LibraryTrack => ({
   variantId: "wn_pink_mid_drift_balanced",
+  renderKey: "present",
   filename: "present_master.wav",
   matrixIndex: 14,
   color: "pink",
@@ -294,6 +321,8 @@ const namingTrack = (overrides: Partial<LibraryTrack> = {}): LibraryTrack => ({
   lfoRateHz: 0.02,
   gainsDb: { bed: -6, motion: -12, texture: -9 },
   seeds: {},
+  cellSeconds: 60,
+  repeats: 4,
   durationSeconds: 240,
   sampleRate: 48000,
   targetLufs: -20,

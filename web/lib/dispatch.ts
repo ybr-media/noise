@@ -1,4 +1,5 @@
 import type { FxBlock } from "./fx";
+import type { RenderOverrides } from "./config";
 import type { QueueJob } from "./types";
 import { median } from "./eta";
 
@@ -26,11 +27,19 @@ export function runUrl(runId: number | string): string {
   return `https://github.com/${DISPATCH_REPO}/actions/runs/${runId}`;
 }
 
-export async function dispatchRender(variants: string, fx: FxBlock | null = null): Promise<void> {
+export async function dispatchRender(variants: string, fx: FxBlock | null = null, overrides?: RenderOverrides): Promise<void> {
   const response = await fetch(`${API}/repos/${DISPATCH_REPO}/actions/workflows/${DISPATCH_WORKFLOW}/dispatches`, {
     method: "POST",
     headers: dispatchHeaders(),
-    body: JSON.stringify({ ref: DISPATCH_REF, inputs: { variants, ...(fx ? { fx: JSON.stringify(fx) } : {}) } }),
+    body: JSON.stringify({
+      ref: DISPATCH_REF,
+      inputs: {
+        variants,
+        ...(fx ? { fx: JSON.stringify(fx) } : {}),
+        ...(overrides ? { repeats: String(overrides.repeats), take_marker: overrides.takeMarker } : {}),
+        ...(overrides?.seeds ? { seeds: JSON.stringify(overrides.seeds) } : {}),
+      },
+    }),
   });
   if (!response.ok) {
     throw new Error(`GitHub refused the render dispatch (${response.status}): ${(await response.text()).slice(0, 300)}`);

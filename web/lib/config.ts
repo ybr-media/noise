@@ -168,7 +168,40 @@ export function findVariant(variantId: string): Variant | undefined {
   return loadVariants().find((variant) => variant.variantId === variantId);
 }
 
-export type RenderSelection = { variantIds?: unknown[]; pilot?: boolean; full?: boolean; fx?: unknown };
+export type RenderSelection = {
+  variantIds?: unknown[];
+  pilot?: boolean;
+  full?: boolean;
+  fx?: unknown;
+  seeds?: unknown;
+  repeats?: unknown;
+  takeMarker?: unknown;
+};
+
+export type RenderOverrides = { repeats: number; takeMarker: string; seeds?: Record<string, number> };
+
+const TAKE_MARKER_PATTERN = /^[a-z0-9]{1,32}$/;
+const MAX_RENDER_REPEATS = 60;
+
+export function validateRenderOverrides(request: RenderSelection): RenderOverrides | undefined {
+  if (request.repeats === undefined && request.takeMarker === undefined) return undefined;
+  if (typeof request.repeats !== "number" || !Number.isInteger(request.repeats) || request.repeats < 1 || request.repeats > MAX_RENDER_REPEATS) {
+    throw new Error(`repeats must be an integer between 1 and ${MAX_RENDER_REPEATS}`);
+  }
+  if (typeof request.takeMarker !== "string" || !TAKE_MARKER_PATTERN.test(request.takeMarker)) {
+    throw new Error("takeMarker must use 1-32 lowercase letters and numbers");
+  }
+  if (request.seeds === undefined) return { repeats: request.repeats, takeMarker: request.takeMarker };
+  if (!request.seeds || typeof request.seeds !== "object" || Array.isArray(request.seeds)) throw new Error("seeds must be a mapping");
+  const seeds = request.seeds as Record<string, unknown>;
+  const keys = ["bed_l", "bed_r", "texture_l", "texture_r", "motion_l", "motion_r"];
+  if (keys.some((key) => typeof seeds[key] !== "number" || !Number.isFinite(seeds[key]))) throw new Error("seeds must contain six finite numbers");
+  return {
+    repeats: request.repeats,
+    takeMarker: request.takeMarker,
+    seeds: Object.fromEntries(keys.map((key) => [key, seeds[key] as number])),
+  };
+}
 
 // A render request names either a set of ids or a whole manifest. `pilot` and
 // `full` are also render.yml's own selectors, so the whole matrix travels as one

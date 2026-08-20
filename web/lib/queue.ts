@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import type { RenderOverrides } from "./config";
 import type { FxBlock } from "./fx";
 import type { QueueJob } from "./types";
 
@@ -20,7 +21,7 @@ export function listJobs(): QueueJob[] {
   return readJobs().reverse();
 }
 
-export function enqueue(variantIds: string[], fx: FxBlock | null = null): QueueJob[] {
+export function enqueue(variantIds: string[], fx: FxBlock | null = null, overrides?: RenderOverrides): QueueJob[] {
   // Each job carries its own deep copy of the FX block, so later edits in the
   // console can never mutate what an already-queued render will apply.
   const jobs = variantIds.map((variantId) => ({
@@ -29,6 +30,7 @@ export function enqueue(variantIds: string[], fx: FxBlock | null = null): QueueJ
     status: "Queued" as const,
     queuedAt: new Date().toISOString(),
     ...(fx ? { fx: structuredClone(fx) } : {}),
+    ...(overrides ?? {}),
   }));
   fs.mkdirSync(path.dirname(QUEUE_PATH), { recursive: true });
   fs.appendFileSync(QUEUE_PATH, jobs.map((job) => `${JSON.stringify(job)}\n`).join(""));

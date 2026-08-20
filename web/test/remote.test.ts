@@ -31,7 +31,7 @@ process.env.NOISE_MANIFEST_TTL_MS = "0";
 const manifest = {
   artifacts: [
     {
-      filename: "published.wav",
+      filename: "published_master.wav",
       sizeBytes: 55_000_000,
       sidecar: { variant_id: "wn_white_mid_drift_balanced", cell_seconds: 61.25, repeats: 4, seo_title: "Published" },
       qaChecks: [{ name: "Loudness", measured: "-20.000 LUFS", threshold: "within", passed: true }],
@@ -56,7 +56,7 @@ test("published artifacts come from the manifest rather than the local disk", as
   assert.equal(tracks[0].qaVerdict, "PASS");
   assert.equal(tracks[0].title, "Published");
   assert.equal(tracks[0].durationSeconds, 245);
-  assert.equal(tracks[0].path, `${baseUrl}/published.wav`);
+  assert.equal(tracks[0].path, `${baseUrl}/published_master.wav`);
   assert.equal(tracks[1].exists, false);
   assert.equal(tracks[1].renderStatus, "Not rendered");
 });

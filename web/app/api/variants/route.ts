@@ -5,7 +5,10 @@ import { libraryTracks } from "@/lib/library";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const rendered = new Map((await libraryTracks()).map((track) => [track.variantId, track]));
+  const rendered = new Map<string, Awaited<ReturnType<typeof libraryTracks>>[number]>();
+  for (const track of await libraryTracks()) {
+    if (track.exists && !rendered.has(track.variantId)) rendered.set(track.variantId, track);
+  }
   const variants = loadVariants().map((variant) => {
     const track = rendered.get(variant.variantId);
     return {

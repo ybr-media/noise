@@ -84,7 +84,8 @@ export function batchMissingMastersSummary(
   tracks: LibraryTrack[],
 ): BatchMissingMastersSummary | null {
   if (!batchMembers || batchMembers.length === 0 || tracks.length === 0) return null;
-  const byId = new Map(tracks.map((track) => [track.variantId, track]));
+  const byId = new Map<string, LibraryTrack>();
+  for (const track of tracks) if (!byId.has(track.variantId)) byId.set(track.variantId, track);
   return {
     total: batchMembers.length,
     missingVariantIds: batchMembers.filter((member) => !byId.get(member)?.exists),

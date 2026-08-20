@@ -26,8 +26,8 @@ export type Variant = {
     tiltDbPerOct: number;
     bell: { gainDb: number; centerHz: number; q: number } | null;
   };
-  cellSeconds?: number;
-  repeats?: number;
+  cellSeconds: number;
+  repeats: number;
   fadeSeconds?: number;
   bitDepth?: number;
 };
@@ -80,6 +80,7 @@ export type LibraryRecipe = {
 };
 
 export type LibraryTrack = Variant & {
+  renderKey: string;
   path: string;
   sizeBytes: number;
   audioUrl: string;
@@ -110,6 +111,9 @@ export type QueueJob = {
   logsUrl?: string;
   failure?: { step?: string; exitCode?: number | null; durationSeconds?: number; runner?: string | null };
   fx?: import("./fx").FxBlock;
+  repeats?: number;
+  takeMarker?: string;
+  seeds?: Record<string, number>;
 };
 
 export type ReleaseType = "single" | "ep" | "album";

@@ -17,6 +17,18 @@ on:
         description: Optional JSON FX block (eq/reverb) applied to every selected variant
         required: false
         default: ''
+      repeats:
+        description: Optional output repeat override for a new take
+        required: false
+        default: ''
+      take_marker:
+        description: Optional lowercase marker inserted into output filenames for a new take
+        required: false
+        default: ''
+      seeds:
+        description: Optional JSON seed mapping for a new take
+        required: false
+        default: ''
 
 concurrency:
   group: render
@@ -48,8 +60,14 @@ jobs:
         env:
           VARIANTS: ${{ inputs.variants }}
           FX: ${{ inputs.fx }}
+          REPEATS: ${{ inputs.repeats }}
+          TAKE_MARKER: ${{ inputs.take_marker }}
+          SEEDS: ${{ inputs.seeds }}
         run: |
-          .venv/bin/python scripts/select_variants.py "$VARIANTS" --out /tmp/render-variants.yaml --fx "$FX" >> "$GITHUB_OUTPUT"
+          OVERRIDES=()
+          if [ -n "$REPEATS" ]; then OVERRIDES+=(--repeats "$REPEATS" --take-marker "$TAKE_MARKER"); fi
+          if [ -n "$SEEDS" ]; then OVERRIDES+=(--seeds "$SEEDS"); fi
+          .venv/bin/python scripts/select_variants.py "$VARIANTS" --out /tmp/render-variants.yaml --fx "$FX" "${OVERRIDES[@]}" >> "$GITHUB_OUTPUT"
 
       - name: Probe the Audacity launch
         # A headless launch has many single points of failure and no display to

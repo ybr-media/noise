@@ -88,6 +88,21 @@ def test_an_empty_fx_argument_leaves_the_selection_untouched() -> None:
     assert select_variants.apply_fx(selected, None) is selected
 
 
+def test_render_overrides_rewrite_master_names_and_repeats() -> None:
+    selected = select_variants.apply_render_overrides(select_variants.select("pilot"), 8, "t123")
+    assert selected["output"]["repeats"] == 8  # type: ignore[index]
+    assert selected["variants"][0]["filename"].endswith("_t123_master.wav")  # type: ignore[index]
+
+
+@pytest.mark.parametrize(
+    ("repeats", "take_marker"),
+    [(0, "t123"), (61, "t123"), (8, "T123"), (8, "t-123"), (8, None)],
+)
+def test_invalid_render_overrides_are_rejected(repeats: int, take_marker: str | None) -> None:
+    with pytest.raises(ValueError):
+        select_variants.apply_render_overrides(select_variants.select("pilot"), repeats, take_marker)
+
+
 @pytest.mark.parametrize("payload", ["{not json", '"a string"', "[1, 2]"])
 def test_an_fx_argument_that_is_not_a_json_object_is_refused(payload: str) -> None:
     with pytest.raises(SystemExit):
