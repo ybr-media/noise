@@ -1,3 +1,5 @@
+import { isDate } from "@auth/core/adapters";
+
 export const TUTORIAL_VERSION = 1;
 export const TUTORIAL_STORAGE_KEY = "noise.tutorial.done";
 export type TutorialApiAccess = "open" | "unauthenticated" | "authenticated";
@@ -8,7 +10,17 @@ export type TutorialUserRecord = {
   tutorialVersion: number;
 };
 
-type StoredTutorialUser = Partial<TutorialUserRecord> & { email?: string | null };
+type StoredTutorialUser = Omit<Partial<TutorialUserRecord>, "tutorialCompletedAt"> & {
+  email?: string | null;
+  tutorialCompletedAt?: unknown;
+};
+
+function normalizeTutorialCompletedAt(value: unknown): string | null {
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  }
+  return isDate(value) ? value : null;
+}
 
 export function tutorialApiAccess(authConfigured: boolean, email: string | null): TutorialApiAccess {
   if (!authConfigured) return "open";
@@ -18,7 +30,7 @@ export function tutorialApiAccess(authConfigured: boolean, email: string | null)
 export function tutorialUserResponse(user: StoredTutorialUser, email: string): TutorialUserRecord {
   return {
     email,
-    tutorialCompletedAt: typeof user.tutorialCompletedAt === "string" ? user.tutorialCompletedAt : null,
+    tutorialCompletedAt: normalizeTutorialCompletedAt(user.tutorialCompletedAt),
     tutorialVersion: typeof user.tutorialVersion === "number" ? user.tutorialVersion : TUTORIAL_VERSION,
   };
 }

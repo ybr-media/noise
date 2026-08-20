@@ -166,14 +166,25 @@ test("the user and tutorial endpoints are split and tutorial POST remains gated"
 });
 
 test("tutorial API exposes the user shape with defaults", () => {
+  const completedAt = "2026-01-01T00:00:00.000Z";
   assert.deepEqual(
     tutorialUserResponse({ email: "austin@example.com" }, "austin@example.com"),
     { email: "austin@example.com", tutorialCompletedAt: null, tutorialVersion: TUTORIAL_VERSION },
   );
   assert.deepEqual(
-    tutorialUserResponse({ tutorialCompletedAt: "2026-01-01T00:00:00.000Z", tutorialVersion: 2 }, "austin@example.com"),
-    { email: "austin@example.com", tutorialCompletedAt: "2026-01-01T00:00:00.000Z", tutorialVersion: 2 },
+    tutorialUserResponse({ tutorialCompletedAt: completedAt, tutorialVersion: 2 }, "austin@example.com"),
+    { email: "austin@example.com", tutorialCompletedAt: completedAt, tutorialVersion: 2 },
   );
+  assert.deepEqual(
+    tutorialUserResponse({ tutorialCompletedAt: new Date(completedAt) }, "austin@example.com"),
+    { email: "austin@example.com", tutorialCompletedAt: completedAt, tutorialVersion: TUTORIAL_VERSION },
+  );
+  for (const tutorialCompletedAt of [new Date("invalid"), "not-a-date", 42, {}, undefined]) {
+    assert.equal(
+      tutorialUserResponse({ tutorialCompletedAt }, "austin@example.com").tutorialCompletedAt,
+      null,
+    );
+  }
 });
 
 test("tutorial API distinguishes open mode and unauthenticated sessions", () => {
