@@ -1278,17 +1278,20 @@ function Library({ tracks, loading, initialLoad, onRefresh, onRenderAgain, onToa
       <div className="library-toolbar"><div className="section-title">Masters · {tracks.filter((track) => track.exists).length}</div><button type="button" className="icon-action view-toggle" aria-label={view === "cards" ? "Switch to compact rows" : "Switch to expanded cards"} title={view === "cards" ? "Compact rows" : "Expanded cards"} onClick={toggleView}>{view === "cards" ? <List size={18} /> : <LayoutGrid size={18} />}</button></div>
       <div className="library-list">
         {tracks.filter((track) => track.exists).length === 0 && <Card padding="md"><EmptyState title="No rendered files found." /></Card>}
-        {tracks.filter((track) => track.exists).map((track) => <TrackCard key={track.renderKey} track={track} compact={view === "rows"} onRenderAgain={onRenderAgain} onToast={onToast} />)}
+        {tracks.filter((track) => track.exists).map((track) => <TrackCard key={track.renderKey} track={track} compact={view === "rows"} onRefresh={onRefresh} onRenderAgain={onRenderAgain} onToast={onToast} />)}
       </div>
     </section>
   );
 }
 
-function TrackCard({ track, compact = false, onRenderAgain, onToast }: { track: LibraryTrack; compact?: boolean; onRenderAgain: (track: LibraryTrack, repeats: number) => Promise<void>; onToast: (toast: { message: string; error?: boolean }) => void }) {
+function TrackCard({ track, compact = false, onRefresh, onRenderAgain, onToast }: { track: LibraryTrack; compact?: boolean; onRefresh: () => void; onRenderAgain: (track: LibraryTrack, repeats: number) => Promise<void>; onToast: (toast: { message: string; error?: boolean }) => void }) {
   const [suggestion, setSuggestion] = useState<{ title: string; description: string; prompt: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
   const [candidate, setCandidate] = useState(0);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [optimisticTitle, setOptimisticTitle] = useState(track.title ?? formatDisplayName(track));
   const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [duration, setDuration] = useState(track.durationSeconds);
@@ -1296,8 +1299,22 @@ function TrackCard({ track, compact = false, onRenderAgain, onToast }: { track: 
   const [recipeOpen, setRecipeOpen] = useState(false);
   const [menu, setMenu] = useState<"overflow" | "download" | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+  const titleSaveInFlightRef = useRef(false);
+  const titleEditCancelledRef = useRef(false);
   const qaId = `qa-${track.renderKey}`;
-  const title = track.title ?? formatDisplayName(track);
+  const title = optimisticTitle;
+  useEffect(() => {
+    const nextTitle = track.title ?? formatDisplayName(track);
+    setOptimisticTitle(nextTitle);
+    setTitleDraft(nextTitle);
+  }, [track]);
+  useEffect(() => {
+    if (editingTitle) {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+    }
+  }, [editingTitle]);
   useEffect(() => {
     const close = (event: MouseEvent) => { if (!(event.target as HTMLElement).closest(".track-menu-wrap, .download-menu-wrap")) setMenu(null); };
     document.addEventListener("mousedown", close);
@@ -1315,6 +1332,23 @@ function TrackCard({ track, compact = false, onRenderAgain, onToast }: { track: 
     setSuggestion(payload.suggestion);
     setBusy(false);
   }
+  async function generateTitle() {
+    if (busy) return;
+    const nextCandidate = candidate;
+    setCandidate((current) => current + 1);
+    setBusy(true);
+    try {
+      const response = await fetch("/api/names/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ variantId: track.variantId, candidate: nextCandidate }) });
+      const payload = await response.json() as { suggestion?: { title?: unknown } };
+      if (!response.ok || typeof payload.suggestion?.title !== "string") throw new Error("Could not generate track name.");
+      setTitleDraft(payload.suggestion.title);
+      setEditingTitle(true);
+    } catch (error) {
+      onToast({ message: error instanceof Error ? error.message : "Could not generate track name.", error: true });
+    } finally {
+      setBusy(false);
+    }
+  }
   async function regenerate() {
     if (busy) return;
     setCandidate((current) => current + 1);
@@ -1330,6 +1364,38 @@ function TrackCard({ track, compact = false, onRenderAgain, onToast }: { track: 
     const response = await fetch("/api/names/approve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: track.filename, title: suggestion.title, description: suggestion.description }) });
     setBusy(false);
     onToast(response.ok ? { message: "Name approved in sidecar metadata." } : { message: "Could not approve name.", error: true });
+  }
+  function cancelTitleEdit() {
+    titleEditCancelledRef.current = true;
+    setTitleDraft(title);
+    setEditingTitle(false);
+  }
+  async function saveTitle() {
+    if (titleEditCancelledRef.current) {
+      titleEditCancelledRef.current = false;
+      return;
+    }
+    if (!editingTitle || busy || titleSaveInFlightRef.current) return;
+    const nextTitle = titleDraft.trim();
+    if (!nextTitle) {
+      onToast({ message: "Track title cannot be empty.", error: true });
+      return;
+    }
+    titleSaveInFlightRef.current = true;
+    setBusy(true);
+    try {
+      const response = await fetch("/api/names/rename", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: track.filename, title: nextTitle }) });
+      if (!response.ok) throw new Error("Could not rename track.");
+      setOptimisticTitle(nextTitle);
+      setEditingTitle(false);
+      onToast({ message: "Track renamed." });
+      onRefresh();
+    } catch (error) {
+      onToast({ message: error instanceof Error ? error.message : "Could not rename track.", error: true });
+    } finally {
+      titleSaveInFlightRef.current = false;
+      setBusy(false);
+    }
   }
   const togglePlay = () => {
     const audio = audioRef.current;
@@ -1368,7 +1434,7 @@ function TrackCard({ track, compact = false, onRenderAgain, onToast }: { track: 
   }
   return (
     <Card as="article" id={`track-${track.renderKey}`} data-variant-id={track.variantId} padding="md" className="track-card">
-      <div className="track-card-heading"><div className="track-card-title" title={title}>{title}{track.titleApproved && <span className="approved-marker">approved</span>}</div><div className="track-menu-wrap"><button type="button" className="icon-action" aria-label="More track actions" aria-haspopup="menu" aria-expanded={menu === "overflow"} onClick={() => setMenu(menu === "overflow" ? null : "overflow")}><MoreHorizontal size={19} /></button>{menu === "overflow" && <div className="track-menu" role="menu"><button type="button" role="menuitem" onClick={togglePlay}>{playing ? "Pause" : "Play"}</button><button type="button" role="menuitem" onClick={() => { setMenu(null); void generate(); }}><Sparkles size={14} /> Suggest SEO name</button><button type="button" role="menuitem" onClick={() => { setQaOpen(true); setMenu(null); document.getElementById(qaId)?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>View QA report</button><button type="button" role="menuitem" onClick={() => void copyUrl()}>Copy file URL <span className="developer-label">(developer)</span></button></div>}</div></div>
+      <div className="track-card-heading"><div className="track-card-title-wrap">{editingTitle ? <input ref={titleInputRef} className="track-card-title track-card-title-input" value={titleDraft} aria-label={`Rename ${title}`} onChange={(event) => setTitleDraft(event.target.value)} onBlur={() => void saveTitle()} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void saveTitle(); } else if (event.key === "Escape") { event.preventDefault(); cancelTitleEdit(); } }} /> : <button type="button" className="track-card-title" title={`Rename ${title}`} onClick={() => { titleEditCancelledRef.current = false; setTitleDraft(title); setEditingTitle(true); }}>{title}{track.titleApproved && <span className="approved-marker">approved</span>}</button>}<button type="button" className="icon-action track-name-action" aria-label="Generate track name" title="Generate track name" onMouseDown={(event) => event.preventDefault()} onClick={() => void generateTitle()} disabled={busy}><Sparkles size={15} /></button></div><div className="track-menu-wrap"><button type="button" className="icon-action" aria-label="More track actions" aria-haspopup="menu" aria-expanded={menu === "overflow"} onClick={() => setMenu(menu === "overflow" ? null : "overflow")}><MoreHorizontal size={19} /></button>{menu === "overflow" && <div className="track-menu" role="menu"><button type="button" role="menuitem" onClick={togglePlay}>{playing ? "Pause" : "Play"}</button><button type="button" role="menuitem" onClick={() => { setMenu(null); void generate(); }}><Sparkles size={14} /> Suggest SEO name</button><button type="button" role="menuitem" onClick={() => { setQaOpen(true); setMenu(null); document.getElementById(qaId)?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>View QA report</button><button type="button" role="menuitem" onClick={() => void copyUrl()}>Copy file URL <span className="developer-label">(developer)</span></button></div>}</div></div>
       <div className="track-chips">
         <Disclosure
           open={recipeOpen}

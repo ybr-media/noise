@@ -6,7 +6,7 @@ import { test } from "node:test";
 import { absoluteTime, attemptNumber, formatMinutes, hasRepeatedVariant, isSuperseded, knownVariantId, median, queueAheadLabel, queuedJobsAhead, relativeTime, renderEstimate } from "../lib/eta";
 import { formatBatchLabel, formatDisplayName, formatVariantLabel } from "../lib/variant-labels";
 import { formatBytes } from "../lib/format";
-import { bundleNaming } from "../lib/bundle-naming";
+import { bundleArchiveFilename, bundleNaming } from "../lib/bundle-naming";
 import { streamZip, crc32 } from "../lib/zip";
 import type { LibraryTrack, Release } from "../lib/types";
 
@@ -396,6 +396,18 @@ test("names a saved-release bundle and its master and stem paths", () => {
   assert.equal(names.stemsPath(track.stems[0]), "Eric - Quiet Album [Stems]/Eric - Quiet Album - 01 - Track One (Pink Noise) [Stems]/Stem 1.wav");
 });
 
+test("names bundle archives after the concrete render", () => {
+  const release = namingRelease();
+  assert.equal(
+    bundleArchiveFilename(namingTrack({ renderKey: "present" }), [release]),
+    "Eric - Quiet Album [Masters & Stems] - present.zip",
+  );
+  assert.equal(
+    bundleArchiveFilename(namingTrack({ renderKey: "present_t123" }), [release]),
+    "Eric - Quiet Album [Masters & Stems] - present_t123.zip",
+  );
+});
+
 test("falls back to a preset release and the approved SEO title", () => {
   const track = namingTrack({ title: "SEO Title", titleApproved: true });
   const preset = namingRelease({ id: "pink-album", artist: "chamberecho", title: "Pink Noise", tracks: [{ variantId: track.variantId, title: "", description: "", approvedAt: null }] });
@@ -489,12 +501,39 @@ test("resolves inclusive byte ranges including suffix ranges", async () => {
 
 test("approval preserves existing sidecar keys", async () => {
   const [, , { approveName }] = await modulesPromise;
-  approveName("present_master.wav", "Approved title", "Approved description");
-  const sidecar = JSON.parse(fs.readFileSync(path.join(renderDir, "present_master.json"), "utf8")) as Record<string, unknown>;
-  assert.equal(sidecar.existing_key, "preserved");
-  assert.equal(sidecar.variant_id, "wn_white_mid_drift_balanced");
-  assert.equal(sidecar.seo_title, "Approved title");
-  assert.equal(sidecar.seo_title_approved, true);
+  const sidecarPath = path.join(renderDir, "present_master.json");
+  const original = fs.readFileSync(sidecarPath, "utf8");
+  try {
+    approveName("present_master.wav", "Approved title", "Approved description");
+    const sidecar = JSON.parse(fs.readFileSync(sidecarPath, "utf8")) as Record<string, unknown>;
+    assert.equal(sidecar.existing_key, "preserved");
+    assert.equal(sidecar.variant_id, "wn_white_mid_drift_balanced");
+    assert.equal(sidecar.seo_title, "Approved title");
+    assert.equal(sidecar.seo_title_approved, true);
+  } finally {
+    fs.writeFileSync(sidecarPath, original);
+  }
+});
+
+test("renaming updates only the sidecar title", async () => {
+  const [, , { renameTrack }] = await modulesPromise;
+  const sidecarPath = path.join(renderDir, "present_master.json");
+  const siblingSidecarPath = path.join(renderDir, "present_t123_master.json");
+  const original = fs.readFileSync(sidecarPath, "utf8");
+  const siblingOriginal = fs.readFileSync(siblingSidecarPath, "utf8");
+  try {
+    renameTrack("present_master.wav", "  Renamed track  ");
+    const sidecar = JSON.parse(fs.readFileSync(sidecarPath, "utf8")) as Record<string, unknown>;
+    const sibling = JSON.parse(fs.readFileSync(siblingSidecarPath, "utf8")) as Record<string, unknown>;
+    assert.equal(sidecar.seo_title, "Renamed track");
+    assert.equal(sidecar.existing_key, "preserved");
+    assert.equal(sidecar.seo_description, undefined);
+    assert.equal(sidecar.seo_title_approved, undefined);
+    assert.equal(sibling.seo_title, undefined);
+  } finally {
+    fs.writeFileSync(sidecarPath, original);
+    fs.writeFileSync(siblingSidecarPath, siblingOriginal);
+  }
 });
 
 test("local naming candidates are deterministic but regenerable", async () => {
