@@ -9,13 +9,36 @@ const REQUIRED_AUTH_ENV = [
   "AUTH_SECRET",
   "AUTH_RESEND_KEY",
   "AUTH_EMAIL_FROM",
-  "UPSTASH_REDIS_REST_URL",
-  "UPSTASH_REDIS_REST_TOKEN",
   "ALLOWED_EMAILS",
 ] as const;
 
+const AUTH_REDIS_ENV = {
+  url: ["UPSTASH_REDIS_REST_URL", "KV_REST_API_URL"],
+  token: ["UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN"],
+} as const;
+
+type AuthRedisEnv = {
+  url: string | undefined;
+  token: string | undefined;
+};
+
+function firstConfiguredEnv(names: readonly string[]): string | undefined {
+  return names.map((name) => process.env[name]?.trim()).find(Boolean);
+}
+
+export function resolveAuthRedisEnv(): AuthRedisEnv {
+  return {
+    url: firstConfiguredEnv(AUTH_REDIS_ENV.url),
+    token: firstConfiguredEnv(AUTH_REDIS_ENV.token),
+  };
+}
+
 export function missingAuthEnv(): string[] {
-  return REQUIRED_AUTH_ENV.filter((name) => !process.env[name]?.trim());
+  const missing: string[] = REQUIRED_AUTH_ENV.filter((name) => !process.env[name]?.trim());
+  const redis = resolveAuthRedisEnv();
+  if (!redis.url) missing.push("UPSTASH_REDIS_REST_URL or KV_REST_API_URL");
+  if (!redis.token) missing.push("UPSTASH_REDIS_REST_TOKEN or KV_REST_API_TOKEN");
+  return missing;
 }
 
 export function assertAuthEnv(): void {
@@ -34,9 +57,10 @@ function lazyAdapter(): Adapter {
           import("@auth/upstash-redis-adapter"),
           import("@upstash/redis"),
         ]);
+        const redisEnv = resolveAuthRedisEnv();
         const client = new Redis({
-          url: process.env.UPSTASH_REDIS_REST_URL!,
-          token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+          url: redisEnv.url!,
+          token: redisEnv.token!,
         });
         const adapter = UpstashRedisAdapter(client);
         const method = Reflect.get(adapter, property);

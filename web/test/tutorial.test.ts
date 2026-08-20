@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as meRoute from "../app/api/me/route";
 import * as tutorialRoute from "../app/api/me/tutorial/route";
+import { missingAuthEnv, resolveAuthRedisEnv } from "../lib/auth";
+import { isAuthOpenMode } from "../lib/middleware-access";
 import {
   TUTORIAL_VERSION,
   markTutorialComplete,
@@ -17,6 +19,9 @@ const AUTH_ENV_NAMES = [
   "AUTH_EMAIL_FROM",
   "UPSTASH_REDIS_REST_URL",
   "UPSTASH_REDIS_REST_TOKEN",
+  "KV_REST_API_URL",
+  "KV_REST_API_TOKEN",
+  "KV_REST_API_READ_ONLY_TOKEN",
   "ALLOWED_EMAILS",
 ] as const;
 
@@ -32,6 +37,88 @@ async function withAuthUnset<T>(callback: () => Promise<T>): Promise<T> {
     }
   }
 }
+
+async function withAuthEnv<T>(values: Partial<Record<(typeof AUTH_ENV_NAMES)[number], string>>, callback: () => Promise<T> | T): Promise<T> {
+  const saved = Object.fromEntries(AUTH_ENV_NAMES.map((name) => [name, process.env[name]]));
+  for (const name of AUTH_ENV_NAMES) {
+    delete process.env[name];
+    if (values[name]) process.env[name] = values[name];
+  }
+  try {
+    return await callback();
+  } finally {
+    for (const name of AUTH_ENV_NAMES) {
+      if (saved[name] === undefined) delete process.env[name];
+      else process.env[name] = saved[name];
+    }
+  }
+}
+
+test("auth Redis env accepts explicit Upstash names", async () => {
+  await withAuthEnv(
+    { UPSTASH_REDIS_REST_URL: "https://explicit.example", UPSTASH_REDIS_REST_TOKEN: "explicit-token" },
+    () => {
+      assert.deepEqual(resolveAuthRedisEnv(), {
+        url: "https://explicit.example",
+        token: "explicit-token",
+      });
+    },
+  );
+});
+
+test("auth Redis env accepts Vercel marketplace names", async () => {
+  await withAuthEnv(
+    { KV_REST_API_URL: "https://marketplace.example", KV_REST_API_TOKEN: "marketplace-token" },
+    () => {
+      assert.deepEqual(resolveAuthRedisEnv(), {
+        url: "https://marketplace.example",
+        token: "marketplace-token",
+      });
+    },
+  );
+});
+
+test("explicit Upstash Redis env wins over marketplace aliases", async () => {
+  await withAuthEnv(
+    {
+      UPSTASH_REDIS_REST_URL: "https://explicit.example",
+      UPSTASH_REDIS_REST_TOKEN: "explicit-token",
+      KV_REST_API_URL: "https://marketplace.example",
+      KV_REST_API_TOKEN: "marketplace-token",
+    },
+    () => {
+      assert.deepEqual(resolveAuthRedisEnv(), {
+        url: "https://explicit.example",
+        token: "explicit-token",
+      });
+    },
+  );
+});
+
+test("read-only marketplace token does not satisfy auth Redis configuration", async () => {
+  await withAuthEnv(
+    {
+      AUTH_SECRET: "secret",
+      AUTH_RESEND_KEY: "resend",
+      AUTH_EMAIL_FROM: "from@example.com",
+      KV_REST_API_URL: "https://marketplace.example",
+      KV_REST_API_READ_ONLY_TOKEN: "read-only-token",
+      ALLOWED_EMAILS: "person@example.com",
+    },
+    () => {
+      assert.equal(resolveAuthRedisEnv().token, undefined);
+      assert.equal(missingAuthEnv().includes("UPSTASH_REDIS_REST_TOKEN or KV_REST_API_TOKEN"), true);
+    },
+  );
+});
+
+test("missing Redis env keeps auth in open mode", async () => {
+  await withAuthEnv({}, () => {
+    assert.equal(resolveAuthRedisEnv().url, undefined);
+    assert.equal(resolveAuthRedisEnv().token, undefined);
+    assert.equal(isAuthOpenMode(missingAuthEnv()), true);
+  });
+});
 
 test("the user and tutorial endpoints are split and tutorial POST remains gated", async () => {
   assert.equal("POST" in meRoute, false);
