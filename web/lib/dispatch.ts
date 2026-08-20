@@ -37,7 +37,6 @@ export async function dispatchRender(variants: string, fx: FxBlock | null = null
         variants,
         ...(fx ? { fx: JSON.stringify(fx) } : {}),
         ...(overrides ? { repeats: String(overrides.repeats), take_marker: overrides.takeMarker } : {}),
-        ...(overrides?.seeds ? { seeds: JSON.stringify(overrides.seeds) } : {}),
       },
     }),
   });

@@ -5,6 +5,7 @@ import { DISPATCH_CONFIGURED, dispatchMetadata } from "./dispatch";
 import { dimensionValues, loadPilotVariants, loadVariants, RENDER_DIR, RENDER_MODE } from "./config";
 import { libraryTracks } from "./library";
 import { DEFAULT_ARTIST } from "./release-defaults";
+import { newestTracksByVariant } from "./track-map";
 import type { Color, LibraryTrack, Release, ReleaseTrack, ReleaseType } from "./types";
 
 export type ReleaseMode = "local" | "dispatch" | "unavailable";
@@ -104,10 +105,7 @@ function derived(release: Release, tracks: LibraryTrack[]): DerivedRelease {
   if (names.missing) return base("Draft", `${names.missing} titles missing`, { named: false, art: false, ready: false, submitted: false });
   if (names.duplicate) return base("Draft", `${names.duplicate} duplicate titles`, { named: false, art: false, ready: false, submitted: false });
   if (release.artSeed === null) return base("Named", "cover art not generated", { named: true, art: false, ready: false, submitted: false });
-  const library = new Map<string, LibraryTrack>();
-  for (const track of tracks) {
-    if (!library.has(track.variantId)) library.set(track.variantId, track);
-  }
+  const library = newestTracksByVariant(tracks);
   const notRendered = release.tracks.filter((track) => !library.get(track.variantId)?.exists).length;
   if (notRendered) return base("ArtReady", `${notRendered} tracks not rendered`, { named: true, art: true, ready: false, submitted: false });
   const qaFailed = release.tracks.filter((track) => library.get(track.variantId)?.qaVerdict !== "PASS").length;

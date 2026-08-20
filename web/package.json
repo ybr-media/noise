@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "check:tokens": "node scripts/check-tokens.mjs",
     "worker": "tsx worker/queue-worker.ts",
-    "test": "tsx --test test/web.test.ts test/remote.test.ts test/name-lint.test.ts test/cover-art.test.ts test/releases.test.ts test/eta.test.ts test/render-jobs.test.ts test/queue-strings.test.ts test/dispatch.test.ts test/fx.test.ts test/dismissals.test.ts"
+    "test": "tsx --test test/web.test.ts test/remote.test.ts test/name-lint.test.ts test/cover-art.test.ts test/releases.test.ts test/eta.test.ts test/render-jobs.test.ts test/queue-strings.test.ts test/dispatch.test.ts test/fx.test.ts test/dismissals.test.ts test/render-overrides.test.ts test/queue-action.test.ts"
   },
   "dependencies": {
     "lucide-react": "0.468.0",

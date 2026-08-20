@@ -41,7 +41,7 @@ function isMasterFilename(filename: string): boolean {
 }
 
 function renderKeyOf(filename: string): string {
-  return filename.slice(0, -"_master.wav".length);
+  return isMasterFilename(filename) ? filename.slice(0, -"_master.wav".length) : filename.replace(/\.wav$/, "");
 }
 
 const SIDECAR_SEED_KEYS = ["bed_l", "bed_r", "texture_l", "texture_r", "motion_l", "motion_r"] as const;
@@ -162,13 +162,14 @@ export async function libraryTracks(releaseTitles: Map<string, { title: string; 
   const index = await artifactIndex();
   const variants = loadVariants();
   const variantsById = new Map(variants.map((variant) => [variant.variantId, variant]));
+  const variantsByFilename = new Map(variants.map((variant) => [variant.filename, variant]));
   const renderedIds = new Set<string>();
   const rendered: LibraryTrack[] = [];
   for (const artifact of index.artifacts.values()) {
     const sidecar = sidecarOf(artifact);
     const variantId = typeof sidecar?.variant_id === "string" ? sidecar.variant_id : null;
-    const variant = variantId ? variantsById.get(variantId) : undefined;
-    if (!variant || !sidecar || !isMasterFilename(artifact.filename)) continue;
+    const variant = (variantId ? variantsById.get(variantId) : undefined) ?? variantsByFilename.get(artifact.filename);
+    if (!variant || (!isMasterFilename(artifact.filename) && artifact.filename !== variant.filename)) continue;
     renderedIds.add(variant.variantId);
     rendered.push(trackFrom(variant, artifact, sidecar, index, releaseTitles, renderKeyOf(artifact.filename)));
   }

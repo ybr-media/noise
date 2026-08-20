@@ -113,7 +113,6 @@ export type QueueJob = {
   fx?: import("./fx").FxBlock;
   repeats?: number;
   takeMarker?: string;
-  seeds?: Record<string, number>;
 };
 
 export type ReleaseType = "single" | "ep" | "album";

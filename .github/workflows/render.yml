@@ -25,10 +25,6 @@ on:
         description: Optional lowercase marker inserted into output filenames for a new take
         required: false
         default: ''
-      seeds:
-        description: Optional JSON seed mapping for a new take
-        required: false
-        default: ''
 
 concurrency:
   group: render
@@ -62,11 +58,9 @@ jobs:
           FX: ${{ inputs.fx }}
           REPEATS: ${{ inputs.repeats }}
           TAKE_MARKER: ${{ inputs.take_marker }}
-          SEEDS: ${{ inputs.seeds }}
         run: |
           OVERRIDES=()
           if [ -n "$REPEATS" ]; then OVERRIDES+=(--repeats "$REPEATS" --take-marker "$TAKE_MARKER"); fi
-          if [ -n "$SEEDS" ]; then OVERRIDES+=(--seeds "$SEEDS"); fi
           .venv/bin/python scripts/select_variants.py "$VARIANTS" --out /tmp/render-variants.yaml --fx "$FX" "${OVERRIDES[@]}" >> "$GITHUB_OUTPUT"
 
       - name: Probe the Audacity launch

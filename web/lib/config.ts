@@ -173,12 +173,11 @@ export type RenderSelection = {
   pilot?: boolean;
   full?: boolean;
   fx?: unknown;
-  seeds?: unknown;
   repeats?: unknown;
   takeMarker?: unknown;
 };
 
-export type RenderOverrides = { repeats: number; takeMarker: string; seeds?: Record<string, number> };
+export type RenderOverrides = { repeats: number; takeMarker: string };
 
 const TAKE_MARKER_PATTERN = /^[a-z0-9]{1,32}$/;
 const MAX_RENDER_REPEATS = 60;
@@ -191,16 +190,7 @@ export function validateRenderOverrides(request: RenderSelection): RenderOverrid
   if (typeof request.takeMarker !== "string" || !TAKE_MARKER_PATTERN.test(request.takeMarker)) {
     throw new Error("takeMarker must use 1-32 lowercase letters and numbers");
   }
-  if (request.seeds === undefined) return { repeats: request.repeats, takeMarker: request.takeMarker };
-  if (!request.seeds || typeof request.seeds !== "object" || Array.isArray(request.seeds)) throw new Error("seeds must be a mapping");
-  const seeds = request.seeds as Record<string, unknown>;
-  const keys = ["bed_l", "bed_r", "texture_l", "texture_r", "motion_l", "motion_r"];
-  if (keys.some((key) => typeof seeds[key] !== "number" || !Number.isFinite(seeds[key]))) throw new Error("seeds must contain six finite numbers");
-  return {
-    repeats: request.repeats,
-    takeMarker: request.takeMarker,
-    seeds: Object.fromEntries(keys.map((key) => [key, seeds[key] as number])),
-  };
+  return { repeats: request.repeats, takeMarker: request.takeMarker };
 }
 
 // A render request names either a set of ids or a whole manifest. `pilot` and

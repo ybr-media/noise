@@ -20,7 +20,6 @@ PILOT = ROOT / "config" / "variants_pilot.yaml"
 TAKE_MARKER_PATTERN = re.compile(r"^[a-z0-9]{1,32}$")
 MASTER_FILENAME_PATTERN = re.compile(r"^[\w.-]+_master\.wav$")
 MAX_REPEATS = 60
-SEED_KEYS = ("bed_l", "bed_r", "texture_l", "texture_r", "motion_l", "motion_r")
 
 
 def apply_fx(selected: dict[str, object], fx_json: str | None) -> dict[str, object]:
@@ -53,23 +52,6 @@ def validate_take_marker(take_marker: str | None) -> str | None:
     return take_marker
 
 
-def validate_seeds(seeds: str | dict[str, object] | None) -> dict[str, int | float] | None:
-    if seeds is None or seeds == "":
-        return None
-    value: object = seeds
-    if isinstance(seeds, str):
-        try:
-            value = json.loads(seeds)
-        except json.JSONDecodeError as error:
-            raise ValueError(f"seeds are not valid JSON: {error}") from error
-    if not isinstance(value, dict) or any(
-        key not in value or isinstance(value[key], bool) or not isinstance(value[key], (int, float))
-        for key in SEED_KEYS
-    ):
-        raise ValueError("seeds must contain six numeric values")
-    return {key: value[key] for key in SEED_KEYS}  # type: ignore[return-value]
-
-
 def rewrite_master_filename(filename: str, take_marker: str) -> str:
     if not MASTER_FILENAME_PATTERN.fullmatch(filename):
         raise ValueError(f"not a valid master filename: {filename!r}")
@@ -83,16 +65,12 @@ def apply_render_overrides(
     selected: dict[str, object],
     repeats: int | None = None,
     take_marker: str | None = None,
-    seeds: str | dict[str, object] | None = None,
 ) -> dict[str, object]:
     repeats = validate_repeats(repeats)
     take_marker = validate_take_marker(take_marker)
-    seed_values = validate_seeds(seeds)
     if (repeats is None) != (take_marker is None):
         raise ValueError("repeats and take marker must be provided together")
     if repeats is None:
-        if seed_values is not None:
-            raise ValueError("seeds require repeats and take marker")
         return selected
     output = dict(selected.get("output", {})) if isinstance(selected.get("output"), dict) else {}
     output["repeats"] = repeats
@@ -106,7 +84,6 @@ def apply_render_overrides(
         rewritten_variants.append({
             **row,
             "filename": rewrite_master_filename(row["filename"], take_marker),
-            **({"seeds": seed_values} if seed_values is not None else {}),
         })
     return {**selected, "output": output, "variants": rewritten_variants}
 
@@ -148,11 +125,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--fx", default="", help="Optional JSON FX block applied to every selected variant")
     parser.add_argument("--repeats", type=int, default=None, help="Optional output repeat override for a new take")
     parser.add_argument("--take-marker", default=None, help="Optional lowercase marker inserted into master filenames")
-    parser.add_argument("--seeds", default=None, help="Optional JSON seed mapping for a new take")
     args = parser.parse_args(argv)
 
     try:
-        selected = apply_render_overrides(select(args.spec), args.repeats, args.take_marker, args.seeds)
+        selected = apply_render_overrides(select(args.spec), args.repeats, args.take_marker)
     except ValueError as exc:
         parser.error(str(exc))
     selected = apply_fx(selected, args.fx)

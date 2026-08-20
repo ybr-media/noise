@@ -1,4 +1,5 @@
 import type { LibraryTrack, QueueJob, Variant } from "./types";
+import { newestTracksByVariant } from "./track-map";
 
 export const DEFAULT_RENDER_ESTIMATE_RANGE = "5–10 min";
 
@@ -84,8 +85,7 @@ export function batchMissingMastersSummary(
   tracks: LibraryTrack[],
 ): BatchMissingMastersSummary | null {
   if (!batchMembers || batchMembers.length === 0 || tracks.length === 0) return null;
-  const byId = new Map<string, LibraryTrack>();
-  for (const track of tracks) if (!byId.has(track.variantId)) byId.set(track.variantId, track);
+  const byId = newestTracksByVariant(tracks);
   return {
     total: batchMembers.length,
     missingVariantIds: batchMembers.filter((member) => !byId.get(member)?.exists),

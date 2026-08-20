@@ -55,12 +55,15 @@ import {
   wetGainDb,
   type EqPreset,
   type EqState,
+  type FxBlock,
   type FxState,
   type ReverbPreset,
   type ReverbState,
 } from "@/lib/fx";
 import { lintNames } from "@/lib/name-lint";
 import { formatBytes } from "@/lib/format";
+import { newestTracksByVariant } from "@/lib/track-map";
+import { RERENDER_MINUTE_OPTIONS, repeatsForMinutes, rerenderOptionLabel } from "@/lib/render-overrides";
 import { BellMark } from "./bell-mark";
 import { TOKENS } from "./ui/tokens";
 import { Card } from "./ui/card";
@@ -1103,16 +1106,17 @@ export default function NoiseLab() {
     };
   }, [tab]);
 
-  async function queue(ids: string[], label: "one" | "pilot" | "full", overrides?: { repeats: number; takeMarker: string; seeds?: Record<string, number>; fx?: unknown }) {
+  async function queue(ids: string[], label: "one" | "pilot" | "full", overrides?: { repeats: number; takeMarker: string; fx?: FxBlock | null; toast?: string }) {
     if (queueing) return;
     setQueueing(true);
     try {
-      const fxBlock = label === "one" ? (overrides?.fx ?? toFxBlock(fx)) : null;
+      const hasFxOverride = Boolean(overrides && Object.prototype.hasOwnProperty.call(overrides, "fx"));
+      const fxBlock = label === "one" ? (hasFxOverride ? overrides?.fx ?? null : toFxBlock(fx)) : null;
       const selector = label === "pilot"
         ? { pilot: true }
         : label === "full"
           ? { full: true }
-          : { variantIds: ids, ...(fxBlock ? { fx: fxBlock } : {}), ...(overrides ? { repeats: overrides.repeats, takeMarker: overrides.takeMarker, ...(overrides.seeds ? { seeds: overrides.seeds } : {}) } : {}) };
+          : { variantIds: ids, ...(hasFxOverride ? { fx: fxBlock } : fxBlock ? { fx: fxBlock } : {}), ...(overrides ? { repeats: overrides.repeats, takeMarker: overrides.takeMarker } : {}) };
       const response = await fetch("/api/queue", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(selector) });
       if (!response.ok) {
         const reason = (await response.json().catch(() => ({}))) as { error?: string };
@@ -1120,11 +1124,10 @@ export default function NoiseLab() {
         return;
       }
       const target = renderMode === "dispatch" ? "GitHub Actions renderer" : "worker queue";
-      const colorLabel = OPTIONS.color.find(([value]) => value === selection.color)?.[1] ?? selection.color;
       setToast({
-        message: label === "one"
-          ? `${colorLabel} master and stems being rendered`
-          : `${label === "pilot" ? "Pilot set" : `Full matrix (${variants.length} variants)`} sent to the ${target}.`,
+        message: overrides?.toast ?? (label === "one"
+          ? "Master and stems being rendered"
+          : `${label === "pilot" ? "Pilot set" : `Full matrix (${variants.length} variants)`} sent to the ${target}.`),
       });
       await refresh();
     } finally {
@@ -1194,7 +1197,7 @@ export default function NoiseLab() {
           </div>
           )}
         </div>
-        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onRenderAgain={(track, repeats) => queue([track.variantId], "one", { repeats, takeMarker: `t${Date.now().toString(36)}${window.crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`, seeds: track.recipe.seeds, fx: track.recipe.fxRecorded ? { ...(track.recipe.eq ? { eq: track.recipe.eq } : {}), ...(track.recipe.reverb ? { reverb: track.recipe.reverb } : {}) } : null })} onToast={setToast} /></div>
+        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onRenderAgain={(track, repeats) => queue([track.variantId], "one", { repeats, takeMarker: `t${Date.now().toString(36)}${window.crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`, fx: track.recipe.fxRecorded ? { ...(track.recipe.eq ? { eq: track.recipe.eq } : {}), ...(track.recipe.reverb ? { reverb: track.recipe.reverb } : {}) } : null, toast: `Matrix ${track.matrixIndex} take queued as a new library entry.` })} onToast={setToast} /></div>
         <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} initialLoad={initialLoad} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} onToast={setToast} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
         <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} /></div>
       </div>
@@ -1375,7 +1378,7 @@ function TrackCard({ track, compact = false, onRenderAgain, onToast }: { track: 
           contentId={`recipe-${track.renderKey}-details`}
           summary={<><Chip>Matrix {track.matrixIndex}</Chip>{recipeOpen ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}</>}
         >
-          <RecipeDetails recipe={track.recipe} variantId={track.variantId} renderKey={track.renderKey} onRenderAgain={(repeats) => onRenderAgain(track, repeats)} />
+          <RecipeDetails recipe={track.recipe} configuredCellSeconds={track.cellSeconds} variantId={track.variantId} renderKey={track.renderKey} onRenderAgain={(repeats) => onRenderAgain(track, repeats)} />
         </Disclosure>
       </div>
       {track.renderedAt && <div className="track-date">Created <time title={absoluteTime(track.renderedAt)}>{formatCreatedDate(track.renderedAt)}</time></div>}
@@ -1405,8 +1408,8 @@ function RecipeGroup({ title, children }: { title: string; children: ReactNode }
   return <section className="recipe-group"><h4>{title}</h4><div className="recipe-fields">{children}</div></section>;
 }
 
-function RecipeDetails({ recipe, variantId, renderKey, onRenderAgain }: { recipe: LibraryRecipe; variantId: string; renderKey: string; onRenderAgain: (repeats: number) => Promise<void> }) {
-  const minuteOptions = [1, 2, 4, 8, 15, 30, 60];
+function RecipeDetails({ recipe, configuredCellSeconds, variantId, renderKey, onRenderAgain }: { recipe: LibraryRecipe; configuredCellSeconds: number; variantId: string; renderKey: string; onRenderAgain: (repeats: number) => Promise<void> }) {
+  const minuteOptions = RERENDER_MINUTE_OPTIONS;
   const currentMinutes = recipe.cellSeconds * recipe.repeats / 60;
   const defaultMinutes = minuteOptions.includes(currentMinutes)
     ? currentMinutes
@@ -1455,9 +1458,9 @@ function RecipeDetails({ recipe, variantId, renderKey, onRenderAgain }: { recipe
         <label htmlFor={`recipe-length-${renderKey}`}>Render a new library entry</label>
         <div>
           <select id={`recipe-length-${renderKey}`} value={selectedMinutes} onChange={(event) => setSelectedMinutes(Number(event.target.value))}>
-            {minuteOptions.map((minutes) => <option key={minutes} value={minutes}>{minutes} minute{minutes === 1 ? "" : "s"}</option>)}
+            {minuteOptions.map((minutes) => <option key={minutes} value={minutes}>{rerenderOptionLabel(minutes, configuredCellSeconds)}</option>)}
           </select>
-          <Button variant="primary" type="button" disabled={renderingAgain} onClick={async () => { setRenderingAgain(true); try { await onRenderAgain(selectedMinutes); } finally { setRenderingAgain(false); } }}>{renderingAgain ? "Queuing…" : "Render new take"}</Button>
+          <Button variant="primary" type="button" disabled={renderingAgain} onClick={async () => { setRenderingAgain(true); try { await onRenderAgain(repeatsForMinutes(selectedMinutes, configuredCellSeconds)); } finally { setRenderingAgain(false); } }}>{renderingAgain ? "Queuing…" : "Render new take"}</Button>
         </div>
         <small>Creates a separate master; this take stays unchanged.</small>
       </div>
@@ -1534,11 +1537,7 @@ function ReleaseDetail({ release, savedArtist, variants, tracks, mode, onRefresh
   }, [draft.tracks, variants]);
   const lint = useMemo(() => lintNames(draft.tracks.map((track) => track.title)), [draft.tracks]);
   const variantById = useMemo(() => new Map(variants.map((variant) => [variant.variantId, variant])), [variants]);
-  const libraryById = useMemo(() => {
-    const result = new Map<string, LibraryTrack>();
-    for (const track of tracks) if (!result.has(track.variantId)) result.set(track.variantId, track);
-    return result;
-  }, [tracks]);
+  const libraryById = useMemo(() => newestTracksByVariant(tracks), [tracks]);
   useEffect(() => {
     if (loadedReleaseId.current === release.id && dirty.current) return;
     const next = { ...release };
@@ -1716,8 +1715,7 @@ function DistroHandoff({ release, tracks, onBack, onCopy, onSubmit, mode }: {
   mode: "local" | "dispatch" | "unavailable";
 }) {
   const [storeUrl, setStoreUrl] = useState("");
-  const byId = new Map<string, LibraryTrack>();
-  for (const track of tracks) if (!byId.has(track.variantId)) byId.set(track.variantId, track);
+  const byId = newestTracksByVariant(tracks);
   return <section className="panel-section release-detail">
     <button type="button" className="back-link" onClick={onBack}><ChevronLeft size={17} /> Release checklist</button>
     <div className="panel-heading"><div><h2>Prepare for DistroKid</h2><p>Copy each field, then upload the downloaded files.</p></div></div>

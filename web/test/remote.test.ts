@@ -19,6 +19,7 @@ const variant = (id: string, filename: string) => ({
 fs.writeFileSync(configPath, JSON.stringify({ output: { cell_seconds: 60, repeats: 4 }, variants: [
   variant("wn_white_mid_drift_balanced", "published.wav"),
   variant("wn_white_mid_drift_texture-forward", "unpublished.wav"),
+  variant("wn_white_mid_drift_bed-forward", "legacy.wav"),
 ] }));
 
 const baseUrl = "https://artifacts.example/noise";
@@ -37,6 +38,12 @@ const manifest = {
       qaChecks: [{ name: "Loudness", measured: "-20.000 LUFS", threshold: "within", passed: true }],
       renderStatus: "ok",
     },
+    {
+      filename: "legacy.wav",
+      sizeBytes: 12_000_000,
+      qaChecks: [],
+      renderStatus: "ok",
+    },
   ],
 };
 
@@ -51,14 +58,17 @@ const modulesPromise = Promise.all([import("../lib/artifacts"), import("../lib/l
 test("published artifacts come from the manifest rather than the local disk", async () => {
   const [, { libraryTracks }] = await modulesPromise;
   const tracks = await libraryTracks();
+  const published = tracks.find((track) => track.filename === "published_master.wav");
   assert.equal(requested[0], `${baseUrl}/manifest.json`);
-  assert.equal(tracks[0].exists, true);
-  assert.equal(tracks[0].qaVerdict, "PASS");
-  assert.equal(tracks[0].title, "Published");
-  assert.equal(tracks[0].durationSeconds, 245);
-  assert.equal(tracks[0].path, `${baseUrl}/published_master.wav`);
-  assert.equal(tracks[1].exists, false);
-  assert.equal(tracks[1].renderStatus, "Not rendered");
+  assert.equal(published?.exists, true);
+  assert.equal(published?.qaVerdict, "PASS");
+  assert.equal(published?.title, "Published");
+  assert.equal(published?.durationSeconds, 245);
+  assert.equal(published?.path, `${baseUrl}/published_master.wav`);
+  const legacy = tracks.find((track) => track.filename === "legacy.wav");
+  assert.equal(legacy?.exists, true);
+  assert.equal(legacy?.renderKey, "legacy");
+  assert.equal(tracks.find((track) => track.filename === "unpublished.wav")?.exists, false);
 });
 
 test("an unreachable manifest leaves the matrix browsable", async () => {
