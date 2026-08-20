@@ -18,8 +18,8 @@ Authentication is configured entirely through environment variables:
 - `AUTH_SECRET` — secret used to sign 30-day JWT sessions.
 - `AUTH_RESEND_KEY` — Resend API key used for magic-link email.
 - `AUTH_EMAIL_FROM` — verified sender address on the `ybellrecords.com` domain.
-- `UPSTASH_REDIS_REST_URL` — Upstash Redis REST endpoint for users and verification tokens.
-- `UPSTASH_REDIS_REST_TOKEN` — Upstash Redis REST token.
+- `UPSTASH_REDIS_REST_URL` / `KV_REST_API_URL` — Upstash Redis REST endpoint for users and verification tokens; either name is accepted.
+- `UPSTASH_REDIS_REST_TOKEN` / `KV_REST_API_TOKEN` — Upstash Redis REST token; either name is accepted.
 - `ALLOWED_EMAILS` — comma-separated exact addresses and/or domains, such as
   `@ybellrecords.com,austin@marlo.today`.
 
