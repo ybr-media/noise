@@ -25,8 +25,10 @@ export default function SignInPage() {
   return (
     <main className="signin-page">
       <Card className="signin-card">
-        <BellMark />
-        <p className="signin-wordmark">Noise Lab</p>
+        <div className="signin-lockup">
+          <BellMark />
+          <p className="signin-wordmark">Noise Lab</p>
+        </div>
         {sent ? (
           <section aria-live="polite">
             <h1>Check your email</h1>

@@ -118,16 +118,18 @@ button:disabled { cursor: not-allowed; }
 .ui-button-primary:disabled { background: var(--brand-disabled); box-shadow: none; }
 .ui-button-neutral:disabled { color: var(--ink-tertiary); }
 .signin-page { min-height: 100svh; display: grid; place-items: center; padding: 24px; background: var(--page); }
-.signin-card { width: min(100%, 420px); padding: 34px 28px; text-align: center; }
-.signin-card .bell-mark { width: 64px; height: 64px; margin: 0 auto 10px; }
-.signin-wordmark { margin: 0 0 30px; font-size: 22px; font-weight: 700; }
-.signin-card h1 { margin: 0; font-size: 26px; }
-.signin-card p:not(.signin-wordmark) { margin: 10px 0 24px; color: var(--ink-secondary); line-height: 1.5; }
-.signin-card form { display: grid; gap: 10px; text-align: left; }
-.signin-card label { color: var(--ink-secondary); font-size: var(--text-sm); font-weight: 700; }
-.signin-card input { min-height: 46px; border: 1px solid var(--separator); border-radius: var(--radius-chip); padding: 0 12px; color: var(--ink); background: var(--surface-sunken); outline: 0; }
-.signin-card input:focus { border-color: var(--link); box-shadow: 0 0 0 3px var(--link-tint); }
-.signin-card form .ui-button, .signin-card section .ui-button { width: 100%; margin-top: 10px; min-height: 46px; }
+.signin-card { width: min(100%, 380px); padding: 28px; border-radius: 12px; text-align: left; }
+.signin-lockup { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
+.signin-card .bell-mark { width: 40px; height: 40px; margin: 0; }
+.signin-wordmark { margin: 0; font-size: 18px; font-weight: 500; }
+.signin-card h1 { margin: 0; font-size: 22px; font-weight: 500; line-height: 1.3; }
+.signin-card p:not(.signin-wordmark) { max-width: 260px; margin: 12px 0 0; color: var(--ink-secondary); font-size: 14px; line-height: 1.6; }
+.signin-card form, .signin-card section { display: grid; gap: 0; }
+.signin-card label { margin-top: 28px; color: var(--ink-secondary); font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }
+.signin-card input { width: 100%; min-height: 46px; margin-top: 8px; border: 1px solid var(--separator); border-radius: 10px; padding: 0 12px; color: var(--ink); background: var(--surface-sunken); outline: 0; font-size: 14px; transition: border-color 120ms ease-out; }
+.signin-card input::placeholder { color: var(--ink-secondary); }
+.signin-card input:focus { border-color: var(--ink-tertiary); box-shadow: none; outline: 2px solid var(--ink); outline-offset: 1px; }
+.signin-card form .ui-button, .signin-card section .ui-button { width: 100%; height: 46px; min-height: 46px; margin-top: 20px; border-radius: 10px; box-shadow: none; font-size: 14px; font-weight: 500; transition: background-color 120ms ease-out; }
 .panel-section { margin-top: 5px; }
 .panel-heading { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 22px; }
 .panel-heading-actions { display: flex; align-items: center; gap: 8px; }
@@ -401,6 +403,7 @@ button:disabled { cursor: not-allowed; }
   .bell-eyes { opacity: 1; }
   .bell-smile { clip-path: none; }
   .round-action.is-refreshing svg { animation: none; }
+  .signin-card input, .signin-card .ui-button { transition: none; }
   .skeleton { animation: none; background: var(--surface-skeleton); }
 }
 @media (max-width: 520px) {
