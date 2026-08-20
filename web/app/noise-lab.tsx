@@ -1116,7 +1116,7 @@ export default function NoiseLab() {
         ? { pilot: true }
         : label === "full"
           ? { full: true }
-          : { variantIds: ids, ...(hasFxOverride ? { fx: fxBlock } : fxBlock ? { fx: fxBlock } : {}), ...(overrides ? { repeats: overrides.repeats, takeMarker: overrides.takeMarker } : {}) };
+          : { variantIds: ids, ...(hasFxOverride || fxBlock ? { fx: fxBlock } : {}), ...(overrides ? { repeats: overrides.repeats, takeMarker: overrides.takeMarker } : {}) };
       const response = await fetch("/api/queue", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(selector) });
       if (!response.ok) {
         const reason = (await response.json().catch(() => ({}))) as { error?: string };
@@ -1124,9 +1124,10 @@ export default function NoiseLab() {
         return;
       }
       const target = renderMode === "dispatch" ? "GitHub Actions renderer" : "worker queue";
+      const colorLabel = OPTIONS.color.find(([value]) => value === selection.color)?.[1] ?? selection.color;
       setToast({
         message: overrides?.toast ?? (label === "one"
-          ? "Master and stems being rendered"
+          ? `${colorLabel} master and stems being rendered`
           : `${label === "pilot" ? "Pilot set" : `Full matrix (${variants.length} variants)`} sent to the ${target}.`),
       });
       await refresh();
