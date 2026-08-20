@@ -1,347 +1,336 @@
-# Demo flow evaluation — Noise Lab console
+# First-run tour evaluation — Noise Lab console
 
-**Scope:** the end-to-end path a person is walked through when the console is demoed —
-**Design → Create track → Queue → Library** — plus the state that has to travel between
-those tabs for the walk to make sense.
+**What this evaluates:** the guided first-run tour (`web/app/ui/tutorial.tsx`) — the nine-step
+walkthrough a new user is dropped into on first sign-in, and the flow it drives them through.
 
-**Method:** production build (`npm run build && npm start`) served against the real
-`config/` matrix, driven with Playwright at 390×844. Every timing and every quoted string
-below was captured from the running app, not read off the source. Code-only findings are
-labelled **(code read)** and were not reproduced in the browser.
+**Commit under test:** `5052cbb` on `devin/demo-first-run` (the demo integration branch: phase-1
+auth, phase-2 first-run tracking, phase-3 tour, the v2 redesign, and the relaunch fix). The tour
+is **not on `main`** — nothing under `web/` there references it.
 
-**Deliberately not in scope:** styling, tokens, contrast, primitives, desktop layout.
-`docs/design-quality-audit.md` covers those and is not re-litigated here — see §8 for the
-overlap list. This document is about *sequence*: what happens between the taps.
+**Method:** production build (`npm run build && npm start`) with `NOISE_RENDERING_AVAILABLE=1`
+so the render and queue steps take their **action** variants rather than the "unavailable" info
+variants, served against the real `config/` matrix and the bundled `web/demo/` track. Driven with
+Playwright at 390×844, walking all nine steps with **genuine clicks** — a real swatch, a real
+segment, a real FX toggle, the real *Create track* button, the real dock tabs, the real player —
+so every step advanced on the app's own `tour.notify(...)` events, never by forcing state.
+Per `.agents/skills/testing-noise-web/SKILL.md`, auth is unconfigured locally, so the tour was
+launched the way a user replays it: **(i) → Replay tutorial**.
+
+Every number and every quoted string below was captured from the running app. Where I state a
+consequence for the *authenticated* first run (which cannot be exercised locally on this branch —
+there is no `NOISE_TEST_USER_FILE` hook here), I say so and cite the code path.
 
 ---
 
 ## 1. Verdict
 
-**Each tab is in better shape than the path between them.**
+**The tour is well built and it tells the truth about everything except itself.**
 
-Every screen in the demo does its own job. Design is a genuinely sophisticated instrument.
-The Queue card carries real diagnostics. The Library player is complete. What is missing is
-everything that should happen *in the joins* — and a demo is nothing but joins.
+The engine is genuinely good — I want to say that first, because most of what follows is
+criticism of copy and exits, not of architecture. Steps advance on real application events, so
+the user actually performs each action; the spotlight is correctly non-interactive
+(`pointer-events: none` verified, hit-testing the ring centre returns the real control every
+time); the card flips between top and bottom anchoring so it never covers its own target. That
+is a real guided tour, not a slideshow.
 
-Three things break, and they break in the same place: the moment the user commits.
+Three things break it, and they are all promises:
 
-1. **The commit goes nowhere.** Tapping *Create track* leaves you on Design with a toast.
-   The app knows a job now exists, has a purpose-built affordance for saying so — `Toast`
-   accepts an `action` button (`:306`) — and **uses it at zero call sites**. The presenter
-   has to say "now tap Queue." That sentence is the demo's biggest tell.
-2. **Nothing updates until you go looking.** The Queue polls only while the Queue tab is
-   open, every 30 s (`:1019-1022`). The Library polls never. A render that finishes while
-   you are talking does not appear — the payoff of the entire demo is gated behind a manual
-   navigation.
-3. **The thing you made loses its name in transit.** Design never states what you are
-   building. The toast names one of its four axes. The Queue names it differently again. Across
-   four screens, four different label sources describe the same object, and they disagree (§5).
+1. **It promises you will hear what you made, and hands you a stock file.** Step 1 says *"design
+   a sound, render it for real, and hear the result."* Step 8 points at a **bundled demo master**,
+   because your render is still queued — and the finale says so out loud (§3).
+2. **The step labelled "Optional" is the one step you cannot skip.** Step 4 is an `action` step:
+   no Next, no Back. The only ways past it are to do it, wait ten seconds, or abandon the tour
+   (§4).
+3. **Every exit is a trapdoor.** Escape — one keypress, no confirmation — ends the tour and marks
+   the tutorial complete. On a real first run that also POSTs completion to the server, so the
+   tour never comes back on its own (§5).
 
-None of this is a rewrite. Every item in §9 Phase A is a small, local change inside
-`web/app/noise-lab.tsx`, and together they are the difference between a demo that needs
-narration and one that narrates itself.
-
----
-
-## 2. The demo, as it actually runs
-
-Measured, cold load to first playable moment:
-
-| # | Step | Measured | What the user sees |
-|---|---|---|---|
-| 1 | Load | DOMContentLoaded **47 ms** | splash |
-| 2 | Splash | visible 134 ms → gone **1,951 ms** | wordmark; Design is not interactive |
-| 3 | Design ready | **1,956 ms** | spectrum card is an **empty grid** — nothing is drawn until Play |
-| 4 | Tap *Create track* | busy **85 → 468 ms** | button reads "Creating…" |
-| 5 | Toast | **+123 ms** | *"White master and stems being rendered"* — **no action button** |
-| 6 | Tab after commit | — | **still Design.** Only a red `1` on the Queue icon changed |
-| 7 | Tap Queue manually | — | card: *"White Mid Drift — Balanced"*, pill *"Queued"*, *"0 jobs ahead"* |
-| 8 | Tap Library | — | *"MASTERS · 0 / No rendered files found."* |
-
-**Two seconds of splash before the first frame of product.** `:978-990` sets 1,250 ms then
-a 400 ms fade, and it runs on **every** load, not just the first — reload during a demo and
-you buy the wordmark again. It is skipped only under `prefers-reduced-motion`.
-
-**Step 6 is the flow's fracture.** The commit produces a toast and a badge. It does not
-produce a destination.
-
-**Step 3 is a wasted first impression.** The spectrum is the hero element and the first
-thing on screen, and it renders an empty grid until Play is pressed. The variant's spectral
-shape is fully known at selection time — `bandLowHz`, `bandHighHz`, `spectrum.bell`, and
-the colour slope are all in the payload — so a static curve for the current selection could
-be drawn with no audio at all, and would make the four controls visibly *do something*.
+None of this needs the engine rebuilt. §9 is a work plan whose Phase A is copy, exits, and one
+sidecar file.
 
 ---
 
-## 3. F-1 — The commit has no destination
+## 2. The tour, as it actually runs
 
-`queue()` at `:1099-1121` fires the toast and calls `await refresh()`. It never navigates,
-and it never offers to.
+Nine steps in `local`/`dispatch` mode (`tutorialSteps()`, `tutorial.tsx:30-133`). Six of the nine
+are `action` steps. Captured state per step:
 
-The affordance already exists and is fully built:
+| # | id | kind | Next | Back | Card | Advanced by |
+|---|---|---|---|---|---|---|
+| 1 | `welcome` | info | ✅ | — | bottom | Next |
+| 2 | `param-color` | **action** | ❌ | ❌ | bottom | clicking a real swatch |
+| 3 | `param-shape` | **action** | ❌ | ❌ | **top** | clicking a real segment |
+| 4 | `fx` | **action** | ❌ | ❌ | **top** | toggling EQ/Reverb |
+| 5 | `render` | **action** | ❌ | ❌ | bottom | real *Create track* |
+| 6 | `queue-tab` | **action** | ❌ | ❌ | bottom | real dock tap |
+| 7 | `queue-status` | info | ✅ | ✅ | bottom | Next |
+| 8 | `library-play` | **action** ×2 | ❌ | ❌ | **top** → bottom | dock tap, then real play |
+| 9 | `done` | info | ✅ (Done) | ✅ | bottom | Done |
+
+**Back exists on 3 of 9 steps.** `.tutorial-back` renders only when `step.kind === "info"`
+(`tutorial.tsx:428`). Once you are past the welcome card, you cannot go back until step 7.
+
+**What is genuinely good, and should survive any rework:**
+
+- **Real-event progression.** Every action step waited for the app's own handler to fire. Nothing
+  advanced on a click the app hadn't actually processed.
+- **The spotlight is honest.** `getComputedStyle('.tutorial-ring').pointerEvents === "none"`, and
+  `document.elementFromPoint()` at the ring's centre returned the real target
+  (`swatch-row`, `glyph-segment is-selected`, `custom-player`) — never the card. The highlighted
+  control is genuinely the control.
+- **Placement adapts.** `.tutorial-card.is-top` engaged on steps 3, 4, and 8 — exactly the steps
+  whose targets sit low enough that a bottom-anchored card would cover them.
+- **Back-navigation is not a trap.** I expected Back from step 7 into the completed step 6 to
+  deadlock, since `tab-changed` had already fired and the Queue tab was already active. It does
+  not: re-tapping the already-selected Queue tab re-fires the event and the tour moves on.
+  Tested, works, no action needed.
+
+---
+
+## 3. F-1 — The payoff is a stock file, and the tour admits it
+
+This is the finding that matters. Step 1 sets the promise:
+
+> "You'll design a sound, render it for real, and hear the result. Two minutes, and you keep
+> whatever you make."
+
+Step 8 sets the task: **"Hear a master."** But which master?
 
 ```ts
-type ToastState = { message: string; error?: boolean; action?: { label: string; onClick: () => void } };   // :306
+const tourTrackId = tourVariantId && tracks.some((t) => t.exists && t.variantId === tourVariantId)
+  ? tourVariantId
+  : tracks.find((track) => track.exists)?.variantId;   // noise-lab.tsx:1343-1345
 ```
 
-`Toast` renders `.toast-action` (`:317`), and `globals.css:246` styles it. **Grep for
-`action:` across `noise-lab.tsx` returns nothing.** A styled, typed, rendered button with no
-producer — dead on arrival.
+Your render was queued seconds earlier and is not in the Library yet — at ~3.5 s of runner time
+it needs a worker that a demo box does not have, and in `dispatch` mode it is a GitHub Actions
+round trip of minutes. So the fallback fires and the tour spotlights **the first track that
+exists**, which on any fresh deployment is the bundled `web/demo/demo_first_render.json`.
 
-**Fix:** give the commit toast an action.
+Captured at step 9, with the finale card and the track it just played on screen together
+(`tour/09-done.png`):
 
-```ts
-setToast({
-  message: `${name} queued`,
-  action: { label: "View queue", onClick: () => setTab("queue") },
-});
-```
-
-That one change removes the presenter's "now tap Queue" line. Whether the commit should
-*auto*-navigate instead is a product call — see §10 Q1.
-
----
-
-## 4. F-2 — State does not travel on its own
-
-| Data | Refresh trigger | Interval |
-|---|---|---|
-| Queue | Queue tab open **and** document visible (`:1019-1022`) | 30 s |
-| Library | mount, hash-nav, pull-to-refresh, post-commit | **never polls** |
-| Releases | same as Library | **never polls** |
-
-Two consequences for a live demo:
-
-- **The badge lies while you are on Design.** After committing, `jobs` only advances when
-  the Queue tab is open. Stand on Design and the count is frozen at its post-commit value.
-- **The payoff never arrives by itself.** A finished render reaches the Library only if the
-  user navigates there (which triggers `refresh()` via the hash path, `:1031`). The moment
-  the demo is built around — *"and there it is, rendered"* — cannot happen while you are
-  watching the Queue.
-
-**30 s is also the wrong beat.** The README puts a variant at ~3.5 s of runner time. The
-poll is an order of magnitude slower than the thing it observes, so a render can start and
-finish entirely between two polls and present as a single instant jump from *Queued* to
-*Done*.
-
-**Fix:** poll on *active work*, not on *tab identity*. While any job is `Queued` or
-`Rendering`, poll every ~5 s regardless of which tab is open, and back off to 30 s (or stop)
-when the queue is idle. When a job flips to `Done`, refresh the library too — that is the
-only signal the Library ever needs, and it makes the payoff arrive on its own.
-
-**Related, and cheap:** `refresh()` (`:924-947`) is all-or-nothing. It `Promise.all`s four
-endpoints and a single failure discards **all four** results, sets `librarySyncFailed`, and
-toasts *"Could not load engine data."* One slow releases call blanks the library. Settle the
-four independently and degrade per-pane.
-
----
-
-## 5. F-3 — The object loses its name between tabs
-
-This is the finding I would fix first if only one could be fixed. Follow a single variant
-across the demo:
-
-| Where | What it is called | Source |
-|---|---|---|
-| Design — control tooltip | **Balanced** | `OPTIONS` (`variant-labels.ts:14`) via `title=` (`:225`) |
-| Design — visible caption | **Even** | `PARAM_CAPTIONS` (`:91-106`) |
-| Design — screen reader | **Even** | `PARAM_ARIA_LABELS` (`:108-112`) |
-| Commit toast | **"White …"** — colour only | `:1112-1116` |
-| Queue card title | **White Mid Drift — Balanced** | `formatDisplayName` |
-| Queue card chips | **white · mid · drift** (raw ids, no balance) | `chipsFor` (`:1736`) |
-
-Four separate label maps for one set of values, and they disagree:
-
-- **`balanced` is "Even" on Design and "Balanced" in the Queue.** Same for `bed-forward`
-  (Bed / Smooth) and `texture-forward` (Texture / Grainy). The tooltip on Design contradicts
-  the caption sitting two inches from it.
-- **Chips render raw enum ids.** `chipsFor` (`:1736`) and the Library's `track-chips`
-  (`:1422`) pass `variant.color`, `.band`, `.motion` straight through, so the card shows
-  lowercase `white`, `mid`, `drift` beside title-case `Matrix 14`. The label map that would
-  fix this is imported in the same file.
-- **Balance is dropped from chips entirely** — one of the four axes the user just set does
-  not appear on the card that confirms what they set.
-- **The commit toast names one axis of four.** `:1112` builds its message from
-  `OPTIONS.color` alone: *"White master and stems being rendered"*. Four controls were
-  configured; the receipt mentions one.
-- **Design never names the variant at all.** Measured `#panel-design` `innerText` contains
-  no variant name — only the four captions. The user commits to something the screen has
-  never named, then meets that name for the first time in the Queue.
-
-**And there is already a function that does this correctly, unused.**
-`formatVariantLabel()` (`variant-labels.ts:22`) returns `"White · Mid · Drift · Balanced"`.
-Its only caller in the repository is its own test (`test/web.test.ts:105`).
-
-**Fix — one label vocabulary, one call site each:**
-
-1. Delete `PARAM_ARIA_LABELS`; make `OPTIONS` the single source for names, and reword
-   `PARAM_CAPTIONS` to be purely explanatory (§6) rather than a competing name.
-2. Route every chip through the label map — Queue `chipsFor` and Library `track-chips` —
-   and add the missing balance chip.
-3. Show `formatVariantLabel(selected)` on Design, next to *Create track*, so the object is
-   named before it is committed.
-4. Use that same string in the toast: *"White · Mid · Drift · Balanced queued"*.
-
-The variant then carries one name from selection to library. That continuity *is* the demo.
-
----
-
-## 6. F-4 — Copy that argues with the screen
-
-- **The toast contradicts the pill.** *"…being rendered"* (`:1114`) appears while the Queue
-  card for that same job reads **Queued**, and in `local` mode with no worker attached it
-  will read Queued indefinitely. Both are on screen simultaneously in `03-queue.png`. Say
-  **queued**, and let the Queue say when it is rendering.
-- **"0 jobs ahead."** `activeCopy` (`:1737-1738`) renders `queuedJobsAhead(...)` verbatim, so
-  the first job in an empty queue announces zero of something. Special-case it: **"Next up"**.
-- **Six of fourteen param captions restate their own label.** `:91-106` — *"Mid — mid
-  texture"*, *"Drift — drift modulation"*, *"Breathing — breathing modulation"*, *"Low-mid —
-  low-mid texture"*, *"High — high texture"*, *"Even — even mix"*. The four `color` captions
-  show what good looks like (*"Pink · −3 dB/oct"* teaches something). The other three axes
-  should earn their line the same way — say what the control *does to the sound*, or drop
-  the caption.
-- **The Queue header caption truncates.** At 390 px it renders *"Queued · waiting for runner
-  · Sync…"* — clipped mid-word (`03-queue.png`). Status and sync time are competing for one
-  line; the sync time is the droppable half.
-
----
-
-## 7. Library — the last screen in the demo
-
-**(code read — the container has no rendered artifacts, so these were not reproduced in the browser.)**
-
-1. **Two rename flows, side by side.** The ✨ button (`generateTitle`, `:1319`) generates a
-   name and drops it into an inline edit that saves via `/api/names/rename`. The overflow
-   menu's *"Suggest SEO name"* (`generate`, `:1312`) renders a **separate** review panel at
-   the bottom of the card with Regenerate/Approve, saving via `/api/names/approve`. Two
-   affordances, two endpoints, two persistence models, one job. Pick one.
-2. **The older flow fails silently.** `generate()` (`:1312`) and `regenerate()` (`:1336`)
-   never check `response.ok` and assign `payload.suggestion` unguarded — on any API error
-   they set `undefined` and the panel simply never appears. `generateTitle()` (`:1319`) does
-   this correctly and is the model.
-3. **`approve()` (`:1345`) doesn't refresh.** It toasts success and leaves the card showing
-   the old title with no `approved` marker until something else triggers a reload.
-4. **Nothing coordinates playback.** Each `TrackCard` owns an independent `<audio>`
-   (`:1405`). Starting a second track does not pause the first, and the Design preview is a
-   separate Web Audio graph again. Two masters can overlap.
-5. **The "new" badge is spent all at once.** `:969-977` marks **every** existing track seen
-   the moment the Library tab opens, so the badge that should say *"your render landed"*
-   is consumed by the visit itself.
-6. **Playback start is unmasked.** `preload="none"` on a master served from R2 (which the
-   route comments describe as "multi-hundred megabyte", `api/audio/[filename]/route.ts:15`)
-   means Play is followed by dead air with no busy state. Bind the button to
-   `waiting`/`canplay` and show a spinner.
-7. **Incidental, not designed:** the Design preview *does* stop when you switch to Library —
-   but only because `refresh()` replaces the `variants` array, which changes `selected`'s
-   identity and trips the `[variant]` cleanup at `:721`. Nothing intends this. Call
-   `preview.stop()` on tab change explicitly.
-
----
-
-## 8. Already filed in `docs/design-quality-audit.md` — not re-reported
-
-These surfaced again while walking the flow. They are that document's, and the fixes belong
-in its work plan, not this one:
-
-| There | Confirmed again here |
+| The user designed | The user is listening to |
 |---|---|
-| **P0-2** Queue has no empty state | `#panel-queue` measured **362 × 0 px**, `innerText` `""` |
-| **P2-1** Two routing models | Reload on Queue → returns to **Design**; `/` is the URL for both |
-| **P2-5** Batch rendering is dead code | `queue()`'s `"pilot"`/`"full"` branches still have no call site |
-| **P1-8** `StatusPill` and `Chip` look alike | The *Queued* pill is indistinguishable from *Matrix 14* |
+| **Brown · high · drift** | **"Green Broad Drift — First Light"**, chipped **"Demo ×"** |
 
-**One new fact for P2-1.** Back from the Library does not return where you came from. From
-Design → Library → Back lands on **Queue**. `libraryReturnTab` is seeded
-`tab === "library" ? "queue" : tab` at `:1024`, `:1064`, and `:1210`; the Library tab button
-sets it *after* the tab is already Library, so the `"queue"` fallback wins and the user is
-returned to a tab they never visited. Cheap fix independent of the routing rework: capture
-the departure tab before mutating the hash.
+And the finale narrates it accurately, which is the part that stings:
+
+> "You designed Brown · high · drift, queued your track, and **played a master from your
+> Library. Your render is still queued.**"
+
+`finaleCopy()` (`tutorial.tsx:155-165`) explicitly branches between *"played the master you just
+queued"* and *"played a master from your Library"* — **the code knows** the user did not hear
+their own work, and says so honestly at the emotional peak of a two-minute onboarding. The honesty
+is right; the promise in step 1 is what is wrong.
+
+**Fix — pick one, this is a product call (§10 Q1):**
+
+- **(a) Reframe the promise.** Step 1 stops promising "hear the result" and promises what the tour
+  can actually deliver in two minutes: design something real, send a real job, and hear what a
+  finished master sounds like. Step 8 then names the demo track as a demo *on purpose*
+  ("Here's one we rendered earlier — yours is still cooking"), and the existing render-done banner
+  (`noise-lab.tsx:1229`, deep-linking to `#library/<variantId>`) becomes the real payoff, arriving
+  later. Cheapest, and honest.
+- **(b) Make the promise true.** Hold step 8 until the user's own render lands, with the tour
+  parked on the Queue. Only viable if a render reliably completes in tour time — which it does not
+  in `dispatch` mode.
+
+Also fix regardless: **the finale names the variant inconsistently.** "Brown · high · drift" mixes
+the display label `Brown` with raw enum ids `high` and `drift`, and drops the balance axis
+entirely — one of the four things the user just chose. `snapshot.params` should use the same
+formatter the Queue and Library use.
+
+---
+
+## 4. F-2 — The step marked "Optional" is the only one you cannot skip
+
+Step 4 is titled **"Optional: EQ and reverb"**. Captured state:
+
+```json
+{ "count": "Step 4 of 9", "title": "Optional: EQ and reverb",
+  "hasNext": false, "hasBack": false, "hasSkip": true,
+  "doItPresent": true, "doItVisible": false }
+```
+
+`kind: "action"` (`tutorial.tsx:95-103`), so no Next is rendered. From `tour/04-fx.png`, the only
+button on the card is **"Skip tour"** — which does not skip the step, it ends the tutorial.
+
+A user who does not want EQ or reverb on their first track — the reasonable default, and the
+literal meaning of "Optional" — has three options: toggle something they didn't want, wait ten
+seconds for a button they can't see yet, or quit. The card even reserves the empty action row
+where Next would be, so there is a conspicuous band of blank card under the text.
+
+**Fix:** make step 4 `kind: "info"` with a Next, and let the `fx-changed` event advance it early
+if the user does experiment. That is the one step where "either do it or move on" is exactly the
+right semantics, and the engine already supports both halves.
+
+---
+
+## 5. F-3 — Every exit is a trapdoor, and Escape is the trapdoor you fall through
+
+Measured, from step 1 of a fresh tour:
+
+```
+before Escape : {"count":"Step 1 of 9","title":"Make your first track"}
+after Escape  : {"gone":true}
+localStorage["noise.tutorial.done"] = "1"
+```
+
+One Escape keypress, no confirmation, and the tutorial is over and marked done
+(`tutorial.tsx:378-380` → `onSkip` → `complete()` → `onComplete: firstRun.markCompleted`,
+`noise-lab.tsx:958`).
+
+**On a real authenticated first run this is worse than local.** `complete()` runs
+`if (shouldPersistTutorial(authConfigured, replayRef.current)) void fetch("/api/me/tutorial", { method: "POST" })`
+(`tutorial.tsx:203`). Locally `authConfigured` is false and I was in replay, so nothing
+persisted; on the hosted demo both are true on a first run, so completion is written server-side
+and `firstRunShouldLaunch()` (`use-first-run.ts:26`) will never fire again for that user. Escape is
+a reflex — people press it to dismiss the notification, the keyboard, anything. **Code path, not
+reproduced locally; flagged as such.**
+
+Compounding it: **"Skip tour" is the most prominent button on every action step** — on steps 2–6
+and 8 it is the *only* button — and it is equally final and equally unconfirmed.
+
+**Fix:**
+1. Escape should not complete. Either ignore it, or show "Leave the tour? You can replay it from
+   the (i) button" with Leave / Stay.
+2. Separate *dismiss* from *complete*. Skipping should let the tour come back on the next visit —
+   only reaching step 9 should mark it done. At minimum, do not POST completion on a skip.
+3. Give "Skip tour" the visual weight of an escape hatch, not the primary action on the card.
+
+---
+
+## 6. F-4 — Ten seconds of nothing on every action step
+
+Measured: **`.tutorial-do-it` became visible 9,884 ms after the step opened**
+(`setTimeout(..., 10000)`, `tutorial.tsx:301`).
+
+On an action step the user either performs the action or looks at a card with no forward control
+at all for nearly ten seconds. Six of nine steps are action steps. If someone hesitates on two of
+them — reading the copy, glancing away — that is twenty seconds of a tour that opened by promising
+two minutes.
+
+Ten seconds is also the wrong shape for the assistance: it is long enough to feel broken, and it
+arrives with no warning that it is coming.
+
+**Fix:** drop it to ~3 s, and render the button in a disabled/quiet state from the start so the
+affordance is visible before it is usable. The user should never be looking at a card with no
+visible way forward.
+
+---
+
+## 7. F-5 — The demo track contradicts the copy pointing at it
+
+Step 8's body makes two specific claims about the track it is spotlighting. Both are false for the
+bundled demo master. From `GET /api/library` and `web/demo/demo_first_render.json`:
+
+| Step 8 says | The demo track actually has |
+|---|---|
+| "Each one carries its own **QA numbers**" | `qaVerdict: "UNAVAILABLE"`, LUFS `–`, true peak `–`, **0 QA checks** |
+| "downloads as the master, **a single stem**, or all of it as a zip" | `stem_filenames: []` — **no stems** |
+
+Visible in `tour/09-done.png`: the QA strip under the player reads **UNAVAILABLE** with two
+em-dashes, directly beneath the sentence claiming QA numbers.
+
+Third problem in the same card: **"Created Jan 1, 2025"**, from a hardcoded
+`"render_timestamp": "2025-01-01T00:00:00.000Z"`. A twenty-month-old date on the one track a
+first-time user is told to open.
+
+**Fix (cheapest item in this document):** regenerate the demo sidecar with real QA numbers and at
+least one stem so the copy is true, and set `render_timestamp` at build or first read rather than
+pinning it. If stems for the demo are not worth the bytes, cut "a single stem" from step 8's copy
+instead — but do not ship a sentence the spotlighted track disproves.
+
+---
+
+## 8. F-6 and F-7 — Two visual defects in the moments that matter
+
+**F-6. Confetti renders on top of the finale card.**
+
+```css
+.tutorial-confetti { z-index: 3; }   /* globals.css:291 */
+.tutorial-card     { z-index: 2; }   /* globals.css:292 */
+```
+
+In `tour/09-done.png` the particles are drawn across the headline ("That's the loop") and over the
+Download button beneath. The celebration defaces the card it is celebrating. **Fix:** put the
+canvas behind the card (`z-index: 1`).
+
+**F-7. The card collapses on every success.**
+
+`body = isFinale ? finaleCopy(...) : celebration ?? step.body` (`tutorial.tsx:405`) — for 420 ms
+the instruction is *replaced* by "Nice — that's exactly it." Measured on step 2:
+
+| | card height |
+|---|---|
+| instruction showing | 223.16 px |
+| celebration showing | 142.56 px |
+| back to instruction | 223.16 px |
+
+**An 80.6 px collapse-and-reflow, twice, on each of six action steps.** And because it replaces
+rather than accompanies the instruction, the text explaining what you just did vanishes at the
+moment you succeed — exactly when a user looks back at the card to confirm.
+
+**Fix:** show the celebration as a line *above* or beside the instruction, or reserve the height.
+Never swap the body.
 
 ---
 
 ## 9. Work plan for Devin
 
-Everything in Phase A is local to `web/app/noise-lab.tsx` and `web/lib/variant-labels.ts`.
-Baseline is green today — `npm run typecheck`, `npm test` (45 pass), `npm run lint`,
-`npm run build` all pass — so each phase should land with them still green.
+Baseline on `devin/demo-first-run` builds clean. Everything in Phase A is confined to
+`web/app/ui/tutorial.tsx`, `web/app/globals.css`, and `web/demo/demo_first_render.json`.
 
-### Phase A — Close the joins *(highest value, no refactor)*
+### Phase A — Stop the tour contradicting itself
 
-1. **Toast action on commit.** `:1112` — add `action: { label: "View queue", onClick: () => setTab("queue") }`.
-   *Accept:* after *Create track*, the toast offers a one-tap route to the Queue.
-2. **Poll on work, not on tab.** `:1019-1022` — poll every 5 s while any job is
-   `Queued`/`Rendering` regardless of active tab; 30 s or paused when idle; refresh the
-   library when a job reaches `Done`.
-   *Accept:* with the Design tab open, the Queue badge advances; a completed render appears
-   in the Library without a manual navigation.
-3. **Name the variant on Design.** Render `formatVariantLabel(selected)` in the action row.
-   *Accept:* `#panel-design` `innerText` contains the variant name before commit.
-4. **One label vocabulary.** Delete `PARAM_ARIA_LABELS` (`:108-112`); route Queue `chipsFor`
-   (`:1736`) and Library `track-chips` (`:1422`) through the label map; add the balance chip;
-   name the variant in the toast with the same string.
-   *Accept:* one variant reads identically on Design, in the toast, and on both cards; no raw
-   enum id (`low-mid`, `bed-forward`) is rendered anywhere. Extend `test/web.test.ts` to
-   assert the shared formatter — `formatVariantLabel` gains its first real caller.
-5. **Copy fixes.** "queued" not "being rendered" (`:1114`); "Next up" for zero ahead
-   (`:1738`); drop the sync half of the Queue header caption at narrow widths.
-6. **Correct the Library return tab.** `:1024`, `:1064`, `:1210` — capture the departure tab
-   before the hash changes.
-   *Accept:* Design → Library → Back returns to Design.
+1. **Make "Optional" optional** (§4). Step 4 → `kind: "info"` with Next; keep `fx-changed`
+   advancing it early. *Accept:* step 4 renders a Next button; toggling EQ still advances it.
+2. **Escape must not complete the tutorial** (§5). *Accept:* Escape either does nothing or
+   confirms; after an Escape, `noise.tutorial.done` is unset and no `POST /api/me/tutorial` is
+   issued.
+3. **Skip ≠ complete** (§5). Only step 9 marks the tutorial done. *Accept:* skipping at step 3,
+   then reloading as the same user, relaunches the tour.
+4. **Fix the demo sidecar** (§7) — real QA numbers, at least one stem, non-hardcoded
+   `render_timestamp`; or amend step 8's copy to match. *Accept:* nothing step 8 claims is
+   contradicted by the card it spotlights.
+5. **Confetti behind the card** (§8). *Accept:* no particle overlaps the finale text.
+6. **Stop the celebration swapping the body** (§8). *Accept:* card height is unchanged between
+   instruction and celebration on every action step.
+7. **Name the variant consistently in the finale** (§3). *Accept:* `snapshot.params` reads the
+   same as the Queue card title, balance axis included.
 
-### Phase B — First impression
+### Phase B — Pacing and exits
 
-7. **Cut the splash on repeat loads.** `:978-990` — show it once per session
-   (`sessionStorage`), and shorten to ~600 ms when it does show.
-   *Accept:* a reload reaches interactive Design in well under 1 s.
-8. **Draw the idle spectrum.** Render the selected variant's static curve from
-   `bandLowHz`/`bandHighHz`/`spectrum.bell`/colour slope, so the hero card responds to the
-   four controls without audio.
-9. **Rewrite the six tautological captions** (`:91-106`) in the register the colour captions
-   already set.
+8. **"Do it for me" at ~3 s, visible-but-quiet from 0 s** (§6).
+9. **Demote "Skip tour"** from primary-by-default to a quiet escape hatch (§5).
+10. **Back on action steps.** Back is `info`-only today; there is no reason an action step cannot
+    return to the previous step, and it removes the "my only option is to quit" feeling that
+    powers §4 and §5.
 
-### Phase C — Library consolidation
+### Phase C — The promise (needs §10 Q1 answered first)
 
-10. **Collapse the two rename flows into one** (§7.1); delete `generate`/`regenerate`
-    (`:1312`, `:1336`) or give them `generateTitle`'s error handling; make `approve()`
-    (`:1345`) refresh.
-11. **One player at a time**, and an explicit `preview.stop()` on tab change (§7.4, §7.7).
-12. **Buffering state on Play** (§7.6).
-13. **Spend the "new" badge per track**, not per visit (`:969-977`).
+11. Reframe step 1 and step 8, or hold step 8 for the user's own render (§3).
 
-### Phase D — Resilience
+### Housekeeping
 
-14. **Settle `refresh()`'s four fetches independently** (`:924-947`) and degrade per pane.
+12. **`.agents/skills/testing-noise-web/SKILL.md` says the tour has "11 steps"** and lists
+    `button.tutorial-next` as labelled "Done" on the last step. The step count is now **9**. The
+    skill is the test contract for this feature — correct it in the same PR as any step change.
 
 ---
 
 ## 10. Decisions needed from Austin
 
-1. **Q1 — Should *Create track* navigate to the Queue, or only offer to?** A toast action
-   (Phase A-1) is the conservative choice and keeps the user's place; auto-navigation makes
-   the demo hands-free but takes the wheel. *Recommendation: toast action now; revisit once
-   the tutorial in `first-time-user-tutorial-plan.md` exists, since a hands-on tour will want
-   to drive navigation itself.*
-2. **Q2 — Names for the balance axis: "Smooth / Balanced / Grainy" or "Bed / Even /
-   Texture"?** Both are in the app today. *Recommendation: Smooth / Balanced / Grainy — it
-   describes the result rather than the renderer's internals, and it is what the Queue and
-   Library already show, so track titles already rendered stay correct.*
-3. **Q3 — Poll interval while work is active.** 5 s against a ~3.5 s render is proposed. On
-   `dispatch` mode this is a GitHub Actions round trip per poll per open tab — is that
-   acceptable, or should it be 10 s?
-
----
-
-## 11. What is good, and should not be touched
-
-- **The Design instrument.** Four axes, glyph segments with roving `tabIndex` and haptics,
-  the live spectrum with the EQ curve drawn over it, and FX sections that remember their
-  previous state. Nothing in this document changes how any of it works.
-- **The Queue card's diagnostics.** Failed step, exit code, duration, runner, run history
-  across attempts, and a logs link — this is better failure reporting than most production
-  tooling, and the two-tap retry confirm is the right amount of friction for a dispatch.
-- **`lib/queue-strings.ts`.** The copy problems in §6 are all in strings that live *outside*
-  this module. It is the model the other three tabs should follow, and the fixes in Phase A-5
-  should land there rather than inline.
-- **The commit is honest.** *Create track* queues exactly one variant, says so in its
-  `aria-label`, and the FX block travels with it. The problem is never what the button does —
-  only what happens next.
+1. **Q1 — Should the tour promise "hear your own render"?** Option (a) reframe the copy and let
+   the render-done banner deliver the payoff later; option (b) hold step 8 until the user's render
+   lands. *Recommendation: (a).* In `dispatch` mode a render is minutes of Actions time, so (b)
+   either strands the user on the Queue or quietly becomes (a) anyway — and (a) is a copy change,
+   not an engine change.
+2. **Q2 — Should skipping the tour be recoverable?** I recommend yes: skip dismisses for the
+   session, only completion persists. The counter-argument is that a user who skips twice is
+   telling you something. If you prefer the current behaviour, then Escape at minimum must stop
+   being an exit (§5.1) — one reflex keypress should not permanently consume a first run.
+3. **Q3 — Is the bundled demo track worth stems and real QA?** Adding both makes step 8's copy
+   true and makes the Library step demonstrate the QA story properly. The cost is repo bytes.
+   *Recommendation: yes for QA numbers (a sidecar edit, no bytes), your call on stems.*
