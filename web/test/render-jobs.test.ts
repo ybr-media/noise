@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { groupCompletedByDay, groupJobs, partitionRenderJobs } from "../lib/render-jobs";
+import { groupCompletedByDay, groupJobs, oldestFirstAttempts, partitionRenderJobs, pendingRenderJobCount } from "../lib/render-jobs";
 import type { QueueJob } from "../lib/types";
 
 const job = (id: string, variantId: string, queuedAt: string, status: QueueJob["status"], extra: Partial<QueueJob> = {}): QueueJob => ({
@@ -37,6 +37,29 @@ test("keeps retries of one take in its attempt history", () => {
   const retried = grouped.find((item) => item.latest.id === "take-retry");
   assert.ok(retried);
   assert.deepEqual(retried.attempts.map((attempt) => attempt.id), ["take-retry", "take-old"]);
+  assert.deepEqual(oldestFirstAttempts(retried.attempts).map((attempt) => attempt.id), ["take-old", "take-retry"]);
+});
+
+test("uses the newest attempt status for a grouped card", () => {
+  const jobs = [
+    job("failed", "same", "2026-08-09T12:00:00Z", "Failed"),
+    job("pending-retry", "same", "2026-08-09T12:01:00Z", "Queued"),
+  ];
+  const grouped = groupJobs(jobs);
+  assert.equal(grouped.length, 1);
+  assert.equal(grouped[0].status, "Queued");
+  assert.equal(partitionRenderJobs(jobs, [], []).active.length, 1);
+  assert.equal(partitionRenderJobs(jobs, [], []).needsAttention.length, 0);
+});
+
+test("counts pending cards rather than raw pending jobs", () => {
+  const jobs = [
+    job("pilot-first", "pilot", "2026-08-09T12:00:00Z", "Queued"),
+    job("pilot-second", "pilot", "2026-08-09T12:01:00Z", "Queued"),
+    job("matrix", "matrix", "2026-08-09T12:02:00Z", "Queued"),
+  ];
+  assert.equal(jobs.filter((item) => item.status === "Queued" || item.status === "Rendering").length, 3);
+  assert.equal(pendingRenderJobCount(jobs), 2);
 });
 
 test("partitions grouped failures and keeps superseded jobs in history", () => {

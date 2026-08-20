@@ -27,7 +27,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { LibraryRecipe, LibraryTrack, QueueJob, Release, ReleaseTrack, Variant } from "@/lib/types";
 import type { DismissalRecord } from "@/lib/dismissals";
 import { absoluteTime, batchMembersForJob, knownVariantId, queueJobIdentity, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
-import { groupCompletedByDay, partitionRenderJobs, type RenderJob } from "@/lib/render-jobs";
+import { groupCompletedByDay, oldestFirstAttempts, partitionRenderJobs, pendingRenderJobCount, type RenderJob } from "@/lib/render-jobs";
 import { queueStrings } from "@/lib/queue-strings";
 import { formatDisplayName, formatQueueDisplayName, OPTIONS } from "@/lib/variant-labels";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
@@ -914,7 +914,7 @@ export default function NoiseLab() {
   const retryInFlight = useRef(false);
   const tabsRef = useRef<HTMLElement>(null);
   const lensRef = useRef<HTMLDivElement>(null);
-  const queueCount = jobs.filter((job) => job.status === "Queued" || job.status === "Rendering").length;
+  const queueCount = pendingRenderJobCount(jobs);
   const libraryCount = tracks.filter((track) => track.exists && !seenLibraryIds.has(track.renderKey)).length;
   const releaseCount = releases.filter((release) => release.ladder.ready && !release.ladder.submitted).length;
   const selected = useMemo(() => variants.find((variant) => variant.color === selection.color && variant.band === selection.band && variant.motion === selection.motion && variant.balance === selection.balance), [selection, variants]);
@@ -1872,7 +1872,14 @@ function Queue({ jobs, initialLoad, mode, stats, variants, tracks, onRefresh, re
         <Banner tone="danger" className="queue-failure-content"><div className="queue-diagnostics"><div>Failed step · {latest.failure?.step ?? "Unavailable"}</div><div>Exit code · {latest.failure?.exitCode ?? "—"}</div><div>Duration · {latest.failure?.durationSeconds ? formatQueueDuration(latest.failure.durationSeconds) : latest.durationSeconds ? formatQueueDuration(latest.durationSeconds) : "—"}</div><div>Runner · {latest.failure?.runner ?? (mode === "local" ? "Local worker" : "—")}</div>{latest.logsUrl && <a href={latest.logsUrl} target="_blank" rel="noopener">{queueStrings.logs} →</a>}</div></Banner>
       </Disclosure>}
       {job.attempts.length > 1 && <Disclosure open={openDisclosure === `${latest.id}-history`} onOpenChange={(open) => setOpenDisclosure(open ? `${latest.id}-history` : null)} className="queue-detail-strip queue-history-strip" summary={<>{queueStrings.runHistory(job.attempts.length)}<ChevronDown size={15} /></>}>
-        <div className="queue-diagnostics">{job.attempts.map((attempt, index) => <div key={attempt.id}><span>{queueStrings.attempt(index + 1, relativeTime(attempt.queuedAt))}</span> <span className={attempt.status === "Done" ? "duration-good" : "duration-bad"}>{attempt.status === "Done" ? "✓" : "✗"} {attempt.durationSeconds ? formatQueueDuration(attempt.durationSeconds) : "—"}</span></div>)}</div>
+        <div className="queue-diagnostics">{oldestFirstAttempts(job.attempts).map((attempt, index) => {
+          const failureReason = attempt.failure?.step
+            ? attempt.error ?? queueStrings.failedAt(attempt.failure.step, attempt.failure.exitCode)
+            : attempt.error;
+          const detail = failureReason ?? (attempt.durationSeconds ? formatQueueDuration(attempt.durationSeconds) : "—");
+          const tone = attempt.status === "Done" ? "duration-good" : attempt.status === "Failed" || attempt.status === "Cancelled" ? "duration-bad" : "";
+          return <div key={attempt.id}><span>{queueStrings.attempt(index + 1, relativeTime(attempt.queuedAt))}</span> <span className={tone}>{queueStrings.attemptStatus(attempt.status)} · {detail}</span></div>;
+        })}</div>
       </Disclosure>}
       <div className="queue-meta"><time title={absoluteTime(displayTime)}>{relativeTime(displayTime)}</time>{failed && ` · ${job.attempts.length} attempts`}</div>
       <div className="queue-card-actions">{done ? <Button variant="neutral" type="button" onClick={() => onDone(latest)}>{queueStrings.library}</Button> : failed && <><Button variant="neutral" type="button" className={retried.has(latest.id) ? "queue-retry-confirmed" : ""} disabled={queueing || retried.has(latest.id)} onClick={() => void retry(job)}>{retried.has(latest.id) ? "Queued ✓" : confirm === latest.id ? `Dispatch Actions run (${stats.sampleSize ? renderEstimate(stats.medianRenderSeconds, stats.sampleSize) : "~6 min"})?` : "Re-run render"}</Button><Button variant="neutral" type="button" onClick={() => hasArtifacts(job) ? setConfirmRemove(job) : void remove(job)}>Remove</Button></>}</div>

@@ -15,3 +15,10 @@ test("all top-level queue strings avoid restricted implementation terms", () => 
   ].join(" ");
   assert.doesNotMatch(topLevel, /\b(master|workflow|attempt)\b/i);
 });
+
+test("queue attempt statuses distinguish pending and failed work", () => {
+  assert.equal(queueStrings.attemptStatus("Queued"), "Queued");
+  assert.equal(queueStrings.attemptStatus("Rendering"), "Running");
+  assert.equal(queueStrings.attemptStatus("Failed"), "✗ Failed");
+  assert.equal(queueStrings.attemptStatus("Done"), "✓ Ready");
+});

@@ -36,6 +36,17 @@ export function groupJobs(jobs: QueueJob[]): RenderJob[] {
     .sort((a, b) => newestFirst(a.latest, b.latest));
 }
 
+export function oldestFirstAttempts(attempts: QueueJob[]): QueueJob[] {
+  return [...attempts].sort((a, b) => {
+    const byTime = new Date(a.queuedAt).getTime() - new Date(b.queuedAt).getTime();
+    return byTime || a.id.localeCompare(b.id);
+  });
+}
+
+export function pendingRenderJobCount(jobs: QueueJob[]): number {
+  return groupJobs(jobs).filter((job) => job.status === "Queued" || job.status === "Rendering").length;
+}
+
 export function partitionRenderJobs(
   jobs: QueueJob[],
   pilotMembers: string[],
