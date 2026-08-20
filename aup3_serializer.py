@@ -22,6 +22,8 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
+from resampling import resample_stereo
+
 FLOAT32_SAMPLE_FORMAT = 262159
 
 
@@ -277,6 +279,15 @@ def _children(element: ET.Element, name: str) -> list[ET.Element]:
     return [child for child in element if child.tag.rsplit("}", 1)[-1] == name]
 
 
+def _float(element: ET.Element, name: str, default: str | None = None) -> float:
+    """Read one numeric attribute, naming the offender when it is not a number."""
+    value = _number(element, name, default)
+    try:
+        return float(value)
+    except ValueError as exc:
+        raise Aup3Error(f"{element.tag}: {name} is not a number: {value!r}") from exc
+
+
 def parse_project_xml(xml_text: str) -> tuple[Track, ...]:
     """Parse readable Audacity project XML without decoding binary XML."""
     try:
@@ -288,35 +299,39 @@ def parse_project_xml(xml_text: str) -> tuple[Track, ...]:
     for track_node in root.iter():
         if track_node.tag.rsplit("}", 1)[-1] != "wavetrack":
             continue
-        rate = int(float(_number(track_node, "rate")))
+        rate = int(_float(track_node, "rate"))
         clips: list[Clip] = []
         for clip_node in _children(track_node, "waveclip"):
             sequences: list[Sequence] = []
             for sequence_node in _children(clip_node, "sequence"):
                 blocks = tuple(
                     WaveBlock(
-                        int(_number(block_node, "start")),
-                        int(_number(block_node, "blockid")),
+                        int(_float(block_node, "start")),
+                        int(_float(block_node, "blockid")),
                     )
                     for block_node in _children(sequence_node, "waveblock")
                 )
                 sequences.append(
                     Sequence(
-                        int(_number(sequence_node, "numsamples")),
-                        int(_number(sequence_node, "sampleformat")),
+                        int(_float(sequence_node, "numsamples")),
+                        int(_float(sequence_node, "sampleformat")),
                         blocks,
                     )
                 )
             clips.append(
                 Clip(
-                    float(_number(clip_node, "offset", "0")),
-                    round(float(_number(clip_node, "trimleft", "0")) * rate),
-                    round(float(_number(clip_node, "trimright", "0")) * rate),
+                    _float(clip_node, "offset", "0"),
+                    round(_float(clip_node, "trimleft", "0") * rate),
+                    round(_float(clip_node, "trimright", "0") * rate),
                     tuple(sequences),
                 )
             )
         channel = track_node.attrib.get("channel")
-        tracks.append(Track(rate, tuple(clips), int(channel) if channel is not None else None))
+        if channel is not None:
+            channel_value = int(_float(track_node, "channel"))
+        else:
+            channel_value = None
+        tracks.append(Track(rate, tuple(clips), channel_value))
     if not tracks:
         raise Aup3Error("project XML contains no wavetrack")
     return tuple(tracks)
@@ -341,6 +356,11 @@ def _read_block(db: sqlite3.Connection, block_id: int, length: int) -> np.ndarra
     sample_format, blob = row
     if sample_format != FLOAT32_SAMPLE_FORMAT:
         raise Aup3Error(f"sampleblock {block_id} is not float32: {sample_format}")
+    if len(blob) % 4:
+        raise Aup3Error(
+            f"sampleblock {block_id} holds {len(blob)} bytes, "
+            "which is not a whole number of float32 samples"
+        )
     values = np.frombuffer(blob, dtype="<f4")
     if values.size < length:
         raise Aup3Error(
@@ -474,14 +494,12 @@ def extract_track(project_path: Path, project_xml: str, track_index: int = 0) ->
 
 
 def write_wav(samples: np.ndarray, rate: int, output_path: Path) -> None:
-    """Write extracted samples as the required 48 kHz/24-bit stereo WAV."""
+    """Write extracted samples as a 24-bit stereo WAV."""
     if samples.ndim != 2 or samples.shape[1] != 2:
         raise Aup3Error("output must be a stereo sample matrix")
-    if rate != 48000:
-        raise Aup3Error(f"expected 48000 Hz, got {rate}")
     sf.write(output_path, samples, rate, format="WAV", subtype="PCM_24")
     with sf.SoundFile(output_path) as info:
-        if (info.samplerate, info.channels, info.subtype) != (48000, 2, "PCM_24"):
+        if (info.samplerate, info.channels, info.subtype) != (rate, 2, "PCM_24"):
             raise Aup3Error("written WAV does not have required format")
 
 
@@ -523,6 +541,7 @@ def extract_stereo_tracks_to_wavs(
     project_path: Path,
     project_xml_path: Path | None,
     output_paths: tuple[Path, ...],
+    stem_rate: int = 48000,
 ) -> None:
     """Write one WAV per stereo track, pairing tracks and paths in order."""
     project_xml = _project_xml(project_path, project_xml_path)
@@ -532,8 +551,11 @@ def extract_stereo_tracks_to_wavs(
             f"project has {len(indexes)} stereo track(s), "
             f"expected {len(output_paths)}"
         )
-    for index, output_path in zip(indexes, output_paths):
+    for position, (index, output_path) in enumerate(zip(indexes, output_paths)):
         samples, rate = extract_track(project_path, project_xml, index)
+        if position < len(indexes) - 1:
+            samples = resample_stereo(samples, rate, stem_rate)
+            rate = stem_rate
         write_wav(samples, rate, output_path)
 
 

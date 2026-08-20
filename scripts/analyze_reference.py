@@ -184,6 +184,11 @@ def _third_octave(frequencies: np.ndarray, levels: np.ndarray, broadband: float)
 def _analysis_pass(path: Path) -> AnalysisPass:
     with sf.SoundFile(path) as audio:
         rate, channels, frames = audio.samplerate, audio.channels, len(audio)
+    # Every statistic below averages over the frame count, so an empty file is
+    # named here rather than surfacing as a division by zero or an empty
+    # concatenate far from the file that caused it.
+    if frames <= 0 or rate <= 0:
+        raise ValueError(f"audio has no frames to analyze: {path}")
     sum_sq = 0.0
     peak = 0.0
     sum_l = sum_r = sum_l2 = sum_r2 = sum_lr = 0.0
@@ -374,7 +379,8 @@ def main(argv: list[str] | None = None) -> int:
     results = [analyze_file(path) for path in paths]
     report_path = args.report or args.input.with_suffix(".html")
     json_path = args.json or args.input.with_suffix(".json")
-    report_path.parent.mkdir(parents=True, exist_ok=True)
+    for path in (report_path, json_path):
+        path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps([asdict(result) for result in results], indent=2), encoding="utf-8")
     render_report(results, report_path)
     if args.emit_variants:

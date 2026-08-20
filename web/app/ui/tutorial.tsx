@@ -10,8 +10,11 @@ export type TourEventMeta = { jobId?: string; variantId?: string };
 export type TourSnapshot = {
   params?: string;
   renderLabel?: string;
-  played?: boolean;
+  queuedVariantId?: string | null;
+  playedTrackId?: string | null;
+  renderStatus?: string;
 };
+export type TourEventSpec = TourEvent & { target?: string };
 export type TourStep = {
   id: string;
   kind: "info" | "action";
@@ -19,6 +22,7 @@ export type TourStep = {
   target?: string;
   event?: TourEventType;
   group?: string;
+  eventSequence?: readonly TourEventSpec[];
   title: string;
   body: string;
 };
@@ -39,8 +43,8 @@ export function tutorialSteps(mode: TourMode): TourStep[] {
       tab: "design",
       target: "design-render",
       event: "render-enqueued",
-      title: "Queue a real render",
-      body: "Ready? Hit Create track. This queues a real job with the engine.",
+      title: "Create the track",
+      body: "Create track queues a real job with the engine: full-length master plus stems. Nothing here is a mock.",
     };
   const queueStep: TourStep = mode === "unavailable"
     ? {
@@ -49,7 +53,7 @@ export function tutorialSteps(mode: TourMode): TourStep[] {
       tab: "queue",
       target: "dock-queue",
       title: "Your queue",
-      body: "When designs render elsewhere, their real statuses will appear here.",
+      body: "When designs render elsewhere, their real statuses appear here.",
     }
     : {
       id: "queue-tab",
@@ -58,35 +62,35 @@ export function tutorialSteps(mode: TourMode): TourStep[] {
       target: "dock-queue",
       event: "tab-changed",
       group: "queue",
-      title: "Find the job",
-      body: "Your job went somewhere. Tap the Queue tab to find it.",
+      title: "Follow it to Queue",
+      body: "That badge on Queue is your job. Open it.",
     };
   return [
     {
       id: "welcome",
       kind: "info",
-      title: "Welcome to Noise Lab",
-      body: "You're about to design a variant, render it, and hear it — for real, not a demo. Takes about two minutes.",
+      title: "Make your first track",
+      body: "You'll design a sound, render it for real, and hear the result. Two minutes, and you keep whatever you make.",
     },
     {
       id: "param-color",
       kind: "action",
       tab: "design",
-      target: "design-params",
+      target: "design-color",
       event: "param-selected",
       group: "color",
-      title: "Start with a color",
-      body: "Every track starts here. Tap a color — white, green, pink, or brown. The same choices always make the same sound.",
+      title: "Pick a color",
+      body: "Color sets the tilt of the noise: White is flat, Brown is deepest. The caption on the right names exactly what you picked.",
     },
     {
       id: "param-shape",
       kind: "action",
       tab: "design",
-      target: "design-params",
+      target: "design-shape",
       event: "param-selected",
       group: "shape",
-      title: "Shape the sound",
-      body: "Now shape it: pick a texture, motion, or mix. Watch the caption update — that's your variant's fingerprint.",
+      title: "Now narrow it down",
+      body: "Band, Motion and Balance decide which part of the spectrum you keep, how much it moves, and how it's mixed. Change any one — the caption and the spectrum follow.",
     },
     {
       id: "fx",
@@ -94,8 +98,8 @@ export function tutorialSteps(mode: TourMode): TourStep[] {
       tab: "design",
       target: "design-fx",
       event: "fx-changed",
-      title: "Try a tone preset",
-      body: "EQ and reverb shape the render itself, not just the preview. Try a preset — Flat and Off are always safe to come back to.",
+      title: "Optional: EQ and reverb",
+      body: "EQ presets — Warm Bed, Airy, Midnight, Telephone — are starting points you can nudge band by band, whether EQ is already on or you switch it on. Reverb adds a room. Both bake into the render, not just the preview.",
     },
     renderStep,
     queueStep,
@@ -105,57 +109,59 @@ export function tutorialSteps(mode: TourMode): TourStep[] {
       tab: "queue",
       target: "queue-job",
       title: "Real status, no fake progress",
-      body: "There it is — Queued, then Rendering, then Done. You don't have to wait here.",
+      body: "Jobs read Queued, then Running, then Ready, and the header says what the runner itself is doing. You don't have to wait here — we'll tell you when it lands.",
     },
     {
-      id: "library-tab",
+      id: "library-play",
       kind: "action",
       tab: "library",
       target: "dock-library",
-      event: "tab-changed",
-      group: "library",
-      title: "Open the Library",
-      body: "Finished masters live in the Library. Tap the Library tab.",
-    },
-    {
-      id: "track-play",
-      kind: "action",
-      tab: "library",
-      target: "library-track",
-      event: "track-played",
-      title: "Hear your master",
-      body: "Press play on this track. Masters here are QA'd and downloadable — the master plus its three stems.",
-    },
-    {
-      id: "library-naming",
-      kind: "info",
-      tab: "library",
-      target: "library-naming",
-      title: "Approve what you publish",
-      body: "Titles can be suggested for you, but nothing is written until you approve it. Releases bundle approved masters into a publishable set.",
+      eventSequence: [
+        { type: "tab-changed", group: "library", target: "dock-library" },
+        { type: "track-played", target: "library-track" },
+      ],
+      title: "Hear a master",
+      body: "Finished masters live in Library. Press play. Each one carries its own QA numbers and downloads as the master, a single stem, or all of it as a zip.",
     },
     {
       id: "done",
       kind: "info",
-      title: "You did the whole loop",
-      body: "You designed a variant, queued a render, and played your first master. Replay this any time from the info button.",
+      title: "That's the loop",
+      body: "Rename a track with the sparkle button, and bundle approved masters into a Release when you're ready. Replay this any time from the (i) button.",
     },
   ];
 }
 
-export function tourEventMatches(step: TourStep, event: TourEvent): boolean {
+export function tourEventMatches(step: TourStep, event: TourEvent, eventIndex = 0): boolean {
+  const expected = step.eventSequence?.[eventIndex] ?? (step.event ? { type: step.event, group: step.group } : undefined);
   return step.kind === "action"
-    && step.event === event.type
-    && (!step.group || step.group === event.group);
+    && expected?.type === event.type
+    && (!expected.group || expected.group === event.group);
 }
 
 export function shouldPersistTutorial(authConfigured: boolean, replay: boolean): boolean {
   return authConfigured && !replay;
 }
 
+export function playedTrackIdAfterPlayback(
+  current: string | null,
+  variantId: string,
+  outcome: "playing" | "error",
+): string | null {
+  if (outcome === "playing") return variantId;
+  return current === variantId ? null : current;
+}
+
 export function finaleCopy(snapshot: TourSnapshot): string {
-  const playback = snapshot.played === false ? "your first master is ready to play" : "played your first master";
-  return `You did the whole loop: designed ${snapshot.params ?? "your variant"}, queued ${snapshot.renderLabel ?? "a real render"}, and ${playback}. We'll ping you here when your render is done. Replay this any time from the info button.`;
+  const playback = snapshot.playedTrackId
+    ? snapshot.queuedVariantId && snapshot.playedTrackId === snapshot.queuedVariantId
+      ? "played the master you just queued"
+      : "played a master from your Library"
+    : "haven't played a master yet";
+  const queued = snapshot.renderStatus === "Queued" || snapshot.renderStatus === "Rendering"
+    ? " Your render is still queued."
+    : "";
+  return `You designed ${snapshot.params ?? "your sound"}, queued ${snapshot.renderLabel ?? "your track"}, and ${playback}.${queued} Rename a track with the sparkle button, and bundle approved masters into a Release when you're ready. Replay this any time from the (i) button.`;
 }
 
 export function shouldFireRenderBanner(alreadyShown: boolean, status: string | undefined): boolean {
@@ -172,11 +178,13 @@ type TutorialProps = {
 export function useTutorial({ mode, authConfigured, onDoItForMe, snapshot = {} }: TutorialProps) {
   const [active, setActive] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
+  const [eventIndex, setEventIndex] = useState(0);
   const [celebration, setCelebration] = useState<string | null>(null);
   const onDoItForMeRef = useRef(onDoItForMe);
   const activeRef = useRef(active);
   const stepsRef = useRef<TourStep[]>([]);
   const stepIndexRef = useRef(stepIndex);
+  const eventIndexRef = useRef(eventIndex);
   const replayRef = useRef(false);
   const celebrationTimerRef = useRef<number | null>(null);
   onDoItForMeRef.current = onDoItForMe;
@@ -184,7 +192,9 @@ export function useTutorial({ mode, authConfigured, onDoItForMe, snapshot = {} }
   activeRef.current = active;
   stepsRef.current = steps;
   stepIndexRef.current = stepIndex;
+  eventIndexRef.current = eventIndex;
   const step = steps[stepIndex] ?? steps[0];
+  const target = step.eventSequence?.[eventIndex]?.target ?? step.target;
 
   const complete = useCallback(() => {
     setActive(false);
@@ -193,6 +203,7 @@ export function useTutorial({ mode, authConfigured, onDoItForMe, snapshot = {} }
   const start = useCallback((options?: { replay?: boolean }) => {
     replayRef.current = options?.replay ?? false;
     setStepIndex(0);
+    setEventIndex(0);
     setCelebration(null);
     setActive(true);
   }, []);
@@ -201,15 +212,23 @@ export function useTutorial({ mode, authConfigured, onDoItForMe, snapshot = {} }
     void meta;
     const currentSteps = stepsRef.current;
     const currentIndex = stepIndexRef.current;
+    const currentEventIndex = eventIndexRef.current;
     const currentStep = currentSteps[currentIndex];
-    if (!tourEventMatches(currentStep, { type, group })) return;
+    if (!tourEventMatches(currentStep, { type, group }, currentEventIndex)) return;
     if (celebrationTimerRef.current) window.clearTimeout(celebrationTimerRef.current);
     const message = type === "render-enqueued" ? "Queued. That's a real render job." : "Nice — that's exactly it.";
     setCelebration(message);
     try { navigator.vibrate?.(10); } catch { /* vibration is optional */ }
     celebrationTimerRef.current = window.setTimeout(() => {
+      if (stepIndexRef.current !== currentIndex || eventIndexRef.current !== currentEventIndex) return;
       setCelebration(null);
-      setStepIndex((current) => current === currentIndex ? Math.min(currentIndex + 1, currentSteps.length - 1) : current);
+      const sequenceLength = currentStep.eventSequence?.length ?? 1;
+      if (currentEventIndex < sequenceLength - 1) {
+        setEventIndex(currentEventIndex + 1);
+      } else {
+        setEventIndex(0);
+        setStepIndex((current) => current === currentIndex ? Math.min(currentIndex + 1, currentSteps.length - 1) : current);
+      }
     }, 420);
   }, []);
   useEffect(() => () => {
@@ -234,12 +253,20 @@ export function useTutorial({ mode, authConfigured, onDoItForMe, snapshot = {} }
     complete,
     skip,
     doItForMe,
-    overlay: active ? <TutorialOverlay step={step} stepIndex={stepIndex} total={steps.length} snapshot={snapshot} celebration={celebration} onNext={() => (stepIndex === steps.length - 1 ? complete() : setStepIndex((current) => current + 1))} onBack={() => setStepIndex((current) => Math.max(0, current - 1))} onSkip={skip} onDoItForMe={doItForMe} /> : null,
+    overlay: active ? <TutorialOverlay step={step} target={target} stepIndex={stepIndex} total={steps.length} snapshot={snapshot} celebration={celebration} onNext={() => {
+      setEventIndex(0);
+      if (stepIndex === steps.length - 1) complete();
+      else setStepIndex((current) => current + 1);
+    }} onBack={() => {
+      setEventIndex(0);
+      setStepIndex((current) => Math.max(0, current - 1));
+    }} onSkip={skip} onDoItForMe={doItForMe} /> : null,
   };
 }
 
-function TutorialOverlay({ step, stepIndex, total, snapshot = {}, celebration, onNext, onBack, onSkip, onDoItForMe }: {
+function TutorialOverlay({ step, target, stepIndex, total, snapshot = {}, celebration, onNext, onBack, onSkip, onDoItForMe }: {
   step: TourStep;
+  target?: string;
   stepIndex: number;
   total: number;
   onNext: () => void;
@@ -252,6 +279,7 @@ function TutorialOverlay({ step, stepIndex, total, snapshot = {}, celebration, o
   const cardRef = useRef<HTMLDivElement>(null);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [cardPlacement, setCardPlacement] = useState<"bottom" | "top">("bottom");
+  const [cardStyle, setCardStyle] = useState<React.CSSProperties>();
   const [doItVisible, setDoItVisible] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
@@ -272,17 +300,18 @@ function TutorialOverlay({ step, stepIndex, total, snapshot = {}, celebration, o
     return () => window.clearTimeout(timer);
   }, [step]);
   useEffect(() => {
-    const target = step.target ? document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`) : null;
-    if (!target) {
+    const targetElement = target ? document.querySelector<HTMLElement>(`[data-tour="${target}"]`) : null;
+    if (!targetElement) {
       setRect(null);
       setCardPlacement("bottom");
+      setCardStyle(undefined);
       return;
     }
-    target.scrollIntoView({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
+    targetElement.scrollIntoView({ block: "center", behavior: reducedMotion ? "auto" : "smooth" });
     let frame = 0;
     const measure = () => {
       frame = window.requestAnimationFrame(() => {
-        const next = target.getBoundingClientRect();
+        const next = targetElement.getBoundingClientRect();
         setRect(next.width > 0 && next.height > 0 ? next : null);
       });
     };
@@ -294,43 +323,55 @@ function TutorialOverlay({ step, stepIndex, total, snapshot = {}, celebration, o
       window.removeEventListener("resize", measure);
       window.removeEventListener("scroll", measure);
     };
-  }, [reducedMotion, step]);
+  }, [reducedMotion, target]);
   useEffect(() => {
     const card = cardRef.current;
     if (!card || !rect) {
       setCardPlacement("bottom");
+      setCardStyle(undefined);
       return;
     }
     const cardBox = card.getBoundingClientRect();
-    const topBox = {
-      left: cardBox.left,
-      right: cardBox.right,
-      top: 14,
-      bottom: 14 + cardBox.height,
+    const width = Math.min(632, window.innerWidth - 28);
+    const left = Math.max(14, Math.min(window.innerWidth - width - 14, rect.left + (rect.width - width) / 2));
+    const gap = 16;
+    const toast = document.querySelector<HTMLElement>(".toast")?.getBoundingClientRect();
+    const overlap = (candidate: { top: number; bottom: number }) => {
+      const horizontal = Math.max(0, Math.min(rect.right, left + width) - Math.max(rect.left, left));
+      const targetOverlap = horizontal * Math.max(0, Math.min(rect.bottom, candidate.bottom) - Math.max(rect.top, candidate.top));
+      const toastOverlap = toast
+        ? Math.max(0, Math.min(toast.right, left + width) - Math.max(toast.left, left))
+          * Math.max(0, Math.min(toast.bottom, candidate.bottom) - Math.max(toast.top, candidate.top))
+        : 0;
+      return { targetOverlap, toastOverlap };
     };
-    const bottomBox = {
-      left: cardBox.left,
-      right: cardBox.right,
-      top: window.innerHeight - 18 - cardBox.height,
-      bottom: window.innerHeight - 18,
-    };
-    const overlap = (candidate: typeof topBox) => {
-      const width = Math.max(0, Math.min(rect.right, candidate.right) - Math.max(rect.left, candidate.left));
-      const height = Math.max(0, Math.min(rect.bottom, candidate.bottom) - Math.max(rect.top, candidate.top));
-      return width * height;
-    };
-    const nextPlacement = overlap(bottomBox) > overlap(topBox) ? "top" : "bottom";
-    setCardPlacement((current) => current === nextPlacement ? current : nextPlacement);
-  }, [rect]);
+    const candidates = [
+      { placement: "bottom" as const, box: { top: rect.bottom + gap, bottom: rect.bottom + gap + cardBox.height } },
+      { placement: "top" as const, box: { top: rect.top - gap - cardBox.height, bottom: rect.top - gap } },
+    ];
+    const inViewport = ({ box }: (typeof candidates)[number]) => box.top >= 14 && box.bottom <= window.innerHeight - 14;
+    const available = candidates.find(({ box }) => inViewport({ box, placement: "bottom" }) && overlap(box).targetOverlap === 0 && overlap(box).toastOverlap === 0)
+      ?? candidates.find(({ box }) => inViewport({ box, placement: "bottom" }) && overlap(box).targetOverlap === 0)
+      ?? candidates.find(inViewport)
+      ?? (overlap(candidates[1].box).targetOverlap + overlap(candidates[1].box).toastOverlap <= overlap(candidates[0].box).targetOverlap + overlap(candidates[0].box).toastOverlap ? candidates[1] : candidates[0]);
+    setCardPlacement(available.placement);
+    setCardStyle({
+      top: Math.max(14, Math.min(window.innerHeight - cardBox.height - 14, available.box.top)),
+      left,
+      right: "auto",
+      bottom: "auto",
+      width,
+    });
+  }, [celebration, rect, target]);
   useEffect(() => {
-    const target = step.target ? document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`) : null;
+    const targetElement = target ? document.querySelector<HTMLElement>(`[data-tour="${target}"]`) : null;
     const first = cardRef.current?.querySelector<HTMLElement>("button, [href], input, [tabindex]:not([tabindex='-1'])");
     if (step.kind === "action") {
-      target?.querySelector<HTMLElement>("button, [href], input, [tabindex]:not([tabindex='-1'])")?.focus();
+      targetElement?.querySelector<HTMLElement>("button, [href], input, [tabindex]:not([tabindex='-1'])")?.focus();
     } else {
       first?.focus();
     }
-  }, [step]);
+  }, [step, target]);
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") onSkip();
@@ -366,19 +407,18 @@ function TutorialOverlay({ step, stepIndex, total, snapshot = {}, celebration, o
       {rect && (
         <>
           <div className="tutorial-blocker tutorial-blocker-top" style={{ height: rect.top }} />
-          <div className="tutorial-blocker tutorial-blocker-left" style={{ top: rect.top, width: rect.left, height: rect.height }} />
-          <div className="tutorial-blocker tutorial-blocker-right" style={{ top: rect.top, left: rect.right, height: rect.height }} />
-          <div className="tutorial-blocker tutorial-blocker-bottom" style={{ top: rect.bottom }} />
+          <div className="tutorial-blocker tutorial-blocker-left" style={{ top: rect.top, left: 0, width: rect.left, height: rect.height }} />
+          <div className="tutorial-blocker tutorial-blocker-right" style={{ top: rect.top, left: rect.right, right: 0, height: rect.height }} />
+          <div className="tutorial-blocker tutorial-blocker-bottom" style={{ top: rect.bottom, bottom: 0 }} />
           <svg className={`tutorial-ring${celebration ? " is-celebrating" : ""}`} aria-hidden="true">
             <rect x={rect.left} y={rect.top} width={rect.width} height={rect.height} rx="16" />
           </svg>
           {celebration && <Check className="tutorial-check" size={24} style={{ left: rect.left + rect.width / 2 - 12, top: rect.top + rect.height / 2 - 12 }} />}
         </>
       )}
-      <div ref={cardRef} className={`soft-card card-padding-md tutorial-card${cardPlacement === "top" ? " is-top" : ""}`} role="dialog" aria-labelledby="tutorial-title">
-        <button type="button" className="tutorial-skip" onClick={onSkip}>Skip</button>
-        <div className="tutorial-step-count" aria-hidden="true">{Array.from({ length: total }, (_, index) => <span key={index} className={index === stepIndex ? "is-active" : ""} />)}</div>
-        <span className="sr-only">Step {stepIndex + 1} of {total}</span>
+      <div ref={cardRef} className={`soft-card card-padding-md tutorial-card${cardPlacement === "top" ? " is-top" : ""}`} style={cardStyle} role="dialog" aria-labelledby="tutorial-title">
+        <button type="button" className="tutorial-skip" onClick={onSkip}>Skip tour</button>
+        <div className="tutorial-step-count">Step {stepIndex + 1} of {total}</div>
         <h2 id="tutorial-title">{step.title}</h2>
         <p className={step.kind === "action" ? "tutorial-instruction" : undefined} aria-live={step.kind === "action" ? "polite" : undefined}>{body}</p>
         <div className="tutorial-actions">

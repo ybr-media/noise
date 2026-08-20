@@ -4,10 +4,11 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 import soundfile as sf
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "scripts"))
-from analyze_reference import analyze_file
+from analyze_reference import _analysis_pass, analyze_file, main
 
 
 def write_fixture(path: Path, data: np.ndarray, rate: int = 8000) -> Path:
@@ -73,3 +74,23 @@ def test_stereo_correlation_and_96k(tmp_path: Path) -> None:
     assert high_rate.sample_rate == 96000
     assert abs(high_rate.spectrum.slope_db_per_oct or 99) < 1.0
     assert not any(b.skipped for b in high_rate.third_octave)
+
+
+def test_an_empty_file_names_itself(tmp_path: Path) -> None:
+    """A zero-frame source must be reported, not divided by."""
+    empty = write_fixture(tmp_path / "empty.wav", np.zeros(0))
+    with pytest.raises(ValueError, match="no frames"):
+        _analysis_pass(empty)
+
+
+def test_the_json_and_report_directories_are_created(tmp_path: Path) -> None:
+    rng = np.random.default_rng(7)
+    source = write_fixture(tmp_path / "source.wav", rng.normal(size=160000))
+    destination = tmp_path / "fresh" / "nested"
+    assert main([
+        str(source),
+        "--report", str(destination / "report.html"),
+        "--json", str(destination / "measurements.json"),
+    ]) == 0
+    assert (destination / "measurements.json").exists()
+    assert (destination / "report.html").exists()

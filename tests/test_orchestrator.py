@@ -140,6 +140,8 @@ def test_sidecar_and_log_contract(tmp_path: Path) -> None:
     parsed = Sidecar.from_json(master_sidecar)
     assert parsed.variant_id
     assert parsed.is_master
+    assert parsed.sample_rate == 96000
+    assert parsed.expected_frames is not None
     sidecar_raw = json.loads(master_sidecar.read_text())
     assert sidecar_raw["audacity_version"] == "3.7.8"
     assert sidecar_raw["stem_filenames"] == [
@@ -157,6 +159,8 @@ def test_sidecar_and_log_contract(tmp_path: Path) -> None:
         assert stem_sidecar["role"] == f"stem_{number}"
         assert stem_sidecar["stem"] == ("bed", "texture", "motion")[number - 1]
         assert stem_sidecar["loudness_gain_db"] == gain
+        assert stem_sidecar["sample_rate"] == 48000
+        assert stem_sidecar["expected_frames"] * 2 == sidecar_raw["expected_frames"]
         assert not Sidecar.from_json(Path(stem_path).with_suffix(".json")).is_master
     assert len(list(output.glob("*.json"))) == 4
 
@@ -175,7 +179,9 @@ def test_sidecar_and_log_contract(tmp_path: Path) -> None:
     # The measurement export, the one shared gain, then the four outputs.
     exported = [EXPORT_FILENAME.match(command).group(1) for command in commands if command.startswith("Export2:")]
     assert exported[0].endswith(".measure.wav")
-    assert exported[1:] == list(plan.track_paths)
+    assert exported[1] == plan.master_path
+    assert all(path.endswith(".source.wav") for path in exported[2:])
+    assert all(Path(path).parent != output for path in exported[2:])
     assert not Path(exported[0]).exists()
     gains = [command for command in commands if command.startswith("Amplify:")]
     assert gains[len(plan.stem_paths):] == list(plan.gain_commands(gain)[1:])
@@ -239,8 +245,14 @@ def test_aup3_serializer_measures_the_mix_and_writes_four_files(
 
     written: list[tuple[Path, ...]] = []
 
-    def fake_extract(project: Path, project_xml: Path | None, paths: tuple[Path, ...]) -> None:
-        del project, project_xml
+    def fake_extract(
+        project: Path,
+        project_xml: Path | None,
+        paths: tuple[Path, ...],
+        *,
+        stem_rate: int,
+    ) -> None:
+        del project, project_xml, stem_rate
         written.append(paths)
         for path in paths:
             _fake_export(path)
@@ -415,3 +427,81 @@ def test_persistent_failure_exhausts_retries(tmp_path: Path) -> None:
     records = [json.loads(line) for line in (output / "render_log.jsonl").read_text().splitlines()]
     assert len(records) == 3
     assert all(record["exit_state"].startswith("failure:") for record in records)
+
+
+def test_an_unusable_row_fails_only_itself(tmp_path: Path) -> None:
+    """A bad row is that variant's failure; the rest of the matrix still renders."""
+    source = yaml.safe_load((ROOT / "config" / "variants_pilot.yaml").read_text())
+    good, broken = source["variants"][0], dict(source["variants"][1])
+    broken["seeds"] = {}
+    source["variants"] = [broken, good]
+    matrix = tmp_path / "variants.yaml"
+    matrix.write_text(yaml.safe_dump(source), encoding="utf-8")
+    output = tmp_path / "out"
+
+    def factory(timeout: float) -> FakeTransport:
+        del timeout
+        return FakeTransport(["OK"] * 100)
+
+    def process_factory(binary: str) -> FakeProcess:
+        del binary
+        return FakeProcess()
+
+    assert render_batch(
+        matrix,
+        output,
+        "audacity",
+        3,
+        transport_factory=factory,
+        process_factory=process_factory,
+    ) == 1
+    records = [json.loads(line) for line in (output / "render_log.jsonl").read_text().splitlines()]
+    assert [record["variant_id"] for record in records] == [broken["variant_id"], good["variant_id"]]
+    assert records[0]["exit_state"].startswith("failure:")
+    assert "seed" in records[0]["exit_state"]
+    assert records[0]["commands"] == []
+    assert records[1]["exit_state"] == "success"
+    assert (output / str(good["filename"])).exists()
+
+
+def test_a_row_without_a_filename_fails_only_itself(tmp_path: Path) -> None:
+    source = yaml.safe_load((ROOT / "config" / "variants_pilot.yaml").read_text())
+    broken = dict(source["variants"][0])
+    broken.pop("filename")
+    source["variants"] = [broken]
+    matrix = tmp_path / "variants.yaml"
+    matrix.write_text(yaml.safe_dump(source), encoding="utf-8")
+    output = tmp_path / "out"
+
+    assert render_batch(
+        matrix,
+        output,
+        "audacity",
+        3,
+        transport_factory=lambda timeout: FakeTransport(["OK"] * 100),
+        process_factory=lambda binary: FakeProcess(),
+    ) == 1
+    record = json.loads((output / "render_log.jsonl").read_text().splitlines()[0])
+    assert "filename" in record["exit_state"]
+
+
+def test_a_failed_row_is_retried_by_a_later_run(tmp_path: Path) -> None:
+    """The resume path treats a row that never planned as unrendered."""
+    source = yaml.safe_load((ROOT / "config" / "variants_pilot.yaml").read_text())
+    row = dict(source["variants"][0])
+    broken = {**row, "seeds": {}}
+    matrix = tmp_path / "variants.yaml"
+    output = tmp_path / "out"
+    matrix.write_text(yaml.safe_dump({**source, "variants": [broken]}), encoding="utf-8")
+    assert render_batch(matrix, output, "audacity", 3) == 1
+
+    matrix.write_text(yaml.safe_dump({**source, "variants": [row]}), encoding="utf-8")
+    assert render_batch(
+        matrix,
+        output,
+        "audacity",
+        3,
+        transport_factory=lambda timeout: FakeTransport(["OK"] * 100),
+        process_factory=lambda binary: FakeProcess(),
+    ) == 0
+    assert (output / str(row["filename"])).exists()

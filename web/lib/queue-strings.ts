@@ -12,7 +12,7 @@ export const queueStrings = {
   archivedAt: (time: string) => `archived ${time}`,
   r2Cleanup: { queued: "R2 deletion queued", failed: "R2 deletion could not be queued", unavailable: "R2 deletion unavailable" },
   runHistory: (count: number) => `Run history · ${count}`,
-  synced: (value: string) => `synced ${value}`,
+  synced: (value: string) => `Synced ${value}`,
   statusCaption: { idle: "Idle", queued: "Queued · waiting for runner", rendering: (count: number) => `Rendering · ${count} running` },
   rendering: "Worker is rendering",
   failedAt: (step: string, exitCode?: number | null) => `Failed at step: ${step}${exitCode === null || exitCode === undefined ? "" : ` (exit ${exitCode})`}`,

@@ -1,0 +1,858 @@
+<title>Declared, Not Adopted</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+:root{
+  --ground:#EDEFF3; --surface:#FFFFFF; --surface-2:#F5F6F9; --surface-3:#EAEDF2;
+  --ink:#14171C; --ink-2:#545B67; --ink-3:#868D9B;
+  --rule:#DCE0E7; --rule-soft:#E9ECF1;
+  --signal:#0A7799; --signal-soft:#E4F1F6;
+  --peak:#C3352A; --peak-soft:#FBEDEB;
+  --shadow:0 1px 2px rgba(16,20,35,.05), 0 12px 30px rgba(16,20,40,.07);
+  --display:"Archivo","Archivo Expanded",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --body:"IBM Plex Sans",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#101319; --surface:#191D24; --surface-2:#21262E; --surface-3:#272D36;
+    --ink:#E9ECF1; --ink-2:#98A0AE; --ink-3:#6C7484;
+    --rule:#2A303A; --rule-soft:#232830;
+    --signal:#1F9AC0; --signal-soft:#12262E;
+    --peak:#DC6151; --peak-soft:#2C1C1A;
+    --shadow:0 1px 2px rgba(0,0,0,.45), 0 12px 30px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101319; --surface:#191D24; --surface-2:#21262E; --surface-3:#272D36;
+  --ink:#E9ECF1; --ink-2:#98A0AE; --ink-3:#6C7484;
+  --rule:#2A303A; --rule-soft:#232830;
+  --signal:#1F9AC0; --signal-soft:#12262E;
+  --peak:#DC6151; --peak-soft:#2C1C1A;
+  --shadow:0 1px 2px rgba(0,0,0,.45), 0 12px 30px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box;}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--body); font-size:16.5px; line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:920px; margin:0 auto; padding:0 28px 120px;}
+
+/* ---------- masthead ---------- */
+.mast{padding:72px 0 0;}
+.eyebrow{
+  font-family:var(--mono); font-size:11.5px; font-weight:500; letter-spacing:.14em;
+  text-transform:uppercase; color:var(--ink-3); display:flex; gap:14px; flex-wrap:wrap;
+}
+.eyebrow .sep{color:var(--rule);}
+h1{
+  font-family:var(--display); font-weight:700; font-size:clamp(40px,7.2vw,68px);
+  line-height:1.02; letter-spacing:-.032em; margin:20px 0 0; text-wrap:balance;
+}
+h1 .thin{color:var(--ink-3); font-weight:500;}
+.standfirst{
+  font-size:19px; line-height:1.6; color:var(--ink-2); max-width:62ch; margin:22px 0 0;
+}
+.mast-rule{height:3px; background:var(--ink); margin:38px 0 0; border-radius:2px;}
+
+/* ---------- verdict ---------- */
+.verdict{
+  margin:44px 0 0; padding:30px 32px; background:var(--surface);
+  border:1px solid var(--rule); border-radius:4px; box-shadow:var(--shadow);
+}
+.verdict p{margin:0 0 15px;}
+.verdict p:last-child{margin-bottom:0;}
+.pull{
+  font-family:var(--display); font-weight:600; font-size:clamp(21px,3.1vw,27px);
+  line-height:1.32; letter-spacing:-.018em; color:var(--ink);
+  margin:26px 0; padding:0 0 0 22px; border-left:3px solid var(--peak); text-wrap:balance;
+}
+
+/* ---------- section headings ---------- */
+section{margin:76px 0 0;}
+.sec-head{display:flex; align-items:baseline; gap:16px; border-bottom:2px solid var(--ink); padding-bottom:12px;}
+.sec-num{
+  font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.1em;
+  color:var(--ink-3); flex:0 0 auto;
+}
+h2{
+  font-family:var(--display); font-weight:600; font-size:clamp(25px,3.6vw,33px);
+  letter-spacing:-.022em; line-height:1.16; margin:0; text-wrap:balance;
+}
+h3{
+  font-family:var(--display); font-weight:600; font-size:20px; letter-spacing:-.012em;
+  line-height:1.28; margin:0; text-wrap:balance;
+}
+p{margin:0 0 16px; max-width:68ch;}
+section > p:first-of-type{margin-top:22px;}
+a{color:var(--signal); text-underline-offset:3px; text-decoration-thickness:1px;}
+a:focus-visible, .bar-row:focus-visible{outline:2px solid var(--signal); outline-offset:3px; border-radius:2px;}
+code{
+  font-family:var(--mono); font-size:.855em; background:var(--surface-2);
+  border:1px solid var(--rule-soft); border-radius:3px; padding:.1em .36em; white-space:nowrap;
+}
+strong{font-weight:600;}
+
+/* ---------- the adoption bridge ---------- */
+.bridge{
+  margin:30px 0 0; background:var(--surface); border:1px solid var(--rule);
+  border-radius:4px; box-shadow:var(--shadow); overflow:hidden;
+}
+.bridge-head{
+  display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;
+  padding:18px 24px; border-bottom:1px solid var(--rule); background:var(--surface-2);
+}
+.bridge-title{font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-2);}
+.legend{display:flex; gap:18px; font-family:var(--mono); font-size:11.5px; color:var(--ink-2);}
+.legend span{display:inline-flex; align-items:center; gap:7px;}
+.swatch{width:11px; height:11px; border-radius:2px; flex:0 0 auto;}
+.sw-sig{background:var(--signal);}
+.sw-peak{background:var(--peak);}
+
+.bar-row{display:grid; grid-template-columns:1fr; gap:9px; padding:19px 24px; border-top:1px solid var(--rule-soft);}
+.bar-row:first-of-type{border-top:0;}
+.bar-meta{display:flex; justify-content:space-between; align-items:baseline; gap:14px; flex-wrap:wrap;}
+.bar-label{font-weight:600; font-size:15.5px;}
+.bar-label .where{font-family:var(--mono); font-size:11.5px; font-weight:400; color:var(--ink-3); margin-left:9px;}
+.bar-read{font-family:var(--mono); font-size:12.5px; color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap;}
+.bar-read b{color:var(--ink); font-weight:600;}
+.bar-track{display:flex; gap:2px; height:12px; background:var(--surface-3); border-radius:3px; overflow:hidden;}
+.bar-track > i{display:block; height:100%;}
+.seg-sig{background:var(--signal); border-radius:3px 0 0 3px;}
+.seg-peak{background:var(--peak); border-radius:0 3px 3px 0;}
+.bar-track > i:only-child{border-radius:3px;}
+.bar-note{font-size:13.5px; color:var(--ink-2); max-width:70ch;}
+
+/* ---------- findings ---------- */
+.finding{
+  display:grid; grid-template-columns:78px 1fr; gap:0 22px;
+  padding:30px 0; border-top:1px solid var(--rule);
+}
+.finding:first-of-type{border-top:2px solid var(--ink);}
+.tag{
+  font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.04em;
+  padding-top:3px; color:var(--ink-3);
+}
+.tag.p0{color:var(--peak);}
+.tag .tick{display:block; width:26px; height:3px; border-radius:2px; background:var(--rule); margin-top:9px;}
+.tag.p0 .tick{background:var(--peak); width:34px;}
+.tag.p1 .tick{background:var(--ink-3); width:26px;}
+.tag.p2 .tick{background:var(--rule); width:16px;}
+.finding-body > *:last-child{margin-bottom:0;}
+.finding-body p{margin-top:11px;}
+.fix{
+  margin:15px 0 0; padding:13px 17px; background:var(--signal-soft);
+  border:1px solid color-mix(in srgb, var(--signal) 26%, transparent);
+  border-radius:4px; font-size:14.5px; line-height:1.55; color:var(--ink);
+}
+.fix b{font-family:var(--mono); font-size:11.5px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:var(--signal); display:block; margin-bottom:4px;}
+
+/* evidence block: the measured blank screen */
+.evidence{
+  margin:16px 0 0; border:1px solid var(--rule); border-radius:4px; overflow:hidden;
+  background:var(--surface);
+}
+.evidence-head{
+  font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--ink-3); padding:10px 15px; border-bottom:1px solid var(--rule-soft); background:var(--surface-2);
+}
+pre{
+  margin:0; padding:15px; overflow-x:auto; font-family:var(--mono);
+  font-size:13px; line-height:1.65; color:var(--ink-2);
+}
+pre b{color:var(--peak); font-weight:600;}
+pre em{color:var(--ink-3); font-style:normal;}
+
+/* ---------- tables ---------- */
+.tscroll{overflow-x:auto; margin:22px 0 0; border:1px solid var(--rule); border-radius:4px; background:var(--surface);}
+table{border-collapse:collapse; width:100%; min-width:520px; font-size:14.5px;}
+th,td{text-align:left; padding:11px 16px; border-bottom:1px solid var(--rule-soft); vertical-align:top;}
+thead th{
+  font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--ink-3); background:var(--surface-2); border-bottom:1px solid var(--rule); white-space:nowrap;
+}
+tbody tr:last-child td{border-bottom:0;}
+td.num{font-family:var(--mono); font-variant-numeric:tabular-nums; white-space:nowrap;}
+.fail{color:var(--peak); font-weight:600;}
+.pass{color:var(--signal); font-weight:600;}
+.vmark{font-family:var(--mono); font-size:11.5px; font-weight:600; letter-spacing:.05em; white-space:nowrap;}
+
+/* ---------- phases ---------- */
+.phase{
+  margin:20px 0 0; background:var(--surface); border:1px solid var(--rule);
+  border-radius:4px; overflow:hidden;
+}
+.phase-head{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; padding:17px 22px; background:var(--surface-2); border-bottom:1px solid var(--rule);}
+.phase-id{font-family:var(--mono); font-size:12px; font-weight:600; letter-spacing:.1em; color:var(--signal);}
+.phase-name{font-family:var(--display); font-weight:600; font-size:18px; letter-spacing:-.012em;}
+.phase-tag{font-family:var(--mono); font-size:11px; color:var(--ink-3); margin-left:auto; letter-spacing:.06em;}
+.phase ol{margin:0; padding:16px 22px 16px 42px;}
+.phase li{margin:0 0 8px; font-size:15px; line-height:1.55;}
+.phase li:last-child{margin-bottom:0;}
+.accept{
+  padding:13px 22px; border-top:1px solid var(--rule-soft); background:var(--surface-2);
+  font-size:14px; color:var(--ink-2);
+}
+.accept b{font-family:var(--mono); font-size:11px; font-weight:600; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3);}
+
+/* ---------- decisions / keep ---------- */
+.decisions{counter-reset:d; margin:24px 0 0; padding:0; list-style:none;}
+.decisions li{
+  counter-increment:d; position:relative; padding:17px 0 17px 46px; border-top:1px solid var(--rule);
+  font-size:15.5px; line-height:1.58;
+}
+.decisions li::before{
+  content:counter(d); position:absolute; left:0; top:17px;
+  font-family:var(--mono); font-size:12px; font-weight:600; color:var(--signal);
+  border:1px solid var(--rule); border-radius:3px; width:26px; height:26px;
+  display:grid; place-items:center; background:var(--surface);
+}
+.decisions .rec{display:block; margin-top:5px; font-size:14px; color:var(--ink-2);}
+.decisions .rec b{font-family:var(--mono); font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--signal);}
+
+.keep{margin:24px 0 0; padding:0; list-style:none; display:grid; gap:1px; background:var(--rule); border:1px solid var(--rule); border-radius:4px; overflow:hidden;}
+.keep li{background:var(--surface); padding:15px 20px; font-size:15px; line-height:1.55;}
+.keep b{font-family:var(--mono); font-size:13px; font-weight:600; color:var(--ink);}
+
+footer{margin:80px 0 0; padding-top:26px; border-top:1px solid var(--rule); font-size:13.5px; color:var(--ink-3); font-family:var(--mono); line-height:1.7;}
+
+@media (max-width:620px){
+  .wrap{padding:0 18px 80px;}
+  .mast{padding-top:48px;}
+  .finding{grid-template-columns:1fr; gap:12px;}
+  .tag{padding-top:0; display:flex; align-items:center; gap:11px;}
+  .tag .tick{margin-top:0;}
+  .verdict{padding:22px 20px;}
+  .bar-row,.bridge-head{padding-left:17px; padding-right:17px;}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important;}}
+</style>
+
+<div class="wrap">
+
+<header class="mast">
+  <div class="eyebrow">
+    <span>Design quality audit</span><span class="sep">/</span>
+    <span>Noise Lab console</span><span class="sep">/</span>
+    <span>20 Aug 2026</span>
+  </div>
+  <h1>Declared,<br><span class="thin">not adopted</span></h1>
+  <p class="standfirst">
+    The design system asked for in the last audit was built — tokens, primitives, a lint script.
+    Then the app kept routing around it. This is what the code actually does now, measured rather
+    than estimated, and the work that follows from it.
+  </p>
+  <div class="mast-rule"></div>
+</header>
+
+<div class="verdict">
+  <p>
+    The previous audit asked for five phases. <strong>Phases 1 and 2 shipped, and shipped well:</strong>
+    there is a real token block, eight extracted primitives in <code>web/app/ui/</code>, and
+    <strong>zero hex literals outside <code>:root</code></strong> — precisely the acceptance criterion
+    that was set. That deserves saying plainly.
+  </p>
+  <p>
+    Phases 3, 4 and 5 did not happen. What happened instead, across roughly thirty commits, was a run
+    of one-line nudges: <em>Capitalize 'Synced' in Queue sync caption</em>. <em>Vertically center
+    Library header sync caption</em>. <em>Center Library header sync caption</em>. <em>Tighten Library
+    header whitespace to match Queue</em>. Four separate pull requests hand-aligning two captions that
+    the last audit had already said should be <strong>one component</strong>.
+  </p>
+  <p class="pull">
+    The system exists as a document and is bypassed as a practice — and the guardrail that was built
+    enforces the half of the rule that was already satisfied.
+  </p>
+  <p>
+    <code>check-tokens.mjs</code> verifies that declared tokens are referenced and referenced tokens are
+    declared. It cannot see a raw <code>14px</code>, an <code>rgba(229,72,60,.38)</code>, or a fourth
+    navigation duration. The codebase passes its own design lint while systematically avoiding the
+    design system.
+  </p>
+  <p>
+    It is also worse than that. <strong><code>check:tokens</code> is not wired into CI at all</strong> —
+    <code>.github/workflows/ci.yml</code> runs <code>typecheck</code>, <code>lint</code> and
+    <code>test</code> in the <code>web</code> job and never calls it. The single guardrail this codebase
+    has for its design system is a <code>package.json</code> script that nothing runs automatically.
+    One line in <code>ci.yml</code> is the cheapest item in this entire document.
+  </p>
+</div>
+
+<section>
+  <div class="sec-head"><span class="sec-num">01</span><h2>The adoption bridge</h2></div>
+  <p>
+    Every row is a place the system is declared. The bar is how much of the app actually uses it.
+    One passed.
+  </p>
+
+  <div class="bridge">
+    <div class="bridge-head">
+      <span class="bridge-title">Declared vs. adopted</span>
+      <span class="legend">
+        <span><i class="swatch sw-sig"></i>uses the system</span>
+        <span><i class="swatch sw-peak"></i>bypasses it</span>
+      </span>
+    </div>
+
+    <div class="bar-row">
+      <div class="bar-meta">
+        <span class="bar-label">Hex colour<span class="where">globals.css</span></span>
+        <span class="bar-read"><b>0</b> literals outside <code>:root</code> · <b>100%</b></span>
+      </div>
+      <div class="bar-track"><i class="seg-sig" style="width:100%"></i></div>
+      <p class="bar-note">The one criterion that was set explicitly, and it was met exactly.</p>
+    </div>
+
+    <div class="bar-row">
+      <div class="bar-meta">
+        <span class="bar-label">Type scale<span class="where">8 tokens declared</span></span>
+        <span class="bar-read"><b>17</b> tokenised · <b>46</b> raw px · <b>27%</b></span>
+      </div>
+      <div class="bar-track"><i class="seg-sig" style="width:27%"></i><i class="seg-peak" style="width:73%"></i></div>
+      <p class="bar-note">Raw sizes: 12px ×15, 11px ×13, 14px ×5, 13px ×5, 10px ×5, plus 26/18/16.</p>
+    </div>
+
+    <div class="bar-row">
+      <div class="bar-meta">
+        <span class="bar-label">rgba() colour<span class="where">never in scope</span></span>
+        <span class="bar-read"><b>0</b> tokenised · <b>60+</b> raw · <b>0%</b></span>
+      </div>
+      <div class="bar-track"><i class="seg-peak" style="width:100%"></i></div>
+      <p class="bar-note">Includes four uses of <code>rgba(229,72,60,…)</code> — the brand red the last audit retired.</p>
+    </div>
+
+    <div class="bar-row">
+      <div class="bar-meta">
+        <span class="bar-label">Elevation<span class="where">no token exists</span></span>
+        <span class="bar-read"><b>24</b> unique <code>box-shadow</code> values · <b>0%</b></span>
+      </div>
+      <div class="bar-track"><i class="seg-peak" style="width:100%"></i></div>
+      <p class="bar-note">The most-repeated visual decision in the app, and the only major one with no token at all.</p>
+    </div>
+
+    <div class="bar-row">
+      <div class="bar-meta">
+        <span class="bar-label">Card padding API<span class="where">ui/card.tsx</span></span>
+        <span class="bar-read"><b>5</b> of <b>25</b> call sites honour it · <b>20%</b></span>
+      </div>
+      <div class="bar-track"><i class="seg-sig" style="width:20%"></i><i class="seg-peak" style="width:80%"></i></div>
+      <p class="bar-note">All 25 pass <code>padding="md"</code>; 20 then override it with a class. <code>padding="sm"</code> has zero call sites.</p>
+    </div>
+
+    <div class="bar-row">
+      <div class="bar-meta">
+        <span class="bar-label">EmptyState API<span class="where">ui/empty-state.tsx</span></span>
+        <span class="bar-read"><b>1</b> of <b>4</b> props ever used · <b>25%</b></span>
+      </div>
+      <div class="bar-track"><i class="seg-sig" style="width:25%"></i><i class="seg-peak" style="width:75%"></i></div>
+      <p class="bar-note"><code>icon</code>, <code>body</code> and <code>action</code> are unused at all three call sites.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">02</span><h2>P0 — dead ends</h2></div>
+  <p>
+    Severity here is simple: <strong>P0</strong> means the app is unusable, misleading, or
+    inaccessible. These outrank every consistency finding in this document, and the first one is
+    not a consistency finding at all.
+  </p>
+
+  <div class="finding">
+    <div class="tag p0">P0-1<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>The Design tab renders nothing when data fails to load</h3>
+      <p>
+        <code>noise-lab.tsx:1158</code> renders a skeleton while <code>initialLoad</code>, then the tab
+        while <code>selected</code>. Once <code>refresh()</code> settles — success <em>or</em> failure —
+        <code>initialLoad</code> is false forever. If <code>selected</code> is undefined, which happens
+        on any API failure, <strong>neither branch renders</strong>.
+      </p>
+      <div class="evidence">
+        <div class="evidence-head">Measured — Playwright, <code>/api/**</code> blocked</div>
+<pre>&gt; document.querySelector(".noise-page").innerText
+
+<b>"Noise Lab"</b>   <em>← the screen-reader-only &lt;h1&gt;. Nothing else.</em>
+<em>  The visible page is a heading, an ⓘ, a dock, and a gradient.</em></pre>
+      </div>
+      <p>
+        The only signal is a toast that deletes itself after 5,000 ms. <code>ToastState</code> already
+        supports an <code>action</code> and this call site doesn't pass one. Combined with P0-3, a mouse
+        user's only recovery is to reload the page.
+      </p>
+      <div class="fix"><b>Fix</b>
+        Give Design the three states every other tab has — skeleton, empty, error-with-Retry. Separate
+        “the engine is unreachable” from “this combination isn't in the matrix”; they need different
+        messages.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="tag p0">P0-2<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>The Queue has no empty state</h3>
+      <p>
+        An idle Queue renders <strong>zero characters</strong> — measured, <code>#panel-queue</code>
+        <code>innerText</code> is <code>""</code>. At <code>:1724</code> an empty bucket returns
+        <code>null</code>, and <code>:1726</code> composes four possibly-empty sections with nothing
+        behind them.
+      </p>
+      <p>
+        Library and Releases both render an <code>EmptyState</code> in exactly this situation, so the
+        app disagrees with itself about whether “nothing here” deserves an explanation. Side by side,
+        Releases explains itself and Queue is a blank page under a live-looking green dot reading
+        “Idle · Synced just now”. This was Phase 3 item 4 of the last audit.
+      </p>
+      <div class="fix"><b>Fix</b>
+        An <code>EmptyState</code> whose action points at Design — the queue is empty because nothing
+        has been rendered, and rendering something is the next step.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="tag p0">P0-3<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>No tab can be refreshed with a mouse</h3>
+      <p>
+        <code>usePullRefresh</code> binds touch events only. Releases receives an <code>onRefresh</code>
+        prop that reaches <code>ReleaseDetail</code> and fires only after a successful save —
+        <code>ReleaseList</code> never calls it. The round refresh button the last audit recorded on
+        Releases is gone, so pointer refresh is now at zero across the entire app.
+      </p>
+      <div class="tscroll">
+        <table>
+          <thead><tr><th>Tab</th><th>Pointer</th><th>Touch</th></tr></thead>
+          <tbody>
+            <tr><td>Design</td><td class="fail">none</td><td class="fail">none</td></tr>
+            <tr><td>Queue</td><td class="fail">none</td><td>pull-to-refresh</td></tr>
+            <tr><td>Library</td><td class="fail">none</td><td>pull-to-refresh</td></tr>
+            <tr><td>Releases</td><td class="fail">none</td><td class="fail">none</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The sole exception is the Library's “Sync failed — retry” caption, which requires a failure to
+        have already happened <em>and</em> the page to be scrolled within 24px of the top.
+      </p>
+      <div class="fix"><b>Fix</b>
+        One <code>&lt;RefreshControl&gt;</code> rendering a button for pointers and keeping the pull
+        gesture for touch, adopted on all four tabs.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="tag p0">P0-4<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>Four token pairs fail WCAG AA</h3>
+      <p>Computed from the declared tokens, not sampled from a screenshot:</p>
+      <div class="tscroll">
+        <table>
+          <thead><tr><th>Pair</th><th>Ratio</th><th>Verdict</th><th>Where it shows</th></tr></thead>
+          <tbody>
+            <tr><td><code>white on --brand</code></td><td class="num fail">4.02:1</td><td class="vmark fail">FAIL</td><td>every primary button label</td></tr>
+            <tr><td><code>--success on --success-bg</code></td><td class="num fail">3.23:1</td><td class="vmark fail">FAIL</td><td>the PASS pill — the QA verdict</td></tr>
+            <tr><td><code>--link on white</code></td><td class="num fail">4.02:1</td><td class="vmark fail">FAIL</td><td>every link</td></tr>
+            <tr><td><code>--ink-tertiary on white</code></td><td class="num fail">3.26:1</td><td class="vmark fail">FAIL</td><td>disabled download label</td></tr>
+            <tr><td>glyph-segment icon</td><td class="num fail">2.74:1</td><td class="vmark fail">FAIL 3:1</td><td>Band / Motion / Balance icons</td></tr>
+            <tr><td><code>--ink-secondary on white</code></td><td class="num pass">5.95:1</td><td class="vmark pass">PASS</td><td>body and caption text</td></tr>
+            <tr><td><code>--warning on --warning-bg</code></td><td class="num pass">6.86:1</td><td class="vmark pass">PASS</td><td>the WIP banner</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The brand value was settled at <code>#e2483b</code> last time for continuity of focus rings and
+        selected states. That reasoning holds and is untouched here: <code>#e2483b</code> is fine as a
+        <em>stroke</em>. It cannot carry white <em>text</em> at 13px. Those are two jobs and they need
+        two values.
+      </p>
+      <div class="fix"><b>Fix</b>
+        Add <code>--brand-ink</code> for filled buttons — the existing <code>--brand-pressed
+        #c4392b</code> already reaches 5.9:1 — and keep <code>--brand</code> for strokes and selection.
+        Darken <code>--success</code> for on-tint text, take <code>--link</code> to <code>#0063cc</code>,
+        raise the segment icon past 3:1, and stop using <code>--ink-tertiary</code> for text.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="tag p0">P0-5<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>Roles that promise behaviour the widgets don't have</h3>
+      <p>
+        Three overflow menus declare <code>role="menu"</code> with no arrow keys, no focus move, and no
+        focus restore. The remove sheet declares <code>role="dialog" aria-modal="true"</code> with no
+        focus trap — so focus tabs straight out into the page the dialog claims to have made inert.
+      </p>
+      <p>
+        Worth the contrast: <code>radioArrowHandler</code> at <code>:194</code> implements roving
+        <code>tabIndex</code> and arrow keys <strong>correctly</strong> for the segmented controls. The
+        app knows how to do this; it just hasn't where it announced that it would. Declaring the role
+        and omitting the interaction is worse than a plain <code>&lt;div&gt;</code>, because assistive
+        tech states a contract the widget doesn't honour.
+      </p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="tag p0">P0-6<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>The splash screen says a different product name</h3>
+      <p>
+        <code>layout.tsx:5</code> and the <code>&lt;h1&gt;</code> say <strong>Noise Lab</strong>. The
+        intro wordmark — the first thing every user sees, at <code>clamp(22px, 6vw, 32px)</code> — says
+        <strong>Noise Labs</strong>. One character, maximum prominence, thirty seconds to fix.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">03</span><h2>P1 — the primitives went in shallow</h2></div>
+  <p>
+    Phase 2 built the right components. Adoption stopped at the narrowest call that compiled, and in
+    one case the collapse went far enough to delete the meaning the component existed to carry.
+  </p>
+
+  <div class="finding">
+    <div class="tag p1">P1-1<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>StatusPill and Chip are the same component, so status is invisible</h3>
+      <p>
+        <code>globals.css:111</code> gives <code>.chip</code> and <code>.status-pill</code> one shared
+        base rule. Line 114 then declares <code>.chip-active, .status-pill-active</code> with exactly the
+        two values the base rule already set. <strong><code>.status-pill-active</code> is a
+        no-op.</strong>
+      </p>
+      <p>
+        At <code>:1699</code> a Queue card renders its status pill and its metadata chips in the same
+        flex row. So <strong>“Rendering” is pixel-identical to “white” and “mid”.</strong> The most
+        important word on the Queue tab has no more visual weight than a parameter label. Only
+        <code>success</code> and <code>danger</code> are distinct; <code>active</code>,
+        <code>queued</code>, <code>rendering</code> and <code>pending</code> all land on neutral.
+      </p>
+      <div class="fix"><b>Fix</b>
+        Give <code>active</code> a real tone — the <code>--link</code> family already means “in progress”
+        for the sync dot — and let a pill differ from a chip in weight or shape. Type <code>state</code>
+        as the union it's already being cast to.
+      </div>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="tag p1">P1-2<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>Every empty state is a place the next action is knowable, and none say it</h3>
+      <p>
+        Three <code>EmptyState</code> call sites, all <code>title</code>-only. The result on screen is a
+        180px white slab holding one line of centred bold grey — which is why the empty Library and
+        empty Releases read as <em>broken</em> rather than <em>ready and waiting</em>.
+      </p>
+      <p>
+        The copy is in three voices, too: <em>“No rendered files found.”</em> — systems language, and
+        “files” appears nowhere else in the UI, which says <em>masters</em> and <em>tracks</em> —
+        alongside <em>“No releases yet.”</em> and <em>“No art yet — generate a seed below.”</em>
+      </p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="tag p1">P1-3<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>One gesture, three durations, and the motion tokens sit unused</h3>
+      <div class="tscroll">
+        <table>
+          <thead><tr><th>Element</th><th>Timing</th></tr></thead>
+          <tbody>
+            <tr><td><code>.panel-show</code></td><td class="num">.32s cubic-bezier(.2,.8,.25,1)</td></tr>
+            <tr><td><code>.tab-lens</code></td><td class="num">.38s cubic-bezier(.3,1.35,.4,1)</td></tr>
+            <tr><td><code>.dock-tab</code> colour</td><td class="num">var(--dur-nav) — with <code>ease</code>, not <code>--ease-nav</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        <code>--dur-nav</code> and <code>--ease-nav</code> were added for exactly this and have
+        <strong>two call sites in the whole codebase</strong>, neither of which is the panel transition
+        or the lens. The token didn't replace the opinions — it became a fourth one. The incoming panel
+        still rises with no paired fade-out, so the transition is a cut with a slide on the end.
+      </p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="tag p1">P1-4<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>Two styling systems, and one component that escaped both</h3>
+      <p>
+        Tailwind is loaded alongside the CSS layer and used in scattered places. Most are incidental
+        layout utilities. One is not: the SEO-name review panel at <code>:1363</code> is built entirely
+        from Tailwind utilities, with <code>rounded-xl</code> — 12px, not one of the four radius tokens —
+        its own border, its own spacing, and <code>text-[10px]</code>.
+      </p>
+      <p>
+        It is the only surface in the app outside the design system in both directions: it uses neither
+        the CSS layer nor the primitives. A third channel exists too — the app's typeface, the most
+        global design decision in the product, is an inline <code>style</code> attribute on
+        <code>&lt;main&gt;</code>.
+      </p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="tag p1">P1-5<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>The type scale can't be converted mechanically</h3>
+      <p>
+        This is why P1 stalled, and it's worth naming so it doesn't stall again. Four of the eight raw
+        sizes — <strong>14, 16, 18, 26</strong> — have no equivalent in a scale that jumps 13 → 15 → 17 →
+        21 → 30. Someone has to decide whether <code>.section-title</code> at 14 becomes 12 or 15, and
+        whether <code>.panel-heading h2</code> at 26 becomes 21 or 30.
+      </p>
+      <p>
+        That's five or six judgement calls. Once made, the remaining ~40 sites are mechanical — but
+        nobody can start until they're made, so they're in the decisions list below.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">04</span><h2>P2 — navigation, layout, drift</h2></div>
+
+  <div class="finding">
+    <div class="tag p2">P2-1<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>Two routing models, unchanged</h3>
+      <p>Phase 4 was never started. Hash values measured while clicking each tab:</p>
+      <div class="tscroll">
+        <table>
+          <thead><tr><th>Clicked</th><th>Resulting hash</th><th>Back button</th></tr></thead>
+          <tbody>
+            <tr><td>Design</td><td class="num"><code>""</code></td><td class="fail">exits the app</td></tr>
+            <tr><td>Queue</td><td class="num"><code>""</code></td><td class="fail">exits the app</td></tr>
+            <tr><td>Library</td><td class="num"><code>#library</code></td><td class="pass">works</td></tr>
+            <tr><td>Releases</td><td class="num"><code>#releases</code></td><td class="pass">works</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Design and Queue share the empty hash, so they are indistinguishable in history and neither is
+        deep-linkable. <code>libraryReturnTab</code> and its guess are still there. Panels still render
+        in <code>design, library, queue, releases</code> order against a dock in <code>design, queue,
+        library, releases</code> order, so keyboard and screen-reader traversal still disagree with the
+        screen. Scroll is still reset to 0 on every switch rather than persisted per tab.
+      </p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="tag p2">P2-2<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>The dock sits on top of live controls</h3>
+      <p>
+        Confirmed at both viewports. At 1280×900 the glass bar floats directly over the
+        <strong>Balance</strong> segmented control, and because <code>.glassbar</code> is translucent
+        with no scrim, the control's segments are legible <em>through</em> the bar.
+        <code>.noise-page</code> reserves bottom padding for the dock's height, which handles the end of
+        the page but not a floating translucent object parked over an interactive row mid-scroll.
+      </p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="tag p2">P2-3<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>There is no desktop layout</h3>
+      <p>
+        At 1280×900 the app is the 390px mobile layout centred in a 660px column, with a bottom-centre
+        floating dock and roughly 1,000px of empty gradient below the fold on three of four tabs. The
+        empty Library at desktop is one 200px white slab and an otherwise blank screen.
+      </p>
+      <p>
+        This is a console for browsing a 144-variant matrix and ~37GB of published renders. A two-pane
+        layout — list left, detail right, dock promoted to a rail — is the largest single design win
+        available, and the only item here that is a <em>product</em> decision rather than a cleanup.
+      </p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="tag p2">P2-4<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>Reduced motion is half-covered</h3>
+      <p>
+        The media block disables the intro, the bell, the title transition, the refresh spin and the
+        skeleton sheen. It does not disable <code>.panel-show</code> — which fires on every tab change —
+        or <code>.track-highlight</code>, the <code>:active</code> transforms, or, most importantly,
+        <strong><code>.queue-sync-dot.is-active</code>, an infinite pulse animation</strong>. A user who
+        asked the OS to stop motion still gets a permanently animating dot.
+      </p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="tag p2">P2-5<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>Batch rendering is dead code, and other sediment</h3>
+      <p>
+        <code>queue(ids, label)</code> branches on <code>"one" | "pilot" | "full"</code>, builds two
+        selector shapes, and composes a toast reading <em>“Full matrix (144 variants) sent to the GitHub
+        Actions renderer.”</em> The only call site is <code>"one"</code>. No UI anywhere triggers a pilot
+        or full render.
+      </p>
+      <p>
+        Alongside it: <code>.queue-link</code>, <code>.queue-section</code> and <code>.panel</code> are
+        referenced in markup and defined nowhere; <code>.card-padding-sm</code> is the mirror image,
+        defined and never used. Small individually — collectively they're what makes the next person
+        distrust the stylesheet.
+      </p>
+    </div>
+  </div>
+
+  <div class="finding">
+    <div class="tag p2">P2-6<span class="tick"></span></div>
+    <div class="finding-body">
+      <h3>Two sync captions, still</h3>
+      <p>
+        <code>HeaderSyncCaption</code> serves Library; inline markup at <code>:1192</code> serves Queue.
+        Different components, different classes, different copy. <code>globals.css:278</code> is a
+        selector whose entire purpose is to override the Queue caption's size and margin <em>back
+        to</em> the Library caption's when it appears in the header — the hand-alignment those four
+        micro-PRs were performing, now frozen into CSS.
+      </p>
+      <div class="fix"><b>Fix</b>
+        One <code>&lt;SyncStatus&gt;</code> deletes that rule, both implementations, and the entire
+        class of follow-up ticket.
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">05</span><h2>Work plan</h2></div>
+  <p>
+    Sequenced so each phase ships and reviews independently. A is user-visible bug-fixing; B and C are
+    the system work; D waits on the decisions below.
+  </p>
+
+  <div class="phase">
+    <div class="phase-head"><span class="phase-id">A</span><span class="phase-name">Stop the dead ends</span><span class="phase-tag">P0 · visible change, no refactor</span></div>
+    <ol>
+      <li>Design tab: skeleton / empty / <strong>error-with-Retry</strong> states, distinguishing unreachable-engine from combination-not-in-matrix.</li>
+      <li>Queue empty state, with an action pointing at Design.</li>
+      <li><code>&lt;RefreshControl&gt;</code> — button for pointer, pull for touch — on all four tabs.</li>
+      <li>Give the load-failure toast its <code>action: { label: "Retry" }</code>.</li>
+      <li><code>Noise Labs</code> → <code>Noise Lab</code>.</li>
+    </ol>
+    <div class="accept"><b>Acceptance</b> — with <code>/api/**</code> blocked, every tab renders an explanatory state with a working Retry. Every tab refreshes by both mouse and touch. An empty Queue renders a card, not nothing.</div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head"><span class="phase-id">B</span><span class="phase-name">Make contrast and semantics true</span><span class="phase-tag">P0 / P1</span></div>
+    <ol>
+      <li>Add <code>--brand-ink</code>; darken <code>--success</code> and <code>--link</code>; retire <code>--ink-tertiary</code> as a text colour; raise the segment icon past 3:1.</li>
+      <li>Give <code>StatusPill</code> a real <code>active</code> tone, delete the no-op rule, type <code>state</code> as a union.</li>
+      <li>Focus management on the three menus and the confirm sheet — initial focus, arrow keys, trap, restore. Reuse the <code>radioArrowHandler</code> pattern that already works.</li>
+      <li>Fill in <code>EmptyState</code>'s <code>icon</code> / <code>body</code> / <code>action</code> at all three call sites; unify the copy on <em>masters</em> and <em>tracks</em>.</li>
+    </ol>
+    <div class="accept"><b>Acceptance</b> — the contrast table passes AA for text and 3:1 for controls; keyboard-only traversal of every menu and the confirm sheet works and returns focus.</div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head"><span class="phase-id">C</span><span class="phase-name">Finish the token layer — and the guardrail</span><span class="phase-tag">P1</span></div>
+    <ol>
+      <li>Apply the type-scale decisions, then convert all 46 raw font sizes.</li>
+      <li>Add <code>--shadow-card</code> / <code>--shadow-raised</code> / <code>--shadow-overlay</code>; convert the 24 shadows.</li>
+      <li>Add <code>--hairline</code>; collapse the three separator alphas; rebuild the four <code>rgba(229,72,60,…)</code> from <code>--brand</code>.</li>
+      <li>Put <code>--dur-nav</code> / <code>--ease-nav</code> on <code>.panel-show</code>, <code>.tab-lens</code> and <code>.dock-tab</code>; add the paired fade-out.</li>
+      <li>Complete the reduced-motion block — especially the infinite sync dot.</li>
+      <li>Rebuild the SEO-name panel from <code>Card</code> + <code>Button</code> + tokens; move the font stack out of the inline style.</li>
+      <li>Extract <code>&lt;SyncStatus&gt;</code>; delete <code>globals.css:278</code> and both caption implementations.</li>
+      <li>Resolve <code>Card.padding</code> — real values, or delete the prop.</li>
+      <li>Delete the dead classes and the dead batch-render branches.</li>
+      <li><strong>Add <code>npm run check:tokens</code> to the <code>web</code> job in <code>ci.yml</code>.</strong> One line — the guardrail already exists and nothing runs it.</li>
+      <li><strong>Extend <code>check-tokens.mjs</code> into a real guardrail</strong>, or add stylelint: ban raw <code>font-size: Npx</code>, <code>rgba()</code> outside <code>:root</code>, <code>box-shadow</code> literals, and transition durations outside the motion tokens. <strong>This is the most important item in the phase</strong> — without it, C is a one-time cleanup that decays rather than a rule that holds.</li>
+    </ol>
+    <div class="accept"><b>Acceptance</b> — the new lint runs in CI, passes, and fails a deliberately-introduced raw <code>13px</code>.</div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head"><span class="phase-id">D</span><span class="phase-name">Navigation and layout</span><span class="phase-tag">P2 · needs decisions 4 first</span></div>
+    <ol>
+      <li>Route all four tabs; derive <code>tab</code> from the hash; delete <code>libraryReturnTab</code>.</li>
+      <li>Reorder panel JSX to dock order; persist scroll per tab.</li>
+      <li>Scrim or solid backing behind <code>.glassbar</code> so it stops sitting on the Balance control.</li>
+      <li>Move the ⓘ help off the scroll-hiding title.</li>
+      <li>Desktop layout — only after Austin's call.</li>
+    </ol>
+    <div class="accept"><b>Acceptance</b> — Back works from all four tabs; every tab is deep-linkable and survives reload; no control is occluded at 390px or 1280px.</div>
+  </div>
+
+  <div class="phase">
+    <div class="phase-head"><span class="phase-id">E</span><span class="phase-name">Write it down</span><span class="phase-tag">P2</span></div>
+    <ol>
+      <li><code>docs/design-language.md</code>: the tokens, the primitives, and the rule that new surfaces compose existing ones. <code>lib/queue-strings.ts</code> is the model — this repo already does a centralised layer well in exactly one place.</li>
+      <li>Rebuild the four skeletons from the real components rather than hand-drawn geometry; they re-specify padding and radii the real components own, and will silently desync.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">06</span><h2>Decisions needed from Austin</h2></div>
+  <p>Devin should not guess these — each one changes what the tokens say.</p>
+  <ol class="decisions">
+    <li>
+      <strong>Brand red for filled buttons.</strong> <code>#e2483b</code> gives white text 4.02:1 and
+      fails AA. Add a darker <code>--brand-ink</code> for filled buttons while <code>--brand</code>
+      keeps strokes and selection — or accept the contrast.
+      <span class="rec"><b>Recommendation</b> — add <code>--brand-ink</code>; the existing <code>--brand-pressed #c4392b</code> already reaches 5.9:1.</span>
+    </li>
+    <li>
+      <strong>Type scale mappings.</strong> <code>.section-title</code> at 14 → 12 or 15?
+      <code>.panel-heading h2</code> at 26 → 21 or 30? Five calls that set the app's whole typographic
+      rhythm, and Phase C can't start without them.
+    </li>
+    <li>
+      <strong>Is <code>--text-2xs: 10px</code> allowed for text?</strong> Five declarations use it today;
+      it sits below every platform minimum.
+      <span class="rec"><b>Recommendation</b> — badge-only.</span>
+    </li>
+    <li>
+      <strong>Desktop layout.</strong> Stay a centred 660px mobile-shaped console, or build the two-pane
+      layout the content clearly wants? The biggest item in this document, and the only genuine product
+      question in it.
+    </li>
+    <li>
+      <strong>Batch rendering.</strong> Restore a pilot/full entry point, or delete the dead branches?
+    </li>
+  </ol>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">07</span><h2>What is good, and must survive</h2></div>
+  <p>Worth stating, because a token refactor can flatten these by accident.</p>
+  <ul class="keep">
+    <li><b>Zero hex outside <code>:root</code></b> — the last audit's headline criterion, met exactly. The token block is well-organised and well-named.</li>
+    <li><b>lib/queue-strings.ts</b> — a real centralised copy layer, and the best-engineered thing in the codebase. It's the model for Phase E, and the other three tabs should adopt the pattern.</li>
+    <li><b>radioArrowHandler + GlyphSegmented</b> — roving <code>tabIndex</code>, <code>aria-checked</code>, arrow keys and haptics, done properly. The reference implementation for Phase B item 3.</li>
+    <li><b>Skeleton coverage on all four tabs</b> — better than most shipped apps.</li>
+    <li><b>The FX section</b> — the EQ curve drawn on the live spectrum, the preset glyphs, the remember-previous-state toggles. The most sophisticated interaction design in the app; nothing here touches it.</li>
+    <li><b>The ambient fields, the bell mark and the intro splash</b> — a memorable identity. The point of this audit is that the four tabs should be able to carry it.</li>
+  </ul>
+</section>
+
+<footer>
+  Method — full read of noise-lab.tsx (1,727 lines), globals.css (388 lines), ui/* and
+  check-tokens.mjs; app built and driven with Playwright at 390×844 and 1280×900 across default,
+  populated, scrolled, empty and API-failure states. Contrast computed from declared tokens.
+  Every figure measured.<br>
+  Follows docs/tab-cohesion-audit.md · companion to docs/design-quality-audit.md
+</footer>
+
+</div>

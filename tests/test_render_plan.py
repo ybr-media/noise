@@ -82,8 +82,8 @@ def test_order_duration_and_documented_command_names() -> None:
 
     repeat_count = int(re.search(r"Count=(\d+)", commands[repeat_index]).group(1))
     assert repeat_count + 1 == plan.output.repeats == 4
-    assert plan.output.cell_seconds * plan.output.sample_rate == round(
-        plan.output.cell_seconds * plan.output.sample_rate
+    assert plan.output.cell_seconds * plan.output.master_sample_rate == round(
+        plan.output.cell_seconds * plan.output.master_sample_rate
     )
     assert MIN_CELL_SECONDS <= plan.output.cell_seconds <= MAX_CELL_SECONDS
     assert plan.output.cell_seconds * plan.output.repeats == plan.total_seconds
@@ -194,8 +194,14 @@ def test_variant_duration_is_seeded_whole_sample_and_varies() -> None:
     durations = {plan.output.cell_seconds for plan in plans}
     assert len(durations) > 1
     for plan in plans:
-        expected_frames = cell_frames_for_variant(plan.variant, plan.output.sample_rate)
-        assert round(plan.output.cell_seconds * plan.output.sample_rate) == expected_frames
+        stem_frames = cell_frames_for_variant(plan.variant, plan.output.stem_sample_rate)
+        master_frames = cell_frames_for_variant(plan.variant, plan.output.master_sample_rate)
+        reference_frames = MIN_CELL_SECONDS * 48000 + plan.variant.seed("bed", "l") % (
+            (MAX_CELL_SECONDS - MIN_CELL_SECONDS) * 48000 + 1
+        )
+        assert plan.output.cell_seconds == reference_frames / 48000
+        assert round(plan.output.cell_seconds * plan.output.stem_sample_rate) == stem_frames
+        assert master_frames == stem_frames * 2
         assert MIN_CELL_SECONDS <= plan.output.cell_seconds <= MAX_CELL_SECONDS
         assert plan.total_seconds == plan.output.cell_seconds * 4
         total_text = f"End={plan.total_seconds:.6f}".rstrip("0").rstrip(".")
@@ -316,7 +322,7 @@ def test_band_edges_and_nyquist_expression() -> None:
 
 def test_project_rate_and_output_format() -> None:
     plan = _plan()
-    assert "SetProject: Rate=48000" in plan.commands
+    assert "SetProject: Rate=96000" in plan.commands
     assert all(
         command.endswith("NumChannels=2")
         for path in plan.track_paths
@@ -326,7 +332,8 @@ def test_project_rate_and_output_format() -> None:
     assert all(path.endswith(".wav") for path in plan.track_paths)
     # Export2 has no bit-depth parameter; 24-bit is represented by the
     # sidecar and Audacity's persisted export preferences, not this stream.
-    assert plan.output.sample_rate == 48000
+    assert plan.output.master_sample_rate == 96000
+    assert plan.output.stem_sample_rate == 48000
     assert plan.output.bit_depth == 24
 
 
@@ -389,8 +396,8 @@ def test_fx_eq_appends_a_post_mix_filter_curve_over_all_tracks() -> None:
 def test_fx_reverb_appends_tail_reverb_and_final_fade() -> None:
     plan = _fx_plan(reverb=CATHEDRAL)
     assert 0 < plan.tail_seconds <= 8
-    assert plan.tail_seconds * plan.output.sample_rate == round(
-        plan.tail_seconds * plan.output.sample_rate
+    assert plan.tail_seconds * plan.output.master_sample_rate == round(
+        plan.tail_seconds * plan.output.master_sample_rate
     )
     nominal = plan.output.cell_seconds * plan.output.repeats
     assert plan.total_seconds == nominal + plan.tail_seconds
@@ -430,3 +437,75 @@ def test_fx_eq_response_is_zero_when_flat() -> None:
 
     for hz in (31, 500, 16000):
         assert eq_response_db([0.0] * 10, hz, 48000) == 0.0
+
+
+def test_a_non_numeric_trim_is_a_plan_error_not_a_conversion_error() -> None:
+    for trim in ("loud", [0], True, {}):
+        with pytest.raises(PlanError, match="trim_db"):
+            _fx_plan(eq={"preset": "custom", "gains_db": [0] * 10, "trim_db": trim})
+
+
+def test_an_absent_or_null_trim_means_no_trim() -> None:
+    for block in ({"gains_db": [1] * 10}, {"gains_db": [1] * 10, "trim_db": None}):
+        plan = _fx_plan(eq=block)
+        assert plan.fx is not None and plan.fx.eq is not None
+        assert plan.fx.eq.trim_db == 0.0
+
+
+def test_an_out_of_range_trim_is_still_rejected() -> None:
+    with pytest.raises(PlanError, match="trim_db"):
+        _fx_plan(eq={"preset": "custom", "gains_db": [0] * 10, "trim_db": 40})
+
+
+def test_a_silent_reverb_reports_its_floor_rather_than_failing() -> None:
+    from render_plan import REVERB_WET_GAIN_MIN_DB, ReverbFx
+
+    off = ReverbFx("off", room_size=50, pre_delay_ms=0, reverberance=50, damping=50, mix_percent=0)
+    assert off.is_off
+    assert off.wet_gain_db == REVERB_WET_GAIN_MIN_DB
+    # A bypassed reverb contributes no commands and no tail.
+    plan = _fx_plan(reverb={**CATHEDRAL, "mix_percent": 0})
+    assert plan.tail_seconds == 0
+    assert not any(command.startswith("Reverb:") for command in plan.commands)
+
+
+def test_wet_gain_tracks_the_mix_level_between_its_bounds() -> None:
+    from render_plan import ReverbFx
+
+    def wet(mix: float) -> float:
+        return ReverbFx("p", 50, 0, 50, 50, mix).wet_gain_db
+
+    assert wet(100) == 0.0
+    assert wet(50) == pytest.approx(-6.02, abs=0.01)
+    assert wet(1) == -20.0
+
+
+@pytest.mark.parametrize(
+    "override",
+    [{"master_sample_rate": -48000}, {"stem_sample_rate": 0}, {"bit_depth": 0}],
+)
+def test_an_unusable_output_block_is_rejected(override: dict[str, object]) -> None:
+    output, rows = _pilot()
+    row = rows[0]
+    with pytest.raises(PlanError):
+        build_plan(row, {**output, **override}, f"/tmp/{row['filename']}")
+
+
+def test_a_legacy_single_sample_rate_is_validated_too() -> None:
+    output, rows = _pilot()
+    row = rows[0]
+    legacy = {key: value for key, value in output.items() if not key.endswith("_sample_rate")}
+    plan = build_plan(row, {**legacy, "sample_rate": 48000}, f"/tmp/{row['filename']}")
+    assert plan.output.master_sample_rate == plan.output.stem_sample_rate == 48000
+    with pytest.raises(PlanError, match="positive"):
+        build_plan(row, {**legacy, "sample_rate": 0}, f"/tmp/{row['filename']}")
+
+
+def test_a_master_filename_without_a_track_name_is_rejected() -> None:
+    from render_plan import is_master_filename, track_name_of_master
+
+    with pytest.raises(PlanError):
+        track_name_of_master("_master.wav")
+    assert not is_master_filename("_master.wav")
+    assert track_name_of_master("wn_a_master.wav") == "wn_a"
+    assert stem_filenames("wn_a_master.wav")[0] == "wn_a_stem_1.wav"

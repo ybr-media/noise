@@ -16,6 +16,8 @@ sys.path.insert(0, str(Path(__file__).parents[1] / "qa"))
 import qa_harness
 from checks import Sidecar, duration_format
 
+from resampling import resample_stereo
+
 SAMPLE_RATE = 48000
 CELL_SECONDS = 2
 REPEATS = 4
@@ -42,6 +44,7 @@ def sidecar(**changes: object) -> dict[str, object]:
         "repeats": REPEATS,
         "fade_seconds": FADE_SECONDS,
         "sample_rate": SAMPLE_RATE,
+        "expected_frames": CELL_FRAMES * REPEATS,
         "bit_depth": 24,
         "tilt_db_per_oct": 0,
         "audacity_version": "test",
@@ -376,6 +379,46 @@ def test_a_master_whose_stems_are_the_wrong_length_fails(tmp_path: Path) -> None
     assert_only(master, "Stem sum")
 
 
+def test_different_rate_stem_sum_uses_resampled_null_depth(tmp_path: Path) -> None:
+    rng = np.random.default_rng(19)
+    source = rng.normal(0, 0.05, (96000 * CELL_SECONDS * REPEATS, 2))
+    master = tmp_path / "wn_white_full_static_balanced_resampled.wav"
+    metadata = sidecar(
+        sample_rate=96000,
+        expected_frames=source.shape[0],
+        stem_filenames=[],
+    )
+    master.write_bytes(b"")
+    master.with_suffix(".json").write_text(json.dumps(metadata), encoding="utf-8")
+    sf.write(master, source, 96000, subtype="PCM_24", format="WAV")
+    stems = []
+    for number, weight in enumerate(STEM_WEIGHTS, start=1):
+        path = master.with_name(f"{master.stem.removesuffix('_resampled')}_stem_{number}.wav")
+        stems.append(path)
+        sf.write(path, resample_stereo(source * weight, 96000, 48000), 48000, subtype="PCM_24", format="WAV")
+    metadata["stem_filenames"] = [path.name for path in stems]
+    master.with_suffix(".json").write_text(json.dumps(metadata), encoding="utf-8")
+    for number, path in enumerate(stems, start=1):
+        path.with_suffix(".json").write_text(
+            json.dumps({**metadata, "role": f"stem_{number}", "stem": ("bed", "texture", "motion")[number - 1], "sample_rate": 48000, "expected_frames": source.shape[0] // 2}),
+            encoding="utf-8",
+        )
+    assert checks(master)["Stem sum"].passed
+    altered = sf.read(stems[0], dtype="float64", always_2d=True)[0]
+    altered[10, 0] += 0.01
+    sf.write(stems[0], altered, 48000, subtype="PCM_24", format="WAV")
+    assert checks(master)["Stem sum"].passed is False
+
+
+def test_duration_format_falls_back_for_legacy_sidecar(tmp_path: Path) -> None:
+    path = make_track(tmp_path)
+    metadata = json.loads(path.with_suffix(".json").read_text())
+    metadata.pop("expected_frames")
+    path.with_suffix(".json").write_text(json.dumps(metadata), encoding="utf-8")
+    with sf.SoundFile(path) as info:
+        assert duration_format(info, Sidecar.from_json(path.with_suffix(".json"))).passed
+
+
 def _with_tail(audio: np.ndarray, tail_seconds: float) -> np.ndarray:
     tail_frames = round(tail_seconds * SAMPLE_RATE)
     rng = np.random.default_rng(9)
@@ -390,6 +433,7 @@ def test_a_reverb_tail_in_the_sidecar_extends_the_expected_duration(tmp_path: Pa
     tailed = _with_tail(audio, 2.0)
     metadata = json.loads(path.with_suffix(".json").read_text())
     metadata["tail_seconds"] = 2.0
+    metadata.pop("expected_frames")
     path.with_suffix(".json").write_text(json.dumps(metadata), encoding="utf-8")
     write_group(path, tailed, rate)
     result = checks(path)

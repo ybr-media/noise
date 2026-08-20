@@ -14,6 +14,8 @@ import numpy as np
 import pyloudnorm as pyln
 import soundfile as sf
 
+from resampling import resample_stereo
+
 #: Half-width, in octaves, of the region around a bell center excluded from the
 #: tilt fit. The bell's skirts reach well past one octave, so a narrower window
 #: leaves them in the fit and lifts the baseline the bell is measured against.
@@ -27,6 +29,10 @@ BELL_MEASURE_WIDTH_OCTAVES: float = 1 / 6
 #: four 24-bit files, so the difference is bounded by requantizing four files
 #: (about -128 dBFS); this threshold is that with generous margin.
 STEM_SUM_TOLERANCE: float = 1e-5
+
+# Resampling the 96 kHz master to 48 kHz changes individual samples, so the
+# equal-rate bit-identical check becomes a null-depth check after conversion.
+RESAMPLED_STEM_SUM_TOLERANCE: float = 1e-4
 
 #: Frames read at a time when summing stems, so a four-minute master and its
 #: three stems never all sit in memory at once.
@@ -111,7 +117,7 @@ def _peaking_coefficients(
 def eq_response_db(eq: FxEq, frequencies: np.ndarray, sample_rate: float) -> np.ndarray:
     """Combined dB response of the render FX EQ, mirroring render_plan's math."""
     total = np.full(frequencies.shape, eq.trim_db, dtype=np.float64)
-    for band_hz, gain_db in zip(EQ_BAND_HZ, eq.gains_db):
+    for band_hz, gain_db in zip(EQ_BAND_HZ, eq.gains_db, strict=True):
         if gain_db == 0.0:
             continue
         if band_hz == EQ_BAND_HZ[0]:
@@ -151,6 +157,7 @@ class Sidecar:
     stem_filenames: tuple[str, ...]
     tail_seconds: float = 0.0
     fx_eq: FxEq | None = None
+    expected_frames: int | None = None
 
     @property
     def tail_frames(self) -> int:
@@ -255,6 +262,11 @@ class Sidecar:
             raise SidecarError(f"{path.name}: sample_rate must be an integer")
         if not isinstance(bit_depth, int) or isinstance(bit_depth, bool):
             raise SidecarError(f"{path.name}: bit_depth must be an integer")
+        expected_frames_raw = raw.get("expected_frames")
+        if expected_frames_raw is not None and (
+            not isinstance(expected_frames_raw, int) or isinstance(expected_frames_raw, bool)
+        ):
+            raise SidecarError(f"{path.name}: expected_frames must be an integer")
         result = cls(
             variant_id=text("variant_id"),
             color=text("color"),
@@ -281,11 +293,19 @@ class Sidecar:
             stem_filenames=tuple(stems_raw),
             tail_seconds=float(tail_raw),
             fx_eq=fx_eq,
+            expected_frames=expected_frames_raw,
         )
         text("audacity_version")
         text("render_timestamp")
         if result.cell_seconds <= 0 or result.repeats < 1 or result.fade_seconds < 0:
             raise SidecarError(f"{path.name}: cell_seconds/repeats/fade_seconds out of range")
+        # Every measurement divides by the sample rate or scales by the bit
+        # depth, so a zero or negative one turns a bad sidecar into a crash
+        # deep inside a check rather than a reported input error.
+        if result.sample_rate <= 0 or result.bit_depth <= 0:
+            raise SidecarError(f"{path.name}: sample_rate and bit_depth must be positive")
+        if result.expected_frames is not None and result.expected_frames < 0:
+            raise SidecarError(f"{path.name}: expected_frames must not be negative")
         if result.band_low_hz <= 0 or result.band_high_hz <= result.band_low_hz:
             raise SidecarError(f"{path.name}: invalid band edges")
         return result
@@ -417,13 +437,27 @@ def loop_seam(data: np.ndarray, sidecar: Sidecar) -> CheckResult:
 def _seam_outlier(data: np.ndarray, sidecar: Sidecar, cell: int, fade: int) -> CheckResult:
     seam_width = max(1, round(0.005 * sidecar.sample_rate))
     second = np.diff(data, n=2, axis=0)
-    seam_peaks: list[float] = []
-    for index in range(1, sidecar.repeats):
-        boundary = index * cell
-        seam_peaks.append(float(np.max(np.abs(second[max(0, boundary - seam_width):boundary + seam_width]))))
-    baseline_positions = np.linspace(fade + seam_width, data.shape[0] - fade - seam_width, 32, dtype=int)
-    baseline = [float(np.max(np.abs(second[max(0, p - seam_width):p + seam_width]))) for p in baseline_positions]
-    ratio = max(seam_peaks, default=0.0) / max(float(np.median(baseline)), 1e-12)
+
+    def window_peak(position: int) -> float | None:
+        """Peak second difference around one position, or None past the end."""
+        window = second[max(0, position - seam_width):position + seam_width]
+        return float(np.max(np.abs(window))) if window.size else None
+
+    seam_peaks = [
+        peak
+        for index in range(1, sidecar.repeats)
+        if (peak := window_peak(index * cell)) is not None
+    ]
+    # A file shorter than its own fades leaves no interior to sample; clamping
+    # keeps the baseline inside the array rather than reducing empty windows.
+    low = min(fade + seam_width, max(second.shape[0] - 1, 0))
+    high = max(second.shape[0] - fade - seam_width, low)
+    baseline = [
+        peak
+        for position in np.linspace(low, high, 32, dtype=int)
+        if (peak := window_peak(int(position))) is not None
+    ]
+    ratio = max(seam_peaks, default=0.0) / max(float(np.median(baseline or [0.0])), 1e-12)
     return _result("Loop seam", f"{ratio:.3f}x second-difference median", "< 8x baseline (outlier metric)", ratio < 8, {"metric": "second-difference-outlier", "reason": "raw sample deltas are not meaningful for broadband noise"})
 
 
@@ -434,16 +468,33 @@ class Spectrum:
     third_octave: Mapping[int, float]
 
 
-def analyze_spectrum(data: np.ndarray, sidecar: Sidecar) -> Spectrum:
+def _body(data: np.ndarray, sidecar: Sidecar) -> np.ndarray:
+    """The audio between the fade-in and the fade-out/reverb tail.
+
+    A file too short to hold both fades would leave nothing to measure, and an
+    empty measurement says nothing about the render; the whole file is used
+    instead, so the checks report on the audio that does exist.
+    """
     start = round(sidecar.fade_seconds * sidecar.sample_rate)
     stop = data.shape[0] - start - sidecar.tail_frames
-    mono = np.mean(data[start:stop], axis=1)
+    if start >= stop:
+        return data
+    return data[start:stop]
+
+
+def analyze_spectrum(data: np.ndarray, sidecar: Sidecar) -> Spectrum:
+    mono = np.mean(_body(data, sidecar), axis=1)
     nperseg = min(65536, max(1024, len(mono) // 8))
     step = max(1, nperseg // 2)
     window = np.hanning(nperseg)
     windows = [mono[pos:pos + nperseg] for pos in range(0, max(1, len(mono) - nperseg + 1), step)]
-    if not windows:
-        windows = [np.pad(mono, (0, nperseg - len(mono)))]
+    # A file shorter than one window still has to be measured: zero-padding the
+    # only chunk keeps the transform well defined instead of failing to
+    # broadcast, so a short render is graded rather than reported as a crash.
+    windows = [
+        chunk if len(chunk) == nperseg else np.pad(chunk, (0, nperseg - len(chunk)))
+        for chunk in windows
+    ]
     spectra = [np.abs(np.fft.rfft(chunk * window)) ** 2 for chunk in windows]
     psd = np.mean(np.asarray(spectra), axis=0)
     frequencies = np.fft.rfftfreq(nperseg, 1 / sidecar.sample_rate)
@@ -549,10 +600,8 @@ def green_bell(spectrum: Spectrum, sidecar: Sidecar) -> CheckResult:
 
 
 def silence(data: np.ndarray, sidecar: Sidecar) -> CheckResult:
-    start = int(sidecar.fade_seconds * sidecar.sample_rate)
     # The reverb tail past the nominal length decays to silence by design.
-    stop = data.shape[0] - start - sidecar.tail_frames
-    mono = np.mean(data[start:stop], axis=1)
+    mono = np.mean(_body(data, sidecar), axis=1)
     frame = max(1, int(sidecar.sample_rate * 0.02))
     hop = max(1, int(sidecar.sample_rate * 0.01))
     rms = np.asarray([math.sqrt(float(np.mean(mono[i:i + frame] ** 2))) for i in range(0, max(1, len(mono) - frame + 1), hop)])
@@ -583,10 +632,20 @@ def stem_sum(master_path: Path, stem_paths: tuple[Path, ...]) -> CheckResult:
             "Stem sum", f"missing {', '.join(missing) or 'stem list'}", threshold, False
         )
     with sf.SoundFile(master_path) as master_info:
-        shape = (master_info.frames, master_info.samplerate, master_info.channels)
+        master_shape = (master_info.frames, master_info.samplerate, master_info.channels)
+    stem_rate: int | None = None
     for path in stem_paths:
         with sf.SoundFile(path) as info:
-            if (info.frames, info.samplerate, info.channels) != shape:
+            if stem_rate is None:
+                stem_rate = info.samplerate
+            if (
+                info.channels != master_shape[2]
+                or info.samplerate != stem_rate
+                or (
+                    stem_rate == master_shape[1]
+                    and info.frames != master_shape[0]
+                )
+            ):
                 return _result(
                     "Stem sum",
                     f"{path.name} is {info.frames} frames, {info.samplerate} Hz, "
@@ -594,25 +653,64 @@ def stem_sum(master_path: Path, stem_paths: tuple[Path, ...]) -> CheckResult:
                     threshold,
                     False,
                 )
-    worst = 0.0
-    readers = [
-        sf.blocks(path, blocksize=STEM_SUM_BLOCK_FRAMES, dtype="float64", always_2d=True)
-        for path in (master_path, *stem_paths)
-    ]
-    for master_block, *stem_blocks in zip(*readers):
-        residual = master_block - sum(stem_blocks)
-        worst = max(worst, float(np.max(np.abs(residual))))
+    if stem_rate == master_shape[1]:
+        readers = [
+            sf.blocks(path, blocksize=STEM_SUM_BLOCK_FRAMES, dtype="float64", always_2d=True)
+            for path in (master_path, *stem_paths)
+        ]
+        worst = 0.0
+        for master_block, *stem_blocks in zip(*readers):
+            residual = master_block - sum(stem_blocks)
+            worst = max(worst, float(np.max(np.abs(residual))))
+        return _result(
+            "Stem sum",
+            f"{worst:.3e} ({20 * math.log10(max(worst, np.finfo(float).tiny)):.1f} dBFS)",
+            threshold,
+            worst <= STEM_SUM_TOLERANCE,
+            {"stems": [path.name for path in stem_paths]},
+        )
+    residual = resample_stereo(
+        sf.read(master_path, dtype="float64", always_2d=True)[0],
+        master_shape[1],
+        stem_rate,
+    )
+    for path in stem_paths:
+        with sf.SoundFile(path) as stem:
+            if stem.frames != residual.shape[0]:
+                return _result(
+                    "Stem sum",
+                    f"{path.name} is {stem.frames} frames, expected {residual.shape[0]}",
+                    f"exactly {residual.shape[0]} frames at {stem_rate} Hz",
+                    False,
+                )
+            offset = 0
+            while offset < residual.shape[0]:
+                block = stem.read(
+                    min(STEM_SUM_BLOCK_FRAMES, residual.shape[0] - offset),
+                    dtype="float64",
+                    always_2d=True,
+                )
+                residual[offset : offset + len(block)] -= block
+                offset += len(block)
+    worst = float(np.max(np.abs(residual)))
+    threshold = f"max |resampled master - sum(stems)| <= {RESAMPLED_STEM_SUM_TOLERANCE:g}"
     return _result(
         "Stem sum",
         f"{worst:.3e} ({20 * math.log10(max(worst, np.finfo(float).tiny)):.1f} dBFS)",
         threshold,
-        worst <= STEM_SUM_TOLERANCE,
+        worst <= RESAMPLED_STEM_SUM_TOLERANCE,
         {"stems": [path.name for path in stem_paths]},
     )
 
 
 def duration_format(info: sf.SoundFile, sidecar: Sidecar) -> CheckResult:
-    expected = round(sidecar.cell_seconds * sidecar.sample_rate) * sidecar.repeats + sidecar.tail_frames
+    # Older published sidecars lack expected_frames, so derive it for compatibility.
+    expected = (
+        sidecar.expected_frames
+        if sidecar.expected_frames is not None
+        else round(sidecar.cell_seconds * sidecar.sample_rate) * sidecar.repeats
+        + sidecar.tail_frames
+    )
     subtype_bits = {"PCM_16": 16, "PCM_24": 24, "PCM_32": 32}.get(info.subtype, 0)
     passed = info.samplerate == sidecar.sample_rate and info.channels == 2 and subtype_bits == sidecar.bit_depth and info.frames == expected
     return _result("Duration/format", f"{info.frames} frames, {info.samplerate} Hz, {info.channels}ch, {info.subtype}", f"exactly {expected} frames; {sidecar.sample_rate} Hz stereo {sidecar.bit_depth}-bit", passed)

@@ -48,6 +48,17 @@ export async function dispatchMetadata(payload: string): Promise<void> {
   }
 }
 
+export async function dispatchRename(payload: string): Promise<void> {
+  const response = await fetch(`${API}/repos/${DISPATCH_REPO}/actions/workflows/rename.yml/dispatches`, {
+    method: "POST",
+    headers: dispatchHeaders(),
+    body: JSON.stringify({ ref: DISPATCH_REF, inputs: { payload } }),
+  });
+  if (!response.ok) {
+    throw new Error(`GitHub refused the rename dispatch (${response.status}): ${(await response.text()).slice(0, 300)}`);
+  }
+}
+
 export async function dispatchCleanup(variants: string): Promise<void> {
   const response = await fetch(`${API}/repos/${DISPATCH_REPO}/actions/workflows/cleanup.yml/dispatches`, {
     method: "POST",
