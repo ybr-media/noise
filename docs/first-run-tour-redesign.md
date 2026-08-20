@@ -43,7 +43,7 @@ Targets in brackets. `[+]` = new `data-tour` hook needed.
 
 1. **info** — *Make your first track* — "You'll design a sound, render it for real, and hear the
    result. Two minutes, and you keep whatever you make."
-2. **action** `param-selected/color` [`design-color` +] — *Pick a colour* — "Colour sets the tilt
+2. **action** `param-selected/color` [`design-color` +] — *Pick a color* — "Color sets the tilt
    of the noise: White is flat, Brown is deepest. The caption on the right names exactly what
    you picked."
 3. **action** `param-selected/shape` [`design-shape` +] — *Now narrow it down* — "Band, Motion

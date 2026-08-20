@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import demoSidecar from "../demo/demo_first_render.json";
 import { isDemoSidecar, shouldShowDemoTrack } from "../lib/demo";
-import { finaleCopy, shouldFireRenderBanner, shouldPersistTutorial, tourEventMatches, tutorialSteps } from "../app/ui/tutorial";
+import { finaleCopy, playedTrackIdAfterPlayback, shouldFireRenderBanner, shouldPersistTutorial, tourEventMatches, tutorialSteps } from "../app/ui/tutorial";
 
 test("the tour script is data-driven and branches render copy by mode", () => {
   const local = tutorialSteps("local");
@@ -15,6 +15,8 @@ test("the tour script is data-driven and branches render copy by mode", () => {
   assert.equal(local.find((step) => step.id === "param-color")?.target, "design-color");
   assert.equal(local.find((step) => step.id === "param-shape")?.target, "design-shape");
   assert.equal(local.find((step) => step.id === "library-play")?.eventSequence?.length, 2);
+  assert.equal(local.find((step) => step.id === "param-color")?.title, "Pick a color");
+  assert.doesNotMatch(local.find((step) => step.id === "param-color")?.body ?? "", /colour/i);
 });
 
 test("action steps advance only for their declared event and group", () => {
@@ -78,6 +80,21 @@ test("finale distinguishes an existing track and a queued render", () => {
   });
   assert.match(waiting, /played the master you just queued/);
   assert.match(waiting, /Your render is still queued/);
+});
+
+test("failed playback cannot leave a false played-track claim", () => {
+  assert.equal(playedTrackIdAfterPlayback(null, "seeded", "playing"), "seeded");
+  assert.equal(playedTrackIdAfterPlayback("seeded", "seeded", "error"), null);
+  assert.equal(playedTrackIdAfterPlayback("other", "seeded", "error"), "other");
+  const failed = finaleCopy({
+    params: "Green · Broad · Drift",
+    renderLabel: "your track",
+    queuedVariantId: "variant-new",
+    playedTrackId: null,
+    renderStatus: "Ready",
+  });
+  assert.match(failed, /haven't played a master yet/);
+  assert.doesNotMatch(failed, /played a master from your Library/);
 });
 
 test("render banner fires exactly once when the tracked job is done", () => {

@@ -79,8 +79,8 @@ export function tutorialSteps(mode: TourMode): TourStep[] {
       target: "design-color",
       event: "param-selected",
       group: "color",
-      title: "Pick a colour",
-      body: "Colour sets the tilt of the noise: White is flat, Brown is deepest. The caption on the right names exactly what you picked.",
+      title: "Pick a color",
+      body: "Color sets the tilt of the noise: White is flat, Brown is deepest. The caption on the right names exactly what you picked.",
     },
     {
       id: "param-shape",
@@ -99,7 +99,7 @@ export function tutorialSteps(mode: TourMode): TourStep[] {
       target: "design-fx",
       event: "fx-changed",
       title: "Optional: EQ and reverb",
-      body: "Switch EQ on and it loads a preset — Warm Bed, Airy, Midnight, Telephone — that you can nudge band by band. Reverb adds a room. Both bake into the render, not just the preview.",
+      body: "EQ presets — Warm Bed, Airy, Midnight, Telephone — are starting points you can nudge band by band, whether EQ is already on or you switch it on. Reverb adds a room. Both bake into the render, not just the preview.",
     },
     renderStep,
     queueStep,
@@ -141,6 +141,15 @@ export function tourEventMatches(step: TourStep, event: TourEvent, eventIndex = 
 
 export function shouldPersistTutorial(authConfigured: boolean, replay: boolean): boolean {
   return authConfigured && !replay;
+}
+
+export function playedTrackIdAfterPlayback(
+  current: string | null,
+  variantId: string,
+  outcome: "playing" | "error",
+): string | null {
+  if (outcome === "playing") return variantId;
+  return current === variantId ? null : current;
 }
 
 export function finaleCopy(snapshot: TourSnapshot): string {

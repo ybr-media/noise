@@ -216,7 +216,7 @@ fires (and always offers "Do it for me" after a stall).
 | # | Type | Tab | Target (`data-tour`) | Advance event | Message (final) |
 |---|------|-----|----------------------|---------------|-----------------|
 | 1 | info | — | none (centered card) | — | **Make your first track.** You'll design a sound, render it for real, and hear the result. Two minutes, and you keep whatever you make. |
-| 2 | action | Design | `design-color` | `param-selected:color` | **Pick a colour.** Colour sets the tilt of the noise: White is flat, Brown is deepest. The caption on the right names exactly what you picked. |
+| 2 | action | Design | `design-color` | `param-selected:color` | **Pick a color.** Color sets the tilt of the noise: White is flat, Brown is deepest. The caption on the right names exactly what you picked. |
 | 3 | action | Design | `design-shape` | `param-selected:shape` | **Now narrow it down.** Band, Motion and Balance decide which part of the spectrum you keep, how much it moves, and how it's mixed. Change any one — the caption and the spectrum follow. |
 | 4 | action | Design | `design-fx` | `fx-changed` | **Optional: EQ and reverb.** Switch EQ on and it loads a preset — Warm Bed, Airy, Midnight, Telephone — that you can nudge band by band. Reverb adds a room. Both bake into the render, not just the preview. |
 | 5 | action | Design | `design-render` | `render-enqueued` | **Create the track.** Create track queues a real job with the engine: full-length master plus stems. Nothing here is a mock. *(unavailable mode → info: "This console is browse-only — designs render elsewhere and land in the Library.")* |

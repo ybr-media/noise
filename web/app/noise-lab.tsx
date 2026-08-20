@@ -72,7 +72,7 @@ import { Banner } from "./ui/banner";
 import { EmptyState } from "./ui/empty-state";
 import { Disclosure } from "./ui/disclosure";
 import { useFirstRun } from "@/lib/use-first-run";
-import { useTutorial, type TourStep, type TourSnapshot } from "./ui/tutorial";
+import { playedTrackIdAfterPlayback, useTutorial, type TourStep, type TourSnapshot } from "./ui/tutorial";
 import { Switch } from "./ui/switch";
 
 const TAB_ICONS = {
@@ -1260,7 +1260,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
           </div>
           )}
         </div>
-        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} tourVariantId={trackedRender?.variantId} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} onTrackPlay={(variantId) => { setPlayedTrackId(variantId); tour.notify("track-played", undefined, { variantId }); }} /></div>
+        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} tourVariantId={trackedRender?.variantId} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} onTrackPlay={(variantId) => { setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "playing")); tour.notify("track-played", undefined, { variantId }); }} onTrackPlayError={(variantId) => setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "error"))} /></div>
         <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} tourVariantId={trackedRender?.variantId} initialLoad={initialLoad} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} onToast={setToast} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
         <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} /></div>
       </div>
@@ -1322,7 +1322,7 @@ function HeaderSyncCaption({ lastSync, syncFailed, loading, onRefresh, hidden }:
   return <span className="header-sync-caption" aria-live="polite">{caption}</span>;
 }
 
-function Library({ tracks, tourVariantId, loading, initialLoad, onRefresh, onToast, onTrackPlay }: { tracks: LibraryTrack[]; tourVariantId?: string; loading: boolean; initialLoad: boolean; onRefresh: () => void; onToast: (toast: { message: string; error?: boolean }) => void; onTrackPlay: (variantId: string) => void }) {
+function Library({ tracks, tourVariantId, loading, initialLoad, onRefresh, onToast, onTrackPlay, onTrackPlayError }: { tracks: LibraryTrack[]; tourVariantId?: string; loading: boolean; initialLoad: boolean; onRefresh: () => void; onToast: (toast: { message: string; error?: boolean }) => void; onTrackPlay: (variantId: string) => void; onTrackPlayError: (variantId: string) => void }) {
   const [view, setView] = useState<"cards" | "rows">("cards");
   const { pullDistance, refreshShellRef } = usePullRefresh(loading, onRefresh);
   useEffect(() => {
@@ -1349,13 +1349,13 @@ function Library({ tracks, tourVariantId, loading, initialLoad, onRefresh, onToa
       <div className="library-toolbar"><div className="section-title">Masters · {tracks.filter((track) => track.exists).length}</div><button type="button" className="icon-action view-toggle" aria-label={view === "cards" ? "Switch to compact rows" : "Switch to expanded cards"} title={view === "cards" ? "Compact rows" : "Expanded cards"} onClick={toggleView}>{view === "cards" ? <List size={18} /> : <LayoutGrid size={18} />}</button></div>
       <div className="library-list">
         {tracks.filter((track) => track.exists).length === 0 && <Card padding="md"><EmptyState title="No rendered files found." /></Card>}
-        {tracks.filter((track) => track.exists).map((track) => <TrackCard key={track.variantId} track={track} compact={view === "rows"} onRefresh={onRefresh} onToast={onToast} onTrackPlay={onTrackPlay} dataTour={track.variantId === tourTrackId ? "library-track" : undefined} />)}
+        {tracks.filter((track) => track.exists).map((track) => <TrackCard key={track.variantId} track={track} compact={view === "rows"} onRefresh={onRefresh} onToast={onToast} onTrackPlay={onTrackPlay} onTrackPlayError={onTrackPlayError} dataTour={track.variantId === tourTrackId ? "library-track" : undefined} />)}
       </div>
     </section>
   );
 }
 
-function TrackCard({ track, compact = false, onRefresh, onToast, onTrackPlay, dataTour }: { track: LibraryTrack; compact?: boolean; onRefresh: () => void; onToast: (toast: { message: string; error?: boolean }) => void; onTrackPlay: (variantId: string) => void; dataTour?: string }) {
+function TrackCard({ track, compact = false, onRefresh, onToast, onTrackPlay, onTrackPlayError, dataTour }: { track: LibraryTrack; compact?: boolean; onRefresh: () => void; onToast: (toast: { message: string; error?: boolean }) => void; onTrackPlay: (variantId: string) => void; onTrackPlayError: (variantId: string) => void; dataTour?: string }) {
   const [suggestion, setSuggestion] = useState<{ title: string; description: string; prompt: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [downloadBusy, setDownloadBusy] = useState(false);
@@ -1489,7 +1489,7 @@ function TrackCard({ track, compact = false, onRefresh, onToast, onTrackPlay, da
     setMenu(null);
   };
   const metricClass = track.qaVerdict === "PASS" ? "qa-strip qa-pass" : track.qaVerdict === "FAIL" ? "qa-strip qa-fail" : "qa-strip";
-  const audioElement = <audio ref={audioRef} preload="none" src={track.audioUrl} onPlay={() => { setPlaying(true); onTrackPlay(track.variantId); }} onPause={() => setPlaying(false)} onTimeUpdate={(event) => setElapsed(event.currentTarget.currentTime)} onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : track.durationSeconds)} />;
+  const audioElement = <audio ref={audioRef} preload="none" src={track.audioUrl} onPlaying={() => { setPlaying(true); onTrackPlay(track.variantId); }} onPause={() => setPlaying(false)} onError={() => { setPlaying(false); onTrackPlayError(track.variantId); }} onTimeUpdate={(event) => setElapsed(event.currentTarget.currentTime)} onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : track.durationSeconds)} />;
   if (compact) {
     return (
       <Card as="article" id={`track-${track.variantId}`} padding="md" className="track-row" data-tour={dataTour}>
