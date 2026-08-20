@@ -1372,7 +1372,7 @@ function TrackCard({ track, compact = false, onRefresh, onToast }: { track: Libr
       if (!response.ok) throw new Error("Could not rename track.");
       setOptimisticTitle(nextTitle);
       setEditingTitle(false);
-      onToast({ message: "Track renamed." });
+      onToast({ message: response.status === 202 ? "Rename queued — the new title lands after the publish run." : "Track renamed." });
       onRefresh();
     } catch (error) {
       onToast({ message: error instanceof Error ? error.message : "Could not rename track.", error: true });
