@@ -4,6 +4,7 @@ import * as meRoute from "../app/api/me/route";
 import * as tutorialRoute from "../app/api/me/tutorial/route";
 import { lazyAdapter, missingAuthEnv, resolveAuthRedisEnv } from "../lib/auth";
 import { isAuthOpenMode } from "../lib/middleware-access";
+import { completedFirstRunState, firstRunShouldLaunch, type FirstRunState } from "../lib/use-first-run";
 import {
   TUTORIAL_VERSION,
   markTutorialComplete,
@@ -207,4 +208,18 @@ test("tutorial localStorage mirror uses a compact done flag", () => {
   assert.equal(tutorialDoneFromStorage("1"), true);
   assert.equal(tutorialDoneFromStorage(null), false);
   assert.equal(tutorialDoneFromStorage("0"), false);
+});
+
+test("completing the first-run state prevents another automatic launch", () => {
+  const initialState: FirstRunState = {
+    ready: true,
+    authenticated: true,
+    firstPaintGuard: false,
+    user: null,
+  };
+  assert.equal(firstRunShouldLaunch(initialState), true);
+  const completedAt = "2026-01-01T00:00:00.000Z";
+  const completedState = completedFirstRunState(initialState, completedAt);
+  assert.equal(completedState.user?.tutorialCompletedAt, completedAt);
+  assert.equal(firstRunShouldLaunch(completedState), false);
 });
