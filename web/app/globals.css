@@ -209,12 +209,15 @@ button:disabled { cursor: not-allowed; }
 .track-row-meta { margin-top: 2px; color: var(--ink-secondary); font-size: 11px; font-variant-numeric: tabular-nums; }
 .track-row-meta .qa-fail-text { color: var(--danger); font-weight: 700; }
 .track-row-download { margin: 0; }
-.track-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-.recipe-disclosure { width: 100%; }
-.recipe-trigger { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; cursor: pointer; }
-.recipe-trigger:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; border-radius: var(--radius-pill); }
-.recipe-trigger .chip { cursor: pointer; }
-.recipe-details { display: grid; gap: 16px; width: 100%; margin-top: 14px; padding: 16px; border-radius: var(--radius-control); background: var(--surface-sunken); animation: param-caption-fade 150ms ease; }
+.track-chips { display: grid; grid-template-columns: auto auto 1fr; column-gap: 6px; row-gap: 14px; align-items: start; margin-top: 12px; }
+.recipe-disclosure, .qa-disclosure { display: contents; }
+.recipe-disclosure > div, .qa-disclosure > div { display: contents; }
+.recipe-trigger, .qa-trigger { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.recipe-trigger { grid-column: 1; grid-row: 1; }
+.qa-trigger { grid-column: 2; grid-row: 1; }
+.recipe-trigger:focus-visible, .qa-trigger:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; border-radius: var(--radius-pill); }
+.recipe-trigger .chip, .qa-trigger .chip { cursor: pointer; }
+.recipe-details { display: grid; grid-column: 1 / -1; grid-row: 2; gap: 16px; width: 100%; margin-top: 0; padding: 16px; border-radius: var(--radius-control); background: var(--surface-sunken); animation: param-caption-fade 150ms ease; }
 .recipe-group { display: grid; gap: 8px; }
 .recipe-group + .recipe-group { padding-top: 14px; border-top: 1px solid var(--separator); }
 .recipe-group h4 { margin: 0; color: var(--ink); font-size: var(--text-sm); font-weight: 700; }
@@ -235,14 +238,14 @@ button:disabled { cursor: not-allowed; }
 .player-play { display: grid; width: 28px; height: 28px; flex-shrink: 0; place-items: center; border: 0; border-radius: 50%; color: var(--ink); background: var(--surface); }
 .player-time { color: var(--surface); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .player-scrubber { min-width: 0; flex: 1; accent-color: var(--surface); }
-.qa-strip { position: relative; display: grid; width: 100%; margin-top: 12px; padding: 0 12px 12px; border-radius: var(--radius-control); color: inherit; background: var(--surface-sunken); text-align: left; }
-.qa-strip.qa-pass { background: var(--success-bg); }
-.qa-strip.qa-fail { background: var(--danger-bg); }
-.qa-header { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 10px; width: 100%; min-height: 52px; align-items: center; padding: 0; border: 0; color: inherit; background: transparent; text-align: left; }
-.qa-header > span { display: grid; gap: 3px; }
+.qa-details { display: grid; grid-column: 1 / -1; grid-row: 2; gap: 16px; width: 100%; margin-top: 0; padding: 16px; border-radius: var(--radius-control); background: var(--surface-sunken); animation: param-caption-fade 150ms ease; }
+.recipe-disclosure.is-open ~ .qa-disclosure.is-open .qa-details { grid-row: 3; }
+.qa-disclosure.qa-pass .qa-details { background: var(--success-bg); }
+.qa-disclosure.qa-fail .qa-details { background: var(--danger-bg); }
+.qa-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.qa-metrics > span { display: grid; gap: 3px; }
 .qa-metric-label { color: var(--ink-secondary); font-size: 10px; }
-.qa-strip strong, .qa-verdict { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; font-variant-numeric: tabular-nums; }
-.qa-verdict { align-self: center; font-weight: 800; }
+.qa-metrics strong { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; font-variant-numeric: tabular-nums; }
 .qa-checks { grid-column: 1 / -1; display: grid; gap: 7px; padding-top: 9px; border-top: 1px solid rgba(0,0,0,.09); font-size: 11px; }
 .qa-checks > span { display: flex; justify-content: space-between; gap: 10px; }
 .qa-checks b { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 500; }

@@ -385,10 +385,9 @@ function LibrarySkeleton({ compact = false }: { compact?: boolean }) {
         )) : [0, 1, 2].map((card) => (
           <Card as="article" key={card} padding="md" className="track-card">
             <div className="track-card-heading"><Skeleton width="58%" height={15} /><Skeleton className="skeleton-fixed" width={34} height={34} radius="50%" /></div>
-            <div className="track-chips"><Skeleton width={74} height={28} radius={999} /><Skeleton width={48} height={28} radius={999} /><Skeleton width={52} height={28} radius={999} /><Skeleton width={58} height={28} radius={999} /></div>
+            <div className="track-chips"><Skeleton width={110} height={28} radius={999} /><Skeleton width={78} height={28} radius={999} /></div>
             <Skeleton className="track-date" width="44%" height={11} />
             <div className="custom-player"><Skeleton height={28} radius={999} /></div>
-            <div className="qa-strip"><Skeleton height={52} /></div>
             <div className="download-menu-wrap"><div className="download-split"><Skeleton height={42} radius={999} /></div></div>
           </Card>
         ))}
@@ -1417,7 +1416,8 @@ function TrackCard({ track, compact = false, onRefresh, onRenderAgain, onToast }
     onToast({ message: "Master URL copied." });
     setMenu(null);
   };
-  const metricClass = track.qaVerdict === "PASS" ? "qa-strip qa-pass" : track.qaVerdict === "FAIL" ? "qa-strip qa-fail" : "qa-strip";
+  const qaClass = track.qaVerdict === "PASS" ? "qa-disclosure qa-pass" : track.qaVerdict === "FAIL" ? "qa-disclosure qa-fail" : "qa-disclosure";
+  const qaTone = track.qaVerdict === "PASS" ? "success" : track.qaVerdict === "FAIL" ? "danger" : "neutral";
   const audioElement = <audio ref={audioRef} preload="none" src={track.audioUrl} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onTimeUpdate={(event) => setElapsed(event.currentTarget.currentTime)} onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : track.durationSeconds)} />;
   if (compact) {
     return (
@@ -1447,12 +1447,23 @@ function TrackCard({ track, compact = false, onRefresh, onRenderAgain, onToast }
         >
           <RecipeDetails recipe={track.recipe} configuredCellSeconds={track.cellSeconds} variantId={track.variantId} renderKey={track.renderKey} onRenderAgain={(repeats) => onRenderAgain(track, repeats)} />
         </Disclosure>
+        <Disclosure
+          open={qaOpen}
+          onOpenChange={setQaOpen}
+          className={qaClass}
+          triggerClassName="qa-trigger"
+          triggerId={qaId}
+          contentId={`${qaId}-checks`}
+          summary={<><Chip tone={qaTone}><span className="sr-only">QA </span>{track.qaVerdict}</Chip>{qaOpen ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}</>}
+        >
+          <div className="qa-details">
+            <div className="qa-metrics"><span><span className="qa-metric-label">LUFS</span><strong>{track.measuredLufs ?? "—"}</strong></span><span><span className="qa-metric-label">True peak</span><strong>{track.measuredTruePeak ?? "—"}</strong></span></div>
+            <div className="qa-checks">{track.qaChecks.length ? track.qaChecks.map((check) => <span key={check.name}><span>{check.passed ? "✓" : "×"} {check.name}</span><b>{check.measured}</b></span>) : "No QA checks available."}</div>
+          </div>
+        </Disclosure>
       </div>
       {track.renderedAt && <div className="track-date">Created <time title={absoluteTime(track.renderedAt)}>{formatCreatedDate(track.renderedAt)}</time></div>}
       <div className="custom-player">{audioElement}<button type="button" className="player-play" aria-label={playing ? "Pause track" : "Play track"} onClick={togglePlay}>{playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}</button><span className="player-time">{formatDuration(elapsed)}</span><input className="player-scrubber" type="range" min={0} max={duration} step={0.1} value={Math.min(elapsed, duration)} aria-label="Seek track" onChange={(event) => seek(Number(event.target.value))} /><span className="player-time">{formatDuration(duration)}</span></div>
-      <Disclosure open={qaOpen} onOpenChange={setQaOpen} className={metricClass} triggerClassName="qa-header" triggerId={qaId} contentId={`${qaId}-checks`} summary={<><span><span className="qa-metric-label">LUFS</span><strong>{track.measuredLufs ?? "—"}</strong></span><span><span className="qa-metric-label">True peak</span><strong>{track.measuredTruePeak ?? "—"}</strong></span><span className="qa-verdict">{track.qaVerdict}</span>{qaOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</>}>
-        <div className="qa-checks">{track.qaChecks.length ? track.qaChecks.map((check) => <span key={check.name}><span>{check.passed ? "✓" : "×"} {check.name}</span><b>{check.measured}</b></span>) : "No QA checks available."}</div>
-      </Disclosure>
       <div className="download-menu-wrap"><div className="download-split"><Button variant="neutral" type="button" onClick={() => download()} disabled={downloadBusy} className="download-main"><Download size={15} /> {downloadBusy ? "Preparing…" : "Download"}</Button><button type="button" className="download-chevron" aria-label="Download options" aria-haspopup="menu" aria-expanded={menu === "download"} onClick={() => setMenu(menu === "download" ? null : "download")}><ChevronDown size={15} /></button></div>{menu === "download" && <div className="track-menu download-menu" role="menu"><button type="button" role="menuitem" onClick={() => download()}><span>Master</span><small>{formatBytes(track.sizeBytes)}</small></button>{track.stems.filter((stem) => stem.exists).map((stem) => <button type="button" role="menuitem" key={stem.filename} onClick={() => download(stem.downloadUrl, stem.filename)}><span>Stem {stem.number} — {stem.stem}</span><small>{formatBytes(stem.sizeBytes)}</small></button>)}<div className="menu-separator" /><button type="button" role="menuitem" onClick={() => download(`/api/bundle/${encodeURIComponent(track.renderKey)}`, `${track.renderKey}.zip`)}><span>All as .zip</span><small>{formatBytes(track.sizeBytes + track.stems.filter((stem) => stem.exists).reduce((total, stem) => total + stem.sizeBytes, 0))}</small></button></div>}</div>
         {suggestion && <div className="mt-3 rounded-xl border border-[color:var(--separator)] p-3"><div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--ink-secondary)]">Review before approval</div><input value={suggestion.title} onChange={(event) => setSuggestion({ ...suggestion, title: event.target.value })} className="w-full border-b border-[color:var(--separator)] pb-1 text-sm font-semibold outline-none" /><textarea value={suggestion.description} onChange={(event) => setSuggestion({ ...suggestion, description: event.target.value })} className="mt-2 h-16 w-full resize-none text-xs leading-4 outline-none" /><div className="mt-2 flex justify-end gap-2"><Button variant="link" type="button" onClick={() => void regenerate()} disabled={busy}>Regenerate</Button><Button variant="primary" type="button" onClick={() => void approve()} disabled={busy}>{busy ? "Approving…" : "Approve"}</Button></div></div>}
     </Card>
