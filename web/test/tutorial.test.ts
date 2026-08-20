@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import * as meRoute from "../app/api/me/route";
 import * as tutorialRoute from "../app/api/me/tutorial/route";
-import { missingAuthEnv, resolveAuthRedisEnv } from "../lib/auth";
+import { lazyAdapter, missingAuthEnv, resolveAuthRedisEnv } from "../lib/auth";
 import { isAuthOpenMode } from "../lib/middleware-access";
 import {
   TUTORIAL_VERSION,
@@ -117,6 +117,38 @@ test("missing Redis env keeps auth in open mode", async () => {
     assert.equal(resolveAuthRedisEnv().url, undefined);
     assert.equal(resolveAuthRedisEnv().token, undefined);
     assert.equal(isAuthOpenMode(missingAuthEnv()), true);
+  });
+});
+
+test("lazy auth adapter advertises its methods without exposing then", async () => {
+  await withAuthUnset(async () => {
+    const adapter = lazyAdapter();
+    const methodNames = [
+      "createUser",
+      "getUser",
+      "getUserByEmail",
+      "getUserByAccount",
+      "updateUser",
+      "linkAccount",
+      "createSession",
+      "getSessionAndUser",
+      "updateSession",
+      "deleteSession",
+      "createVerificationToken",
+      "useVerificationToken",
+      "unlinkAccount",
+      "deleteUser",
+    ];
+
+    for (const name of methodNames) {
+      assert.equal(name in adapter, true, name);
+      assert.equal(typeof Reflect.get(adapter, name), "function", name);
+    }
+    assert.deepEqual(Object.keys(adapter), methodNames);
+    assert.equal("then" in adapter, false);
+    assert.equal(Reflect.get(adapter, "then"), undefined);
+    assert.equal(Reflect.get(adapter, "toString"), undefined);
+    assert.doesNotThrow(() => lazyAdapter());
   });
 });
 

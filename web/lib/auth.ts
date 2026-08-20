@@ -22,6 +22,25 @@ type AuthRedisEnv = {
   token: string | undefined;
 };
 
+const ADAPTER_METHOD_NAMES = [
+  "createUser",
+  "getUser",
+  "getUserByEmail",
+  "getUserByAccount",
+  "updateUser",
+  "linkAccount",
+  "createSession",
+  "getSessionAndUser",
+  "updateSession",
+  "deleteSession",
+  "createVerificationToken",
+  "useVerificationToken",
+  "unlinkAccount",
+  "deleteUser",
+] as const;
+
+const adapterMethodNames = new Set<string>(ADAPTER_METHOD_NAMES);
+
 function firstConfiguredEnv(names: readonly string[]): string | undefined {
   return names.map((name) => process.env[name]?.trim()).find(Boolean);
 }
@@ -48,9 +67,16 @@ export function assertAuthEnv(): void {
   }
 }
 
-function lazyAdapter(): Adapter {
-  return new Proxy({} as Adapter, {
-    get(_target, property) {
+export function lazyAdapter(): Adapter {
+  const target = Object.assign(
+    Object.create(null),
+    Object.fromEntries(ADAPTER_METHOD_NAMES.map((name) => [name, () => undefined])),
+  ) as Adapter;
+  return new Proxy(target, {
+    get(target, property, receiver) {
+      if (typeof property !== "string" || !adapterMethodNames.has(property)) {
+        return Reflect.get(target, property, receiver);
+      }
       return async (...args: unknown[]) => {
         assertAuthEnv();
         const [{ UpstashRedisAdapter }, { Redis }] = await Promise.all([
@@ -74,6 +100,9 @@ function lazyAdapter(): Adapter {
         }
         return method.apply(adapter, args);
       };
+    },
+    has(target, property) {
+      return Reflect.has(target, property);
     },
   });
 }
