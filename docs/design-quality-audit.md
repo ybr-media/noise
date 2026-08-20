@@ -41,8 +41,13 @@ And the guardrail that was built enforces the half of the rule that was already 
 `check-tokens.mjs` verifies that declared tokens are referenced and referenced tokens are declared.
 It does not — and cannot — see a raw `14px`, an `rgba(229,72,60,.38)`, or a fourth navigation
 duration. **The codebase passes its own design lint while systematically routing around the design
-system.** Phase 5's stylelint rule is the missing piece, and without it the token layer will erode
-back to where it started.
+system.**
+
+It is also worse than that: **`check:tokens` is not wired into CI at all.** `.github/workflows/ci.yml`
+runs `typecheck`, `lint`, and `test` in the `web` job and never calls it. The single guardrail this
+codebase has for its design system is a `package.json` script that nothing runs automatically.
+Adding one line to `ci.yml` is the cheapest item in this entire document, and Phase 5's stylelint
+rule is the missing piece behind it — without both, the token layer erodes back to where it started.
 
 Underneath that, one finding outranks everything else in this document, and it is not a
 consistency problem:
@@ -441,11 +446,13 @@ bug-fixing; B and C are the system work; D needs a decision first.
 7. Extract `<SyncStatus>`; delete `globals.css:278` and both caption implementations (P2-7).
 8. Resolve `Card.padding` — real values or delete the prop (P1-6).
 9. Delete dead classes and dead batch-render branches (P2-5, P2-6).
-10. **Extend `check-tokens.mjs` into a real guardrail**, or add stylelint: ban raw `font-size: Npx`,
+10. **Add `npm run check:tokens` to the `web` job in `.github/workflows/ci.yml`.** One line. The
+    guardrail already exists and nothing runs it.
+11. **Extend `check-tokens.mjs` into a real guardrail**, or add stylelint: ban raw `font-size: Npx`,
     ban `rgba()` outside `:root`, ban `box-shadow` literals, ban `transition`/`animation` durations
     outside the motion tokens. **This is the phase's most important item** — without it, C is a
     one-time cleanup that decays instead of a rule that holds.
-11. **Acceptance:** the new lint passes and fails a deliberately-introduced raw `13px`.
+12. **Acceptance:** the new lint runs in CI, passes, and fails a deliberately-introduced raw `13px`.
 
 ### Phase D — Navigation and layout *(P2; needs §8 answered first)*
 1. Route all four tabs; derive `tab` from the hash; delete `libraryReturnTab` (P2-1).

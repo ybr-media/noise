@@ -271,8 +271,14 @@ footer{margin:80px 0 0; padding-top:26px; border-top:1px solid var(--rule); font
     <code>check-tokens.mjs</code> verifies that declared tokens are referenced and referenced tokens are
     declared. It cannot see a raw <code>14px</code>, an <code>rgba(229,72,60,.38)</code>, or a fourth
     navigation duration. The codebase passes its own design lint while systematically avoiding the
-    design system. Phase 5's stylelint rule is the missing piece; without it, any cleanup decays
-    instead of holding.
+    design system.
+  </p>
+  <p>
+    It is also worse than that. <strong><code>check:tokens</code> is not wired into CI at all</strong> —
+    <code>.github/workflows/ci.yml</code> runs <code>typecheck</code>, <code>lint</code> and
+    <code>test</code> in the <code>web</code> job and never calls it. The single guardrail this codebase
+    has for its design system is a <code>package.json</code> script that nothing runs automatically.
+    One line in <code>ci.yml</code> is the cheapest item in this entire document.
   </p>
 </div>
 
@@ -770,9 +776,10 @@ footer{margin:80px 0 0; padding-top:26px; border-top:1px solid var(--rule); font
       <li>Extract <code>&lt;SyncStatus&gt;</code>; delete <code>globals.css:278</code> and both caption implementations.</li>
       <li>Resolve <code>Card.padding</code> — real values, or delete the prop.</li>
       <li>Delete the dead classes and the dead batch-render branches.</li>
+      <li><strong>Add <code>npm run check:tokens</code> to the <code>web</code> job in <code>ci.yml</code>.</strong> One line — the guardrail already exists and nothing runs it.</li>
       <li><strong>Extend <code>check-tokens.mjs</code> into a real guardrail</strong>, or add stylelint: ban raw <code>font-size: Npx</code>, <code>rgba()</code> outside <code>:root</code>, <code>box-shadow</code> literals, and transition durations outside the motion tokens. <strong>This is the most important item in the phase</strong> — without it, C is a one-time cleanup that decays rather than a rule that holds.</li>
     </ol>
-    <div class="accept"><b>Acceptance</b> — the new lint passes, and fails a deliberately-introduced raw <code>13px</code>.</div>
+    <div class="accept"><b>Acceptance</b> — the new lint runs in CI, passes, and fails a deliberately-introduced raw <code>13px</code>.</div>
   </div>
 
   <div class="phase">
