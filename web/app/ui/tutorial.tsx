@@ -166,10 +166,11 @@ type TutorialProps = {
   mode: TourMode;
   authConfigured: boolean;
   onDoItForMe?: (step: TourStep) => void;
+  onComplete?: () => void;
   snapshot?: TourSnapshot;
 };
 
-export function useTutorial({ mode, authConfigured, onDoItForMe, snapshot = {} }: TutorialProps) {
+export function useTutorial({ mode, authConfigured, onDoItForMe, onComplete, snapshot = {} }: TutorialProps) {
   const [active, setActive] = useState(false);
   const [stepIndex, setStepIndex] = useState(0);
   const [celebration, setCelebration] = useState<string | null>(null);
@@ -188,8 +189,9 @@ export function useTutorial({ mode, authConfigured, onDoItForMe, snapshot = {} }
 
   const complete = useCallback(() => {
     setActive(false);
+    onComplete?.();
     if (shouldPersistTutorial(authConfigured, replayRef.current)) void fetch("/api/me/tutorial", { method: "POST" });
-  }, [authConfigured]);
+  }, [authConfigured, onComplete]);
   const start = useCallback((options?: { replay?: boolean }) => {
     replayRef.current = options?.replay ?? false;
     setStepIndex(0);

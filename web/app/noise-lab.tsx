@@ -876,7 +876,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
     renderLabel: queuedRenderLabel ?? undefined,
     played: playedTrack,
   }), [playedTrack, queuedRenderLabel, selected]);
-  const tour = useTutorial({ mode: renderMode, authConfigured, onDoItForMe: onTourDoItForMe, snapshot: tourSnapshot });
+  const tour = useTutorial({ mode: renderMode, authConfigured, onDoItForMe: onTourDoItForMe, onComplete: firstRun.markCompleted, snapshot: tourSnapshot });
   tourNotifyRef.current = tour.notify;
   const tourActive = tour.active;
   const startTour = tour.start;
