@@ -120,7 +120,9 @@ def track_name_of_master(filename: str) -> str:
     """Return the base track name of a master filename."""
     stem, dot, _ = filename.rpartition(".")
     name = stem if dot else filename
-    if not name.endswith(MASTER_SUFFIX):
+    # A bare "_master.wav" would derive stem names from an empty track name,
+    # so a whole variant's four files would collide with any other such row.
+    if not name.endswith(MASTER_SUFFIX) or name == MASTER_SUFFIX:
         raise PlanError(f"not a master filename: {filename!r}")
     return name[: -len(MASTER_SUFFIX)]
 
@@ -206,6 +208,8 @@ class ReverbFx:
 
     @property
     def wet_gain_db(self) -> float:
+        if self.mix_percent <= 0.0:
+            return REVERB_WET_GAIN_MIN_DB
         wet = 20.0 * math.log10(self.mix_percent / 100.0)
         return max(REVERB_WET_GAIN_MIN_DB, min(0.0, wet))
 
@@ -267,14 +271,14 @@ class Variant:
 class Output:
     """The shared ``output`` block of the variant matrix."""
 
-    sample_rate: int
+    master_sample_rate: int
+    stem_sample_rate: int
     bit_depth: int
     cell_seconds: float
     repeats: int
     fade_seconds: float
     target_lufs: float
     true_peak_max_dbtp: float
-
 
 @dataclass(frozen=True)
 class RenderPlan:
@@ -354,12 +358,13 @@ def _number(row: Mapping[str, object], key: str, context: str) -> float:
 
 
 def cell_frames_for_variant(variant: Variant, sample_rate: int) -> int:
-    """Return the deterministic whole-sample cell length for one variant."""
+    """Return the deterministic cell length converted from the 48 kHz reference."""
     if sample_rate <= 0:
         raise PlanError("sample_rate must be positive")
-    minimum = MIN_CELL_SECONDS * sample_rate
-    span = (MAX_CELL_SECONDS - MIN_CELL_SECONDS) * sample_rate
-    return minimum + variant.seed("bed", "l") % (span + 1)
+    reference_minimum = MIN_CELL_SECONDS * 48000
+    reference_span = (MAX_CELL_SECONDS - MIN_CELL_SECONDS) * 48000
+    reference_frames = reference_minimum + variant.seed("bed", "l") % (reference_span + 1)
+    return round(reference_frames * sample_rate / 48000)
 
 
 def _integer(row: Mapping[str, object], key: str, context: str) -> int:
@@ -442,11 +447,20 @@ def parse_fx(block: object, context: str) -> Fx | None:
             if isinstance(gain, bool) or not isinstance(gain, (int, float)):
                 raise PlanError(f"{eq_context}: gains_db entries must be numeric")
             gains.append(_bounded(float(gain), -EQ_MAX_ABS_DB, EQ_MAX_ABS_DB, "gains_db", eq_context))
-        trim = float(eq_block.get("trim_db", 0.0) or 0.0)
+        # An absent or explicitly null trim means no trim; anything else has to
+        # be a number, so a typo fails as a plan error rather than a TypeError
+        # from deep inside the builder.
+        trim_raw = eq_block.get("trim_db", 0.0)
+        if trim_raw is None:
+            trim_raw = 0.0
+        if isinstance(trim_raw, bool) or not isinstance(trim_raw, (int, float)):
+            raise PlanError(f"{eq_context}: trim_db must be numeric")
         eq = EqFx(
             preset=str(eq_block.get("preset", "custom")),
             gains_db=tuple(gains),
-            trim_db=_bounded(trim, -FX_TRIM_MAX_ABS_DB, FX_TRIM_MAX_ABS_DB, "trim_db", eq_context),
+            trim_db=_bounded(
+                float(trim_raw), -FX_TRIM_MAX_ABS_DB, FX_TRIM_MAX_ABS_DB, "trim_db", eq_context
+            ),
         )
     reverb_raw = fx_block.get("reverb")
     if reverb_raw is not None:
@@ -498,9 +512,28 @@ def parse_variant(row: Mapping[str, object]) -> Variant:
 def parse_output(block: Mapping[str, object]) -> Output:
     """Build an :class:`Output` from the matrix's ``output`` block."""
     context = "output"
+    master_sample_rate = (
+        _integer(block, "master_sample_rate", context)
+        if "master_sample_rate" in block
+        else _integer(block, "sample_rate", context)
+    )
+    stem_sample_rate = (
+        _integer(block, "stem_sample_rate", context)
+        if "stem_sample_rate" in block
+        else _integer(block, "sample_rate", context)
+    )
+    bit_depth = _integer(block, "bit_depth", context)
+    # Every downstream duration, cell length and export format divides by these,
+    # so a nonsensical value is rejected here rather than producing a project
+    # Audacity silently refuses to render.
+    if master_sample_rate <= 0 or stem_sample_rate <= 0:
+        raise PlanError(f"{context}: sample rates must be positive")
+    if bit_depth <= 0:
+        raise PlanError(f"{context}: bit_depth must be positive")
     return Output(
-        sample_rate=_integer(block, "sample_rate", context),
-        bit_depth=_integer(block, "bit_depth", context),
+        master_sample_rate=master_sample_rate,
+        stem_sample_rate=stem_sample_rate,
+        bit_depth=bit_depth,
         cell_seconds=_number(block, "cell_seconds", context),
         repeats=_integer(block, "repeats", context),
         fade_seconds=_number(block, "fade_seconds", context),
@@ -972,8 +1005,8 @@ def build_plan(
     variant = parse_variant(variant_row)
     output = parse_output(output_row)
     fx = parse_fx(variant_row.get("fx"), variant.variant_id)
-    cell_frames = cell_frames_for_variant(variant, output.sample_rate)
-    output = replace(output, cell_seconds=cell_frames / output.sample_rate)
+    cell_frames = cell_frames_for_variant(variant, output.stem_sample_rate)
+    output = replace(output, cell_seconds=cell_frames / output.stem_sample_rate)
     if crossfade_seconds <= 0 or crossfade_seconds >= output.cell_seconds:
         raise PlanError("crossfade_seconds must be positive and shorter than the cell")
     if output.repeats < 1:
@@ -985,7 +1018,7 @@ def build_plan(
     commands: list[str] = [
         "SelectAll:",
         "RemoveTracks:",
-        f"SetProject: Rate={output.sample_rate}",
+        f"SetProject: Rate={output.master_sample_rate}",
     ]
     commands += _bed_commands(variant, 0, stem_seconds)
     commands += _texture_commands(variant, 1, stem_seconds)
@@ -1030,10 +1063,10 @@ def build_plan(
     ]
 
     tail_seconds = reverb_tail_seconds(
-        fx.reverb if fx is not None else None, output.sample_rate
+        fx.reverb if fx is not None else None, output.master_sample_rate
     )
     commands += _fx_commands(
-        fx, total_seconds, tail_seconds, len(STEMS) + 1, output.sample_rate
+        fx, total_seconds, tail_seconds, len(STEMS) + 1, output.master_sample_rate
     )
 
     return RenderPlan(

@@ -61,6 +61,43 @@ Out of the box both are empty, so tab count badges never render and you cannot t
   increments the Render badge and pops a toast. No worker/Audacity is needed just to see queue
   state; actual rendering requires `setup.sh` + Audacity under Xvfb.
 
+### Seeding *named* library tracks (titles, dates, approved marker, rename tests)
+Zero-byte wavs alone give tracks with no title, no date and no sidecar, so anything that reads or
+writes sidecar metadata (`seo_title`, `seo_title_approved`, `render_timestamp`) cannot be exercised.
+Write a sidecar JSON next to each wav (same name, `.json` instead of `.wav`) — `web/lib/artifacts.ts`
+picks it up per file with no server restart:
+
+```bash
+cd /home/ubuntu/noisegen-out && python3 - <<'EOF'
+import json, urllib.request
+vs = json.load(urllib.request.urlopen('http://localhost:3000/api/variants'))['variants'][:3]
+for i, v in enumerate(vs):
+    fn = v['filename']
+    open(fn, 'wb').write(b'\0' * 4096)
+    sc = {"variant_id": v['variantId'], "role": "master", "cell_seconds": 150, "repeats": 4,
+          "render_timestamp": f"2026-02-1{i+1}T10:0{i}:00Z"}
+    if i == 0: sc["seo_title"] = "Original Seeded Title"
+    json.dump(sc, open(fn.replace('.wav', '.json'), 'w'), indent=2)
+EOF
+```
+
+Key fields: `variant_id` (required — `renderStatus` lookups key off it), `role: "master"` (both
+`approveName()` and `renderTrack()` in `web/lib/naming.ts` reject a sidecar whose `role` is anything
+else), `render_timestamp` (drives the "Created" line and the newest-first sort, so staggered
+timestamps give a deterministic card order), `cell_seconds * repeats` (the displayed duration), and
+optionally `seo_title` / `seo_title_approved: true` to start from a named / `approved` track.
+
+Note `/api/library` prefers a **release** title over the sidecar `seo_title`
+(`web/lib/library.ts:65`), so if the variant is also in a release the sidecar title will not show.
+The three `wn_white_low-mid_still_*` variants are not, which makes them the safe ones to seed.
+
+Sidecar writes are the objective proof for any naming UI: `grep seo_title <sidecar>.json` after the
+action distinguishes a real save from a purely optimistic title update. Note "Suggest SEO name" →
+Approve **overwrites** `seo_title` and adds `seo_title_approved`, whereas an inline rename writes only
+`seo_title` — assert on which keys changed, not just the title.
+
+These files live outside the repo; delete them when done.
+
 ## Fabricating arbitrary Queue states (failed rows, batches, repeated variants)
 Clicking "Queue this render" can only ever produce *queued* jobs, so failure/retry/batch rows must be
 fabricated. The queue is file-backed when you point it at a JSONL fixture, which makes every queue-row
@@ -90,6 +127,21 @@ enqueues the 8 concrete variant ids, not another `pilot` row. Because "Retried �
 looking for a *sibling job sharing the same variantId*, a batch (`pilot`/`full`) row therefore cannot
 show "Retried ✓" after a reload in local-worker mode, while single-variant rows can. Expect this
 asymmetry before filing it as a bug.
+
+## Fabricating Library sync-failure states
+`librarySyncFailed` flips when *any* of the four endpoints in `refresh()` (`/api/variants`,
+`/api/library`, `/api/queue`, `/api/releases`) fails — all four must return OK for a successful sync.
+The cheapest toggle is a **temporary, uncommitted** flag-file check at the top of the GET handler in
+`web/app/api/library/route.ts`:
+
+```ts
+if (existsSync("/tmp/noise-fail")) return new Response("fail", { status: 500 });
+```
+
+`touch /tmp/noise-fail` to break sync, `rm` it to recover — no server restart needed. Never commit
+this; verify `git status` before any push. Note the Library panel has no refresh round-action: a
+failed sync is reached via page reload (or pull-to-refresh on touch), and retried by clicking the
+sync caption itself when it shows the failed state.
 
 ## Observing in-flight / busy UI state (refresh spinners, disabled, aria-busy)
 Local API routes answer in a few ms, so in-flight state is otherwise impossible to catch. Add a
@@ -186,6 +238,53 @@ The bell uses `rise` (.58s), `bell-eyes-in` (.18s @ .16s) and `bell-smile-in` (.
 - Accessible-name checks (visually hidden `.sr-only` title, `aria-hidden` SVG) are best shown via
   DevTools → Elements → **Accessibility** pane.
 
+## Verifying CSS-only PRs (never trust the diff — read `getComputedStyle`)
+`globals.css` is a flat, source-ordered sheet with many `.foo:hover, .foo:focus-visible { ... }`
+rules sitting *above* the more specific-looking element rules. A new rule like
+`.track-card-title-input { outline: 2px solid var(--brand); }` (specificity 0-1-0) is silently beaten
+by an earlier `.track-card-title:focus-visible { outline: none; }` (0-2-0) whenever the element
+carries **both** classes — which several components do (`className="track-card-title
+track-card-title-input"`). The diff looks correct and the property never renders.
+- For every property a CSS PR claims to add, assert it objectively in the browser console *in the
+  state the user actually sees* (focused, hovered, open):
+  ```js
+  const el = document.querySelector('.track-card-title-input');
+  const cs = getComputedStyle(el);
+  console.log(JSON.stringify({border: cs.border, borderRadius: cs.borderRadius,
+    padding: cs.padding, outlineWidth: cs.outlineWidth, outlineStyle: cs.outlineStyle}));
+  ```
+  A thin ring in a screenshot is ambiguous; `outlineStyle: "none"` is not.
+- Enumerate the competing rules in source order to find the culprit:
+  ```js
+  for (const sheet of document.styleSheets) { let r; try { r = sheet.cssRules } catch { continue }
+    for (const rule of r) if (rule.selectorText?.includes('track-card-title'))
+      console.log(rule.selectorText + ' => ' + rule.style.cssText); }
+  ```
+- Prove the fix before reporting by injecting the corrected rule as a `<style>` element, re-screenshot,
+  then `.remove()` it and re-verify the computed value reverted. This turns "looks wrong" into a
+  concrete one-line suggestion.
+- Focus-ring rules only apply while `el.matches(':focus-visible')` is true. Text inputs match
+  `:focus-visible` even when focused programmatically (`.focus()`), so an auto-focused edit input is
+  *always* in the overridden state — the ring never renders for any user.
+
+## Proving "no layout jump" on style changes
+Eyeballing a 1px shift is not evidence. Install a measurement helper and diff the same rects across
+before / during / after states:
+```js
+window.__m = () => { const c = document.getElementById('track-<variantId>'); const g = s => {
+  const e = c.querySelector(s); const r = e.getBoundingClientRect();
+  return {x:r.x, y:r.y, w:r.width, h:r.height}; };
+  return {wrap: g('.track-card-title-wrap'), sparkles: g('.track-name-action'),
+          chips: g('.track-chips'), card: (({x,y,width,height}) =>
+          ({x,y,w:width,h:height}))(c.getBoundingClientRect())}; };
+console.log('BEFORE ' + JSON.stringify(window.__m()));
+```
+Measure the *surrounding* elements (sibling icon buttons, the next row, the card), not the swapped
+element itself — an input replacing a button legitimately changes its own rect (e.g. +2px height from
+a border, text inset by `padding`), and that is only a defect if neighbours move. A `margin: -1px 0`
+paired with a new `1px` border is the usual trick to keep the row height stable; confirm it works
+rather than assuming.
+
 ## Inspecting small artwork (bell mark, icons)
 The bell mark renders small in-app, so screen zoom alone is not enough detail. Chrome page zoom maxes
 at 500%, and **Chrome zoom is per-host, not per-port** — Ctrl+0 on `localhost:8899` also resets zoom
@@ -214,6 +313,79 @@ the active panel (skipping `display:none` and closed `<details>`) and subtract i
 `.dock-tab` heights drop to ~41.5px at `<=520px` (the mobile rule shrinks `font-size` to 13px while
 keeping 11px padding), which is under the 44px guideline even though `.mini-segment`,
 `.bulk-action` buttons and `.queue-link` all explicitly set `min-height: 44px`.
+
+## Testing the first-run guided tour (`web/app/ui/tutorial.tsx`)
+Auth is unconfigured locally ("open mode"), so the tour **does not auto-launch**. Launch it the way a
+user replays it: the current tab's info **(i)** button (top-right of the panel header) → **Replay
+tutorial** in the `.current-tab-tooltip`. If that button looks visible but clicks do nothing, check
+inherited `pointer-events` up the chain (`.current-tab-title` used to set `pointer-events: none`,
+which silently killed both Replay and Sign out); a temporary `.current-tab-tooltip { pointer-events:
+auto }` override is a good local workaround while confirming the root cause.
+
+Useful facts when testing it:
+- Steps are driven by real events (`tour.notify(...)`) from the app's own handlers, so a step only
+  advances if the underlying state actually changed. Always assert the real state (caption text, EQ
+  label, dock `aria-selected`, player `aria-label` flipping to "Pause track") — never just the card.
+- Action steps have **no Next button**; a **Do it for me** button appears only after 10s
+  (`.tutorial-do-it`), so wait ~11s before claiming it is missing.
+- The spotlight is four blocker divs + a `pointer-events: none` SVG ring. To debug a swallowed click,
+  use `document.elementFromPoint(cx, cy)` on the target's center — if it returns `.tutorial-card` or
+  `.tutorial-do-it`, the card is covering the target, not the cutout.
+- At 390x844 the card should top-anchor (`.tutorial-card.is-top`) whenever the measured target rect
+  would intersect the bottom placement; this is what keeps the Queue/Library dock steps tappable.
+- Local worker mode (`NOISE_RENDERING_AVAILABLE=1`) is required to get the action variants of the
+  render/queue steps; otherwise you get the "unavailable" info steps.
+- Render-done banner is one-shot, gated on `localStorage['noise.tutorial.render-banner']`; clear it
+  before each run, and drive the queued job to `"status": "Done"` in the queue JSONL (watcher polls
+  every 10s). The link deep-links to `#library/<variantId>`.
+- Isolation matters: concurrent edits in the same checkout trigger Fast Refresh mid-tour and reset
+  tour state. Snapshot the commit under test (`git archive` to /tmp, symlink `web/node_modules`) and
+  run it on its own port.
+
+## Which config file the console actually reads (sample rate / duration assertions)
+`/api/variants` calls `loadVariants()` on **`config/variants.yaml`** (overridable with
+`NOISE_VARIANTS_FILE`); `config/variants_pilot.yaml` is only used for the `P1..P8` pilot labels and
+`config/dimensions.yaml` only for the matrix. Editing `dimensions.yaml` or `variants_pilot.yaml` and
+watching `/api/variants` therefore proves nothing — a common false negative.
+
+To prove a config key is genuinely read rather than silently satisfied by a hardcoded default
+(`sampleRate: number(row.sample_rate, number(output.master_sample_rate, 96000))` in `web/lib/config.ts`),
+do a three-way A/B on `config/variants.yaml` with the dev server running (config is read per request,
+no restart needed):
+
+```bash
+cp config/variants.yaml /tmp/variants.bak
+sed -i 's/master_sample_rate: 96000/master_sample_rate: 88200/' config/variants.yaml
+curl -s localhost:3000/api/variants | python3 -c "import json,sys,collections;print(collections.Counter(v['sampleRate'] for v in json.load(sys.stdin)['variants']))"
+# expect 88200 -> the key IS read; then delete the key entirely and expect the literal fallback
+cp /tmp/variants.bak config/variants.yaml   # always restore and confirm `git status` is clean
+```
+
+Beware: because the fallback literal equals the real configured value, a *renamed/misspelled* key
+would look correct. Only the "changed value propagates" case is real proof.
+
+Note the console surfaces only the **master** rate (`Variant.sampleRate`); no UI element derives a
+stem rate, so any "48 kHz" text you see (e.g. Store answers, or a seeded QA `Sample rate` check) is
+static copy or fixture data, not computed — do not read it as evidence the stems are downsampled.
+Verify real stem rates from the downloaded WAVs with `soundfile.info()`
+(master 96000/PCM_24, stems 48000/PCM_24). A quick UI-level sanity signal: in the Library download
+menu a 48 kHz stem is ~half the byte size of the 96 kHz master of the same duration.
+
+## Driving a release to `Ready` and reaching the DistroKid handoff
+`web/lib/releases.ts` only derives `Ready` when every track has a unique title, `artSeed` is set, all
+tracks are rendered with QA `PASS`, and artist/songwriter/release-date are filled. In the Releases →
+release detail view the order that works is: fill **Songwriter** and **Release date** → `Generate names`
+→ `Generate cover art` → `Approve names` → footer reads `Prepare for DistroKid` → click it.
+
+Two traps:
+- The footer button is a single position whose label/action changes per state, and in the handoff view a
+  red **`Mark submitted`** button sits at almost the same screen position. Blind consecutive clicks
+  there will jump `Ready → Submitted` and skip the handoff content entirely. Screenshot between clicks.
+- To reset a release that was accidentally submitted, edit `/home/ubuntu/noisegen-out/releases.json` and
+  set `"submitted": {"at": null, "storeUrl": null}`. Do **not** delete the `submitted` key — the code
+  reads `release.submitted.at` unguarded and `/api/releases` then 500s with
+  `TypeError: Cannot read properties of undefined (reading 'at')`, which makes the Releases tab show
+  "No releases yet."
 
 ## Test-harness caveat
 The screenshot tool annotates the live DOM with `devin-hidden`/`offscreen` attributes. A screenshot

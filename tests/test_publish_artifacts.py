@@ -130,3 +130,90 @@ def test_releases_are_uploaded_when_present(rendered: Path) -> None:
     (rendered / "releases.json").write_text(json.dumps({"releases": [{"id": "pilot-ep"}]}), encoding="utf-8")
     manifest = publish_artifacts.build_manifest(rendered)
     assert {path.name for path, _ in publish_artifacts.uploads(rendered, manifest)} >= {"releases.json"}
+
+
+class _StubClientError(Exception):
+    pass
+
+
+class _StubExceptions:
+    ClientError = _StubClientError
+
+
+class _StubS3:
+    """The two calls published_manifest makes, with a scripted body."""
+
+    exceptions = _StubExceptions()
+
+    def __init__(self, body: bytes | None) -> None:
+        self.body = body
+
+    def get_object(self, Bucket: str, Key: str) -> dict[str, object]:  # noqa: N803
+        del Bucket, Key
+        if self.body is None:
+            raise _StubClientError("NoSuchKey")
+        return {"Body": _StubBody(self.body)}
+
+
+class _StubBody:
+    def __init__(self, payload: bytes) -> None:
+        self.payload = payload
+
+    def read(self) -> bytes:
+        return self.payload
+
+
+def test_a_missing_manifest_is_the_first_publish() -> None:
+    assert publish_artifacts.published_manifest(_StubS3(None), "bucket", "manifest.json") == {}
+
+
+@pytest.mark.parametrize("body", [b"", b"{truncated", b"[1, 2]", b'"text"', b"\xff\xfe"])
+def test_an_unreadable_published_manifest_is_treated_as_empty(body: bytes) -> None:
+    """A half-written manifest must not block the run that would replace it."""
+    assert publish_artifacts.published_manifest(_StubS3(body), "bucket", "manifest.json") == {}
+
+
+def test_a_readable_published_manifest_is_returned() -> None:
+    body = json.dumps({"artifacts": [{"filename": "old.wav"}]}).encode("utf-8")
+    manifest = publish_artifacts.published_manifest(_StubS3(body), "bucket", "manifest.json")
+    assert manifest["artifacts"] == [{"filename": "old.wav"}]
+
+
+def test_merging_skips_published_entries_that_cannot_be_identified() -> None:
+    local = {"artifacts": [{"filename": "one.wav"}]}
+    published = {"artifacts": [{"filename": "old.wav"}, {"sizeBytes": 3}, "junk", {"filename": 7}]}
+    merged = publish_artifacts.merged(local, published)
+    assert [entry["filename"] for entry in merged["artifacts"]] == ["old.wav", "one.wav"]
+
+
+def test_merging_tolerates_a_published_document_with_no_list() -> None:
+    local = {"artifacts": [{"filename": "one.wav"}]}
+    assert publish_artifacts.merged(local, {"artifacts": "not a list"})["artifacts"] == local["artifacts"]
+    assert publish_artifacts.merged_releases({"releases": []}, {})["releases"] == []
+
+
+def test_render_statuses_ignore_unparsable_and_incomplete_lines(tmp_path: Path) -> None:
+    (tmp_path / "render_log.jsonl").write_text(
+        "\n".join(
+            [
+                "",
+                "not json",
+                json.dumps(["a list"]),
+                json.dumps({"variant_id": "v", "exit_state": "failure: boom"}),
+                json.dumps({"exit_state": "success"}),
+                json.dumps({"variant_id": "v", "exit_state": "success"}),
+            ]
+        ),
+        encoding="utf-8",
+    )
+    assert publish_artifacts.render_statuses(tmp_path) == {"v": "success"}
+
+
+@pytest.mark.parametrize("payload", ["{truncated", "[1, 2]", '{"files": "not a list"}'])
+def test_an_unreadable_qa_report_leaves_the_manifest_undecorated(rendered: Path, payload: str) -> None:
+    (rendered / "qa_results.json").write_text(payload, encoding="utf-8")
+    manifest = publish_artifacts.build_manifest(rendered)
+    assert publish_artifacts.qa_checks(rendered) == {}
+    assert all(entry["qaChecks"] == [] for entry in manifest["artifacts"])
+    # The evidence is still uploaded, so the broken report can be inspected.
+    assert "qa_results.json" in {path.name for path, _ in publish_artifacts.uploads(rendered, manifest)}
