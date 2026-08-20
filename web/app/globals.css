@@ -189,7 +189,11 @@ button:disabled { cursor: not-allowed; }
 .empty-state-icon { margin-bottom: 8px; }
 .track-card { position: relative; padding: 20px 24px; }
 .track-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.track-card-title { min-width: 0; overflow: hidden; font-size: var(--text-md); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.track-card-title-wrap { display: flex; min-width: 0; flex: 1; align-items: center; gap: 4px; }
+.track-card-title { min-width: 0; flex: 1; overflow: hidden; border: 0; padding: 0; color: var(--ink); background: transparent; font: inherit; font-size: var(--text-md); font-weight: 600; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
+.track-card-title:hover, .track-card-title:focus-visible { outline: none; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+.track-card-title-input { width: 100%; border-bottom: 1px solid var(--separator); border-radius: 0; outline: none; }
+.track-name-action { flex-shrink: 0; margin: 0; }
 .approved-marker { margin-left: 7px; color: var(--success); font-size: 10px; font-weight: 500; }
 .icon-action { display: grid; width: 34px; height: 34px; place-items: center; margin: -6px -8px 0 0; border: 0; border-radius: 50%; color: var(--ink-secondary); background: transparent; }
 .icon-action:hover, .icon-action:focus-visible { color: var(--ink); background: var(--surface-sunken); outline: none; }

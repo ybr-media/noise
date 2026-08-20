@@ -384,12 +384,34 @@ test("resolves inclusive byte ranges including suffix ranges", async () => {
 
 test("approval preserves existing sidecar keys", async () => {
   const [, , { approveName }] = await modulesPromise;
-  approveName("present_master.wav", "Approved title", "Approved description");
-  const sidecar = JSON.parse(fs.readFileSync(path.join(renderDir, "present_master.json"), "utf8")) as Record<string, unknown>;
-  assert.equal(sidecar.existing_key, "preserved");
-  assert.equal(sidecar.variant_id, "wn_white_mid_drift_balanced");
-  assert.equal(sidecar.seo_title, "Approved title");
-  assert.equal(sidecar.seo_title_approved, true);
+  const sidecarPath = path.join(renderDir, "present_master.json");
+  const original = fs.readFileSync(sidecarPath, "utf8");
+  try {
+    approveName("present_master.wav", "Approved title", "Approved description");
+    const sidecar = JSON.parse(fs.readFileSync(sidecarPath, "utf8")) as Record<string, unknown>;
+    assert.equal(sidecar.existing_key, "preserved");
+    assert.equal(sidecar.variant_id, "wn_white_mid_drift_balanced");
+    assert.equal(sidecar.seo_title, "Approved title");
+    assert.equal(sidecar.seo_title_approved, true);
+  } finally {
+    fs.writeFileSync(sidecarPath, original);
+  }
+});
+
+test("renaming updates only the sidecar title", async () => {
+  const [, , { renameTrack }] = await modulesPromise;
+  const sidecarPath = path.join(renderDir, "present_master.json");
+  const original = fs.readFileSync(sidecarPath, "utf8");
+  try {
+    renameTrack("present_master.wav", "  Renamed track  ");
+    const sidecar = JSON.parse(fs.readFileSync(sidecarPath, "utf8")) as Record<string, unknown>;
+    assert.equal(sidecar.seo_title, "Renamed track");
+    assert.equal(sidecar.existing_key, "preserved");
+    assert.equal(sidecar.seo_description, undefined);
+    assert.equal(sidecar.seo_title_approved, undefined);
+  } finally {
+    fs.writeFileSync(sidecarPath, original);
+  }
 });
 
 test("local naming candidates are deterministic but regenerable", async () => {
