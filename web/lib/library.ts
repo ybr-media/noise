@@ -1,6 +1,8 @@
 import { loadVariants } from "./config";
 import { artifactIndex, artifactUrl } from "./artifacts";
 import type { Artifact, ArtifactIndex } from "./artifacts";
+import demoSidecar from "../demo/demo_first_render.json";
+import { DEMO_FILENAME, DEMO_VARIANT_ID, demoVariant, isDemoSidecar, shouldShowDemoTrack } from "./demo";
 import { sanitizeFxBlock } from "./fx";
 import type { Band, Balance, Color, LibraryRecipe, LibraryTrack, Motion, TrackStem, Variant } from "./types";
 
@@ -177,6 +179,30 @@ export async function libraryTracks(releaseTitles: Map<string, { title: string; 
     .filter((variant) => !renderedIds.has(variant.variantId))
     .map((variant) => trackFrom(variant, null, null, index, releaseTitles, variant.variantId));
   tracks.unshift(...rendered);
+  const demoBase = variants[0];
+  if (shouldShowDemoTrack(index.artifacts.size) && isDemoSidecar(demoSidecar) && demoBase) {
+    const variant = demoVariant(demoBase);
+    const demoTrack = trackFrom(variant, null, demoSidecar, index, releaseTitles, DEMO_VARIANT_ID);
+    tracks.push({
+      ...demoTrack,
+      path: `/api/audio/${encodeURIComponent(DEMO_FILENAME)}`,
+      sizeBytes: 0,
+      audioUrl: `/api/audio/${encodeURIComponent(DEMO_FILENAME)}`,
+      downloadUrl: `/api/audio/${encodeURIComponent(DEMO_FILENAME)}?download=1`,
+      exists: true,
+      demo: true,
+      stems: [],
+      qaVerdict: "UNAVAILABLE",
+      qaChecks: [],
+      measuredLufs: null,
+      measuredTruePeak: null,
+      renderStatus: "Demo",
+      renderedAt: demoSidecar.render_timestamp,
+      title: releaseTitles.get(DEMO_VARIANT_ID)?.title || demoSidecar.seo_title,
+      description: releaseTitles.get(DEMO_VARIANT_ID)?.description || demoSidecar.seo_description,
+      titleApproved: demoSidecar.seo_title_approved,
+    });
+  }
   // Newest renders first; undated tracks keep their matrix order at the end.
   return tracks.sort((a, b) => {
     if (a.exists !== b.exists) return a.exists ? -1 : 1;
@@ -231,6 +257,7 @@ export type AudioAsset = { filename: string; exists: boolean; isMaster: boolean 
 
 /** Resolve a served filename to a variant's master or to one of its stems. */
 export async function audioAsset(filename: string): Promise<AudioAsset | undefined> {
+  if (filename === DEMO_FILENAME) return { filename, exists: true, isMaster: true };
   for (const track of await libraryTracks()) {
     if (track.filename === filename) return { filename, exists: track.exists, isMaster: true };
     const stem = track.stems.find((candidate) => candidate.filename === filename);

@@ -11,11 +11,14 @@
     "typecheck": "tsc --noEmit",
     "check:tokens": "node scripts/check-tokens.mjs",
     "worker": "tsx worker/queue-worker.ts",
-    "test": "tsx --test test/web.test.ts test/remote.test.ts test/name-lint.test.ts test/cover-art.test.ts test/releases.test.ts test/eta.test.ts test/render-jobs.test.ts test/queue-strings.test.ts test/dispatch.test.ts test/fx.test.ts test/dismissals.test.ts test/render-overrides.test.ts test/queue-action.test.ts"
+    "test": "tsx --test test/web.test.ts test/remote.test.ts test/name-lint.test.ts test/cover-art.test.ts test/releases.test.ts test/eta.test.ts test/render-jobs.test.ts test/queue-strings.test.ts test/dispatch.test.ts test/fx.test.ts test/dismissals.test.ts test/auth.test.ts test/middleware.test.ts test/tutorial.test.ts test/tutorial-engine.test.ts test/render-overrides.test.ts test/queue-action.test.ts"
   },
   "dependencies": {
+    "@auth/upstash-redis-adapter": "2.11.3",
+    "@upstash/redis": "1.38.2",
     "lucide-react": "0.468.0",
     "next": "15.5.22",
+    "next-auth": "5.0.0-beta.32",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "yaml": "2.7.0"

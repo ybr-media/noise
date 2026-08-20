@@ -146,8 +146,10 @@ sheets. Estimated ~450–550 lines: `web/app/ui/tutorial.tsx` plus CSS in
   drawn on top with `pointer-events: none`. The cutout animates between
   steps on the iOS sheet curve (`0.45s cubic-bezier(0.32, 0.72, 0, 1)`) and
   idles with a slow, subtle breathing pulse so the eye finds it.
-- **Card:** a bottom sheet in the existing `Card` style: step title, 1–2
-  sentence body, iOS page-control dots, and a persistent **Skip** in the top
+- **Card:** an adjacent card in the existing `Card` style: step title, 1–2
+  sentence body, visible "Step N of 9" progress, and a persistent **Skip tour**
+  in the top corner of the overlay. It keeps clear of the highlighted target
+  and any toast.
   corner of the overlay. Action steps show no Next button — the user's
   action *is* Next. Info steps show **Next** (primary red `#e5483c`) and
   **Back** (text). On desktop widths the card docks bottom-center at a max
@@ -194,36 +196,34 @@ sheets. Estimated ~450–550 lines: `web/app/ui/tutorial.tsx` plus CSS in
   `POST /api/me/tutorial`. Replay lives in the existing per-tab info button
   pattern (`tabInfoOpen`, `noise-lab.tsx:1120`) — add "Replay tour" inside
   that tooltip, which restarts the tour without touching the server flag.
-- **Finale:** the last card recaps what *they* did, from real state — "You
-  designed **Green · Broad · Drift**, queued render #12, and played your
-  first master." One brief confetti burst (canvas, ~1.5 s, skipped under
+- **Finale:** the last card recaps what *they* did, from real state — it
+  distinguishes the track they just queued from an existing Library master,
+  and never claims playback before audio starts. One brief confetti burst (canvas, ~1.5 s, skipped under
   `prefers-reduced-motion`), then done. Confetti appears exactly once in the
   product, here.
 - **Accessibility:** the card is a focus-trapped `role="dialog"` — except
-  that focus may move into the live cutout during action steps; dots are
-  `aria-hidden` with an SR-only "Step 3 of 10"; every action step's
+  that focus may move into the live cutout during action steps; progress is
+  visible as "Step N of 9"; every action step's
   instruction is announced via `aria-live`; `prefers-reduced-motion` gets
   cross-fades instead of the moving cutout, no pulse, no confetti.
 
 <a name="step-script"></a>
-### Step script (owner-approved v1 copy)
+### Step script (owner-approved v2 copy)
 
 Types: **info** advances on Next; **action** advances when the named event
 fires (and always offers "Do it for me" after a stall).
 
 | # | Type | Tab | Target (`data-tour`) | Advance event | Message (final) |
 |---|------|-----|----------------------|---------------|-----------------|
-| 1 | info | — | none (centered card) | — | **Welcome to Noise Lab.** You're about to design a noise variant, render it, and hear it — for real, not a demo. Takes about two minutes. |
-| 2 | action | Design | `design-params` | `param-selected` | Every track starts here. **Tap a color** — white, green, pink, or brown. The same choices always make the same sound. |
-| 3 | action | Design | `design-params` | `param-selected` (different group) | Now shape it: **pick a texture, motion, or mix.** Watch the caption update — that's your variant's fingerprint. |
-| 4 | action | Design | `design-fx` | `fx-changed` | EQ and reverb shape the render itself, not just the preview. **Try a preset** — Flat and Off are always safe to come back to. |
-| 5 | action | Design | `design-render` | `render-enqueued` | Ready? **Hit Render.** This queues a real job with the engine. *(unavailable mode → info: "This console is browse-only — designs render elsewhere and land in the Library.")* |
-| 6 | action | Queue | `dock-queue` | `tab-changed:queue` | Your job went somewhere. **Tap the Queue tab** to find it. |
-| 7 | info | Queue | `queue-job` (their job) | — | There it is — Queued, then Rendering, then Done. No fake progress bars; these statuses are real. You don't have to wait here. |
-| 8 | action | Library | `dock-library` | `tab-changed:library` | Finished masters live in the Library. **Tap the Library tab.** |
-| 9 | action | Library | `library-track` | `track-played` | **Press play** on this track. Masters here are QA'd and downloadable — the master plus its three stems. |
-| 10 | info | Library | `library-naming` | — | Titles can be suggested for you, but nothing is written until you approve it. Releases (last tab) bundles approved masters into a publishable set. |
-| 11 | info | — | none (centered card) | — | **You did the whole loop:** designed {their params}, queued render #{n}, played your first master. We'll ping you here when your render is done. Replay this any time from the ⓘ button. |
+| 1 | info | — | none (centered card) | — | **Make your first track.** You'll design a sound, render it for real, and hear the result. Two minutes, and you keep whatever you make. |
+| 2 | action | Design | `design-color` | `param-selected:color` | **Pick a color.** Color sets the tilt of the noise: White is flat, Brown is deepest. The caption on the right names exactly what you picked. |
+| 3 | action | Design | `design-shape` | `param-selected:shape` | **Now narrow it down.** Band, Motion and Balance decide which part of the spectrum you keep, how much it moves, and how it's mixed. Change any one — the caption and the spectrum follow. |
+| 4 | action | Design | `design-fx` | `fx-changed` | **Optional: EQ and reverb.** EQ presets — Warm Bed, Airy, Midnight, Telephone — are starting points you can nudge band by band, whether EQ is already on or you switch it on. Reverb adds a room. Both bake into the render, not just the preview. |
+| 5 | action | Design | `design-render` | `render-enqueued` | **Create the track.** Create track queues a real job with the engine: full-length master plus stems. Nothing here is a mock. *(unavailable mode → info: "This console is browse-only — designs render elsewhere and land in the Library.")* |
+| 6 | action | Queue | `dock-queue` | `tab-changed:queue` | **Follow it to Queue.** That badge on Queue is your job. Open it. |
+| 7 | info | Queue | `queue-job` (their job) | — | **Real status, no fake progress.** Jobs read Queued, then Running, then Ready, and the header says what the runner itself is doing. You don't have to wait here — we'll tell you when it lands. |
+| 8 | action | Library | `dock-library`, then `library-track` | `tab-changed:library`, then `track-played` | **Hear a master.** Finished masters live in Library. Press play. Each one carries its own QA numbers and downloads as the master, a single stem, or all of it as a zip. |
+| 9 | info | — | none (centered card) | — | **That's the loop.** Recap what actually happened, then: Rename a track with the sparkle button, and bundle approved masters into a Release when you're ready. Replay this any time from the (i) button. |
 
 ### Acceptance criteria
 
@@ -273,7 +273,7 @@ plus Playwright checks at 390×844 and 1280×900 per the
 
 **Phase 3 — Hands-on tour (5–7 days)**
 1. `web/app/ui/tutorial.tsx`: four-blocker overlay with live cutout, SVG
-   ring, sheet card, dots, step engine, event bus, "Do it for me",
+   ring, adjacent card, visible progress, step engine, event bus, "Do it for me",
    reduced-motion paths.
 2. `data-tour` attributes + one-line `tour.notify(...)` calls in the
    existing handlers of `noise-lab.tsx`; tab driving via the real `setTab`.

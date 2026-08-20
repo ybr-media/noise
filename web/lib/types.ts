@@ -80,6 +80,7 @@ export type LibraryRecipe = {
 };
 
 export type LibraryTrack = Variant & {
+  demo?: boolean;
   renderKey: string;
   path: string;
   sizeBytes: number;
