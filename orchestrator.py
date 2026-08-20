@@ -29,6 +29,7 @@ from render_plan import (
     RenderPlan,
     build_plan,
 )
+from resampling import resample_stereo
 
 AUDACITY_VERSION = "3.7.8"
 DEFAULT_VARIANTS_FILE = Path("config/variants.yaml")
@@ -42,6 +43,13 @@ DEFAULT_TIMEOUT_SECONDS = 300.0
 #: command it normally accepts, so each variant is retried in a fresh process.
 DEFAULT_RETRIES = 2
 ROOT = Path(__file__).resolve().parent
+
+
+def _expected_frames(plan: RenderPlan, sample_rate: int) -> int:
+    """Return the exact sidecar frame count for one output rate."""
+    return round(plan.output.cell_seconds * sample_rate) * plan.output.repeats + round(
+        plan.tail_seconds * sample_rate
+    )
 
 
 class Transport(Protocol):
@@ -318,8 +326,9 @@ def _sidecar(plan: RenderPlan, loudness_gain_db: float) -> dict[str, object]:
         "cell_seconds": plan.output.cell_seconds,
         "repeats": plan.output.repeats,
         "fade_seconds": plan.output.fade_seconds,
-        "sample_rate": plan.output.sample_rate,
+        "sample_rate": plan.output.master_sample_rate,
         "bit_depth": plan.output.bit_depth,
+        "expected_frames": _expected_frames(plan, plan.output.master_sample_rate),
         "tilt_db_per_oct": variant.spectrum.tilt_db_per_oct,
         "bell": (
             {
@@ -351,12 +360,15 @@ def _output_sidecars(
     infer a stem from a filename.
     """
     shared = _sidecar(plan, loudness_gain_db)
-    sidecars = {Path(plan.master_path): {**shared, "role": "master", "stem": None}}
+    master_sidecar = {**shared, "role": "master", "stem": None}
+    sidecars = {Path(plan.master_path): master_sidecar}
     for number, (path, stem) in enumerate(
         zip(plan.stem_paths, STEM_MAP.values()), start=1
     ):
         sidecars[Path(path)] = {
             **shared,
+            "sample_rate": plan.output.stem_sample_rate,
+            "expected_frames": _expected_frames(plan, plan.output.stem_sample_rate),
             "role": f"stem_{number}",
             "stem": stem,
         }
@@ -425,7 +437,12 @@ def _render_variant(
         # `Save:` rewrites the project that `SaveProject2:` named, so the
         # amplified samples are the ones the serializer reads back.
         send("Save:")
-        extract_stereo_tracks_to_wavs(project, project_xml, output_paths)
+        extract_stereo_tracks_to_wavs(
+            project,
+            project_xml,
+            output_paths,
+            stem_rate=plan.output.stem_sample_rate,
+        )
         # Four outputs per variant already multiply the render's footprint, and
         # the project holds another copy of all of them. It is only kept when
         # extraction fails, where it is the evidence.
@@ -443,9 +460,32 @@ def _render_variant(
     gain_db = plan.output.target_lufs - _integrated_loudness(samples, sample_rate)
     for command in plan.gain_commands(gain_db):
         send(command)
-    for track_index, output_path in enumerate(output_paths):
-        for command in plan.export_commands(track_index, str(output_path)):
-            send(command)
+    with tempfile.TemporaryDirectory(
+        prefix=f"{master_path.stem}-", dir=master_path.parent
+    ) as temp_dir:
+        source_stem_paths = tuple(
+            Path(temp_dir) / f"{Path(path).stem}.source.wav"
+            for path in plan.stem_paths
+        )
+        exports = (
+            (MASTER_TRACK_INDEX, master_path),
+            *((index, path) for index, path in enumerate(source_stem_paths)),
+        )
+        for track_index, output_path in exports:
+            for command in plan.export_commands(track_index, str(output_path)):
+                send(command)
+        for source_path, output_path in zip(source_stem_paths, plan.stem_paths):
+            samples, sample_rate = sf.read(source_path, always_2d=True)
+            converted = resample_stereo(
+                samples, sample_rate, plan.output.stem_sample_rate
+            )
+            sf.write(
+                output_path,
+                converted,
+                plan.output.stem_sample_rate,
+                format="WAV",
+                subtype="PCM_24",
+            )
     return gain_db
 
 
@@ -482,10 +522,31 @@ def render_batch(
             variant_id = _variant_id(row)
             if variant_id in completed:
                 continue
-            filename = row.get("filename")
-            if not isinstance(filename, str) or not filename:
-                raise ValueError(f"{variant_id}: missing filename")
-            plan = build_plan(row, output_row, str(output_dir / filename))
+            # One unusable row is that row's failure, not the batch's: the rest
+            # of the matrix still renders, and the log carries the reason.
+            try:
+                filename = row.get("filename")
+                if not isinstance(filename, str) or not filename:
+                    raise ValueError(f"{variant_id}: missing filename")
+                plan = build_plan(row, output_row, str(output_dir / filename))
+            except ValueError as exc:
+                log.write(
+                    json.dumps(
+                        {
+                            "variant_id": variant_id,
+                            "seeds": [],
+                            "params": {"variant": dict(row), "output": dict(output_row)},
+                            "commands": [],
+                            "responses": [],
+                            "wall_clock_seconds": 0.0,
+                            "exit_state": f"failure: {exc}",
+                        }
+                    )
+                    + "\n"
+                )
+                log.flush()
+                failures += 1
+                continue
             for attempt in range(max(0, retries) + 1):
                 started = time.monotonic()
                 commands: list[str] = []

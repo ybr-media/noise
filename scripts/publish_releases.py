@@ -14,6 +14,22 @@ from publish_artifacts import client, merged_releases, published_manifest
 RELEASES_NAME = "releases.json"
 
 
+def with_release(document: dict[str, object], release: dict[str, object]) -> dict[str, object]:
+    """Add or replace one release in a releases document.
+
+    The incoming payload is the newer edit, so it replaces any release already
+    stored under the same id -- matching how the console merges a release it
+    saves directly.
+    """
+    entries = {
+        entry["id"]: entry
+        for entry in document.get("releases", [])  # type: ignore[union-attr]
+        if isinstance(entry, dict) and isinstance(entry.get("id"), str)
+    }
+    entries[str(release["id"])] = release
+    return {**document, "releases": [entries[name] for name in sorted(entries)]}
+
+
 def validate_release(release: object) -> dict[str, object]:
     if not isinstance(release, dict) or not isinstance(release.get("id"), str) or not release["id"]:
         raise ValueError("release id is required")
@@ -29,7 +45,9 @@ def publish(payload: str, output_dir: Path, bucket: str, prefix: str) -> dict[st
     output_dir.mkdir(parents=True, exist_ok=True)
     local_path = output_dir / RELEASES_NAME
     local = json.loads(local_path.read_text(encoding="utf-8")) if local_path.exists() else {"releases": []}
-    local = merged_releases(local, {"releases": [release]})
+    if not isinstance(local, dict):
+        local = {"releases": []}
+    local = with_release(local, release)
     s3 = client()
     key = f"{prefix.strip('/')}/{RELEASES_NAME}" if prefix.strip("/") else RELEASES_NAME
     published = published_manifest(s3, bucket, key)

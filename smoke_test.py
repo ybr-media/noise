@@ -32,11 +32,28 @@ def wait_for_pipes(timeout: float = 20.0) -> None:
     raise AudacityPipeError(f"Timed out waiting for Audacity pipes: {', '.join(map(str, paths))}")
 
 
+def _tail(log_path: Path, limit: int = 4000) -> str:
+    """The end of Audacity's captured output, for a failed launch."""
+    try:
+        return log_path.read_text(encoding="utf-8", errors="replace")[-limit:]
+    except OSError:
+        return ""
+
+
 def run(binary: Path, output: Path, seed: int) -> None:
     uid = os.getuid()
     for path in (Path(f"/tmp/audacity_script_pipe.to.{uid}"), Path(f"/tmp/audacity_script_pipe.from.{uid}")):
         path.unlink(missing_ok=True)
     home = Path(tempfile.mkdtemp(prefix="noisegen-home-"))
+    try:
+        _run_in_home(binary, output, seed, home)
+    finally:
+        shutil.rmtree(home, ignore_errors=True)
+
+
+def _run_in_home(binary: Path, output: Path, seed: int, home: Path) -> None:
+    """Drive one Audacity process whose HOME is the caller's scratch directory."""
+    succeeded = False
     config_dir = home / ".config" / "audacity"
     config_dir.mkdir(parents=True)
     shutil.copy2(ROOT / ".audacity-config/audacity.cfg", config_dir / "audacity.cfg")
@@ -50,14 +67,22 @@ def run(binary: Path, output: Path, seed: int) -> None:
         AUDACITY_LOG_LEVEL="WARN",
     )
     command = ["xvfb-run", "-a", "--server-args=-screen 0 1280x800x24", str(binary)]
-    process = subprocess.Popen(
-        command,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        start_new_session=True,
-    )
+    # Audacity chatters for its whole life and nothing here reads it while the
+    # commands run, so a pipe would fill and block the process. A file sink
+    # never fills and still explains a failed launch afterwards.
+    log_path = home / "audacity.log"
+    log = log_path.open("wb")
+    try:
+        process = subprocess.Popen(
+            command,
+            env=env,
+            stdin=subprocess.DEVNULL,
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+    finally:
+        log.close()
     try:
         wait_for_pipes()
         with AudacityPipe(timeout=20) as pipe:
@@ -73,6 +98,7 @@ def run(binary: Path, output: Path, seed: int) -> None:
         samples, rate = sf.read(output, always_2d=True)
         if rate <= 0 or samples.size == 0 or float(np.max(np.abs(samples))) <= 1e-8:
             raise AssertionError("Exported WAV contains no non-zero samples")
+        succeeded = True
     finally:
         if process.poll() is None:
             os.killpg(process.pid, signal.SIGTERM)
@@ -81,9 +107,16 @@ def run(binary: Path, output: Path, seed: int) -> None:
             except subprocess.TimeoutExpired:
                 os.killpg(process.pid, signal.SIGKILL)
                 process.wait()
-        if process.returncode not in (0, -signal.SIGTERM):
-            stderr = process.stderr.read() if process.stderr else ""
-            raise RuntimeError(f"Audacity exited {process.returncode}: {stderr[-4000:]}")
+        status = process.returncode
+        # The exit status only becomes the failure when the test itself passed;
+        # raising it unconditionally would replace the real reason with it.
+        report = (
+            f"Audacity exited {status}: {_tail(log_path)}"
+            if succeeded and status not in (0, -signal.SIGTERM)
+            else None
+        )
+    if report is not None:
+        raise RuntimeError(report)
 
 
 def main() -> int:

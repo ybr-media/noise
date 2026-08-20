@@ -2,8 +2,9 @@ output:
   bit_depth: 24
   cell_seconds: 60
   fade_seconds: 3
+  master_sample_rate: 96000
   repeats: 4
-  sample_rate: 48000
+  stem_sample_rate: 48000
   target_lufs: -20.0
   true_peak_max_dbtp: -3.0
 variants:
@@ -11,10 +12,7 @@ variants:
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_low-mid_still_bed-forward_s937592149_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -22,8 +20,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 937592149
     bed_r: 311083473
@@ -35,17 +31,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_low-mid_still_bed-forward
 - balance: balanced
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_low-mid_still_balanced_s63059333_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -53,8 +44,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 63059333
     bed_r: 2010118001
@@ -66,17 +55,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_low-mid_still_balanced
 - balance: texture-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_low-mid_still_texture-forward_s1172701323_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -84,8 +68,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1172701323
     bed_r: 1880596979
@@ -97,17 +79,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_low-mid_still_texture-forward
 - balance: bed-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_low-mid_drift_bed-forward_s678039446_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -115,8 +92,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 678039446
     bed_r: 249870360
@@ -128,17 +103,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_low-mid_drift_bed-forward
 - balance: balanced
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_low-mid_drift_balanced_s173466805_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -146,8 +116,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 173466805
     bed_r: 230441903
@@ -159,17 +127,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_low-mid_drift_balanced
 - balance: texture-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_low-mid_drift_texture-forward_s1347339288_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -177,8 +140,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1347339288
     bed_r: 1485011665
@@ -190,17 +151,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_low-mid_drift_texture-forward
 - balance: bed-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_low-mid_breathing_bed-forward_s1957426808_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -208,8 +164,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1957426808
     bed_r: 1997346574
@@ -221,17 +175,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_low-mid_breathing_bed-forward
 - balance: balanced
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_low-mid_breathing_balanced_s1600652172_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -239,8 +188,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1600652172
     bed_r: 884561105
@@ -252,17 +199,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_low-mid_breathing_balanced
 - balance: texture-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_low-mid_breathing_texture-forward_s2007237849_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -270,8 +212,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 2007237849
     bed_r: 3347479
@@ -283,17 +223,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_low-mid_breathing_texture-forward
 - balance: bed-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_mid_still_bed-forward_s1500216909_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -301,8 +236,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1500216909
     bed_r: 501473658
@@ -314,17 +247,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_mid_still_bed-forward
 - balance: balanced
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_mid_still_balanced_s1665992719_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -332,8 +260,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1665992719
     bed_r: 427915175
@@ -345,17 +271,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_mid_still_balanced
 - balance: texture-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_mid_still_texture-forward_s728149646_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -363,8 +284,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 728149646
     bed_r: 464493145
@@ -376,17 +295,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_mid_still_texture-forward
 - balance: bed-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_mid_drift_bed-forward_s731427774_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -394,8 +308,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 731427774
     bed_r: 1467638475
@@ -407,17 +319,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_mid_drift_bed-forward
 - balance: balanced
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_mid_drift_balanced_s340383017_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -425,8 +332,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 340383017
     bed_r: 952951939
@@ -438,17 +343,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_mid_drift_balanced
 - balance: texture-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_mid_drift_texture-forward_s2100545676_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -456,8 +356,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 2100545676
     bed_r: 104018159
@@ -469,17 +367,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_mid_drift_texture-forward
 - balance: bed-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_mid_breathing_bed-forward_s1005859733_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -487,8 +380,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1005859733
     bed_r: 1426356890
@@ -500,17 +391,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_mid_breathing_bed-forward
 - balance: balanced
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_mid_breathing_balanced_s1607826650_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -518,8 +404,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1607826650
     bed_r: 1756016004
@@ -531,17 +415,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_mid_breathing_balanced
 - balance: texture-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_mid_breathing_texture-forward_s779805086_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -549,8 +428,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 779805086
     bed_r: 715399704
@@ -562,17 +439,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_mid_breathing_texture-forward
 - balance: bed-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_high_still_bed-forward_s1580593332_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -580,8 +452,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1580593332
     bed_r: 1754865654
@@ -593,17 +463,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_high_still_bed-forward
 - balance: balanced
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_high_still_balanced_s1897526325_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -611,8 +476,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1897526325
     bed_r: 199370524
@@ -624,17 +487,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_high_still_balanced
 - balance: texture-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_high_still_texture-forward_s1070290496_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -642,8 +500,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1070290496
     bed_r: 628534910
@@ -655,17 +511,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_high_still_texture-forward
 - balance: bed-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_high_drift_bed-forward_s823903106_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -673,8 +524,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 823903106
     bed_r: 1247162823
@@ -686,17 +535,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_high_drift_bed-forward
 - balance: balanced
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_high_drift_balanced_s2070614180_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -704,8 +548,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 2070614180
     bed_r: 1100382485
@@ -717,17 +559,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_high_drift_balanced
 - balance: texture-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_high_drift_texture-forward_s2105822975_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -735,8 +572,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 2105822975
     bed_r: 1878347256
@@ -748,17 +583,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_high_drift_texture-forward
 - balance: bed-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_high_breathing_bed-forward_s255988501_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -766,8 +596,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 255988501
     bed_r: 846139591
@@ -779,17 +607,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_high_breathing_bed-forward
 - balance: balanced
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_high_breathing_balanced_s289704885_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -797,8 +620,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 289704885
     bed_r: 2014857886
@@ -810,17 +631,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_high_breathing_balanced
 - balance: texture-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_high_breathing_texture-forward_s519834637_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -828,8 +644,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 519834637
     bed_r: 1206240798
@@ -841,17 +655,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_high_breathing_texture-forward
 - balance: bed-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_broad_still_bed-forward_s448725229_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -859,8 +668,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 448725229
     bed_r: 158024859
@@ -872,17 +679,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_broad_still_bed-forward
 - balance: balanced
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_broad_still_balanced_s1966171522_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -890,8 +692,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1966171522
     bed_r: 1338640576
@@ -903,17 +703,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_broad_still_balanced
 - balance: texture-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_broad_still_texture-forward_s1894629785_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -921,8 +716,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1894629785
     bed_r: 127725901
@@ -934,17 +727,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_broad_still_texture-forward
 - balance: bed-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_broad_drift_bed-forward_s788449979_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -952,8 +740,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 788449979
     bed_r: 1056024747
@@ -965,17 +751,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_broad_drift_bed-forward
 - balance: balanced
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_broad_drift_balanced_s2101659039_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -983,8 +764,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 2101659039
     bed_r: 180020814
@@ -996,17 +775,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_broad_drift_balanced
 - balance: texture-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_broad_drift_texture-forward_s1810416424_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -1014,8 +788,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1810416424
     bed_r: 1439259807
@@ -1027,17 +799,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_broad_drift_texture-forward
 - balance: bed-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_broad_breathing_bed-forward_s146158780_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -1045,8 +812,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 146158780
     bed_r: 470306263
@@ -1058,17 +823,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_broad_breathing_bed-forward
 - balance: balanced
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_broad_breathing_balanced_s207484001_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -1076,8 +836,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 207484001
     bed_r: 798946353
@@ -1089,17 +847,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_broad_breathing_balanced
 - balance: texture-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: white
-  fade_seconds: 3
   filename: wn_white_broad_breathing_texture-forward_s911805385_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -1107,8 +860,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 911805385
     bed_r: 774733602
@@ -1120,17 +871,12 @@ variants:
     tilt_db_per_oct: 0.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_white_broad_breathing_texture-forward
 - balance: bed-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_low-mid_still_bed-forward_s1951852918_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -1138,8 +884,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1951852918
     bed_r: 876124360
@@ -1155,17 +899,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_low-mid_still_bed-forward
 - balance: balanced
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_low-mid_still_balanced_s452641310_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -1173,8 +912,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 452641310
     bed_r: 227083650
@@ -1190,17 +927,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_low-mid_still_balanced
 - balance: texture-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_low-mid_still_texture-forward_s758125317_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -1208,8 +940,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 758125317
     bed_r: 14514358
@@ -1225,17 +955,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_low-mid_still_texture-forward
 - balance: bed-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_low-mid_drift_bed-forward_s1039011139_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -1243,8 +968,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1039011139
     bed_r: 419867285
@@ -1260,17 +983,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_low-mid_drift_bed-forward
 - balance: balanced
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_low-mid_drift_balanced_s1858713125_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -1278,8 +996,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1858713125
     bed_r: 1011095072
@@ -1295,17 +1011,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_low-mid_drift_balanced
 - balance: texture-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_low-mid_drift_texture-forward_s1134187099_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -1313,8 +1024,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1134187099
     bed_r: 1745924389
@@ -1330,17 +1039,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_low-mid_drift_texture-forward
 - balance: bed-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_low-mid_breathing_bed-forward_s426178219_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -1348,8 +1052,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 426178219
     bed_r: 1799333870
@@ -1365,17 +1067,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_low-mid_breathing_bed-forward
 - balance: balanced
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_low-mid_breathing_balanced_s1138887588_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -1383,8 +1080,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1138887588
     bed_r: 1555115356
@@ -1400,17 +1095,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_low-mid_breathing_balanced
 - balance: texture-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_low-mid_breathing_texture-forward_s187198257_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -1418,8 +1108,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 187198257
     bed_r: 368102799
@@ -1435,17 +1123,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_low-mid_breathing_texture-forward
 - balance: bed-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_mid_still_bed-forward_s1344044137_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -1453,8 +1136,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1344044137
     bed_r: 868704812
@@ -1470,17 +1151,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_mid_still_bed-forward
 - balance: balanced
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_mid_still_balanced_s225266379_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -1488,8 +1164,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 225266379
     bed_r: 2093014865
@@ -1505,17 +1179,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_mid_still_balanced
 - balance: texture-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_mid_still_texture-forward_s1425199069_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -1523,8 +1192,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1425199069
     bed_r: 1788226613
@@ -1540,17 +1207,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_mid_still_texture-forward
 - balance: bed-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_mid_drift_bed-forward_s104251891_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -1558,8 +1220,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 104251891
     bed_r: 1938401060
@@ -1575,17 +1235,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_mid_drift_bed-forward
 - balance: balanced
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_mid_drift_balanced_s416515089_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -1593,8 +1248,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 416515089
     bed_r: 1531776596
@@ -1610,17 +1263,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_mid_drift_balanced
 - balance: texture-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_mid_drift_texture-forward_s295937397_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -1628,8 +1276,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 295937397
     bed_r: 738470056
@@ -1645,17 +1291,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_mid_drift_texture-forward
 - balance: bed-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_mid_breathing_bed-forward_s871368153_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -1663,8 +1304,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 871368153
     bed_r: 779452799
@@ -1680,17 +1319,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_mid_breathing_bed-forward
 - balance: balanced
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_mid_breathing_balanced_s960402826_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -1698,8 +1332,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 960402826
     bed_r: 744477097
@@ -1715,17 +1347,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_mid_breathing_balanced
 - balance: texture-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_mid_breathing_texture-forward_s538562882_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -1733,8 +1360,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 538562882
     bed_r: 1042974817
@@ -1750,17 +1375,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_mid_breathing_texture-forward
 - balance: bed-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_high_still_bed-forward_s1974774130_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -1768,8 +1388,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1974774130
     bed_r: 32603015
@@ -1785,17 +1403,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_high_still_bed-forward
 - balance: balanced
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_high_still_balanced_s1977258856_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -1803,8 +1416,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1977258856
     bed_r: 2070349894
@@ -1820,17 +1431,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_high_still_balanced
 - balance: texture-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_high_still_texture-forward_s1400341140_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -1838,8 +1444,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1400341140
     bed_r: 1344828016
@@ -1855,17 +1459,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_high_still_texture-forward
 - balance: bed-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_high_drift_bed-forward_s312155398_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -1873,8 +1472,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 312155398
     bed_r: 554434055
@@ -1890,17 +1487,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_high_drift_bed-forward
 - balance: balanced
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_high_drift_balanced_s504717344_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -1908,8 +1500,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 504717344
     bed_r: 1969514966
@@ -1925,17 +1515,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_high_drift_balanced
 - balance: texture-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_high_drift_texture-forward_s1889460285_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -1943,8 +1528,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1889460285
     bed_r: 1991218840
@@ -1960,17 +1543,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_high_drift_texture-forward
 - balance: bed-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_high_breathing_bed-forward_s266584340_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -1978,8 +1556,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 266584340
     bed_r: 1372378646
@@ -1995,17 +1571,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_high_breathing_bed-forward
 - balance: balanced
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_high_breathing_balanced_s1768548815_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -2013,8 +1584,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1768548815
     bed_r: 1054730178
@@ -2030,17 +1599,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_high_breathing_balanced
 - balance: texture-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_high_breathing_texture-forward_s2110120878_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -2048,8 +1612,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 2110120878
     bed_r: 1301005834
@@ -2065,17 +1627,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_high_breathing_texture-forward
 - balance: bed-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_broad_still_bed-forward_s780683547_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -2083,8 +1640,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 780683547
     bed_r: 41195410
@@ -2100,17 +1655,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_broad_still_bed-forward
 - balance: balanced
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_broad_still_balanced_s589735817_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -2118,8 +1668,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 589735817
     bed_r: 1007122898
@@ -2135,17 +1683,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_broad_still_balanced
 - balance: texture-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_broad_still_texture-forward_s1160811118_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -2153,8 +1696,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1160811118
     bed_r: 1263430611
@@ -2170,17 +1711,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_broad_still_texture-forward
 - balance: bed-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_broad_drift_bed-forward_s606012159_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -2188,8 +1724,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 606012159
     bed_r: 1962337535
@@ -2205,17 +1739,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_broad_drift_bed-forward
 - balance: balanced
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_broad_drift_balanced_s948026449_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -2223,8 +1752,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 948026449
     bed_r: 48054564
@@ -2240,17 +1767,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_broad_drift_balanced
 - balance: texture-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_broad_drift_texture-forward_s2134424663_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -2258,8 +1780,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 2134424663
     bed_r: 1056318808
@@ -2275,17 +1795,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_broad_drift_texture-forward
 - balance: bed-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_broad_breathing_bed-forward_s528581298_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -2293,8 +1808,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 528581298
     bed_r: 591484128
@@ -2310,17 +1823,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_broad_breathing_bed-forward
 - balance: balanced
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_broad_breathing_balanced_s1893138649_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -2328,8 +1836,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1893138649
     bed_r: 1369239788
@@ -2345,17 +1851,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_broad_breathing_balanced
 - balance: texture-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: green
-  fade_seconds: 3
   filename: wn_green_broad_breathing_texture-forward_s753015335_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -2363,8 +1864,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 753015335
     bed_r: 1097835321
@@ -2380,17 +1879,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_green_broad_breathing_texture-forward
 - balance: bed-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_low-mid_still_bed-forward_s520447819_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -2398,8 +1892,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 520447819
     bed_r: 1360237184
@@ -2411,17 +1903,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_low-mid_still_bed-forward
 - balance: balanced
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_low-mid_still_balanced_s348877489_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -2429,8 +1916,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 348877489
     bed_r: 1846918469
@@ -2442,17 +1927,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_low-mid_still_balanced
 - balance: texture-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_low-mid_still_texture-forward_s2130689164_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -2460,8 +1940,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 2130689164
     bed_r: 1540556122
@@ -2473,17 +1951,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_low-mid_still_texture-forward
 - balance: bed-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_low-mid_drift_bed-forward_s335306308_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -2491,8 +1964,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 335306308
     bed_r: 580825000
@@ -2504,17 +1975,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_low-mid_drift_bed-forward
 - balance: balanced
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_low-mid_drift_balanced_s1430281675_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -2522,8 +1988,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1430281675
     bed_r: 1645019105
@@ -2535,17 +1999,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_low-mid_drift_balanced
 - balance: texture-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_low-mid_drift_texture-forward_s79074128_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -2553,8 +2012,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 79074128
     bed_r: 462642123
@@ -2566,17 +2023,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_low-mid_drift_texture-forward
 - balance: bed-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_low-mid_breathing_bed-forward_s319992182_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -2584,8 +2036,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 319992182
     bed_r: 623917988
@@ -2597,17 +2047,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_low-mid_breathing_bed-forward
 - balance: balanced
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_low-mid_breathing_balanced_s1847207049_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -2615,8 +2060,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1847207049
     bed_r: 176489684
@@ -2628,17 +2071,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_low-mid_breathing_balanced
 - balance: texture-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_low-mid_breathing_texture-forward_s582043548_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -2646,8 +2084,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 582043548
     bed_r: 603057312
@@ -2659,17 +2095,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_low-mid_breathing_texture-forward
 - balance: bed-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_mid_still_bed-forward_s1826716863_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -2677,8 +2108,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1826716863
     bed_r: 1855178381
@@ -2690,17 +2119,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_mid_still_bed-forward
 - balance: balanced
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_mid_still_balanced_s335311483_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -2708,8 +2132,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 335311483
     bed_r: 328436714
@@ -2721,17 +2143,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_mid_still_balanced
 - balance: texture-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_mid_still_texture-forward_s1485122356_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -2739,8 +2156,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1485122356
     bed_r: 1513820125
@@ -2752,17 +2167,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_mid_still_texture-forward
 - balance: bed-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_mid_drift_bed-forward_s1362916913_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -2770,8 +2180,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1362916913
     bed_r: 1261204451
@@ -2783,17 +2191,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_mid_drift_bed-forward
 - balance: balanced
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_mid_drift_balanced_s51869882_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -2801,8 +2204,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 51869882
     bed_r: 401467558
@@ -2814,17 +2215,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_mid_drift_balanced
 - balance: texture-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_mid_drift_texture-forward_s125285220_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -2832,8 +2228,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 125285220
     bed_r: 1852565328
@@ -2845,17 +2239,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_mid_drift_texture-forward
 - balance: bed-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_mid_breathing_bed-forward_s1482926935_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -2863,8 +2252,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1482926935
     bed_r: 1945148252
@@ -2876,17 +2263,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_mid_breathing_bed-forward
 - balance: balanced
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_mid_breathing_balanced_s39804323_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -2894,8 +2276,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 39804323
     bed_r: 2103850227
@@ -2907,17 +2287,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_mid_breathing_balanced
 - balance: texture-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_mid_breathing_texture-forward_s267388115_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -2925,8 +2300,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 267388115
     bed_r: 748591995
@@ -2938,17 +2311,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_mid_breathing_texture-forward
 - balance: bed-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_high_still_bed-forward_s1819357851_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -2956,8 +2324,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1819357851
     bed_r: 368545034
@@ -2969,17 +2335,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_high_still_bed-forward
 - balance: balanced
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_high_still_balanced_s866558312_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -2987,8 +2348,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 866558312
     bed_r: 1133475233
@@ -3000,17 +2359,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_high_still_balanced
 - balance: texture-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_high_still_texture-forward_s419443747_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -3018,8 +2372,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 419443747
     bed_r: 941356440
@@ -3031,17 +2383,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_high_still_texture-forward
 - balance: bed-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_high_drift_bed-forward_s442961110_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -3049,8 +2396,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 442961110
     bed_r: 578983712
@@ -3062,17 +2407,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_high_drift_bed-forward
 - balance: balanced
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_high_drift_balanced_s676663111_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -3080,8 +2420,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 676663111
     bed_r: 1902898898
@@ -3093,17 +2431,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_high_drift_balanced
 - balance: texture-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_high_drift_texture-forward_s1055231110_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -3111,8 +2444,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1055231110
     bed_r: 720843645
@@ -3124,17 +2455,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_high_drift_texture-forward
 - balance: bed-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_high_breathing_bed-forward_s2136352149_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -3142,8 +2468,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 2136352149
     bed_r: 1338122405
@@ -3155,17 +2479,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_high_breathing_bed-forward
 - balance: balanced
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_high_breathing_balanced_s513554684_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -3173,8 +2492,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 513554684
     bed_r: 481797324
@@ -3186,17 +2503,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_high_breathing_balanced
 - balance: texture-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_high_breathing_texture-forward_s1603618479_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -3204,8 +2516,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1603618479
     bed_r: 1086674723
@@ -3217,17 +2527,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_high_breathing_texture-forward
 - balance: bed-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_broad_still_bed-forward_s1481144203_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -3235,8 +2540,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1481144203
     bed_r: 1885744177
@@ -3248,17 +2551,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_broad_still_bed-forward
 - balance: balanced
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_broad_still_balanced_s992160217_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -3266,8 +2564,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 992160217
     bed_r: 1809868504
@@ -3279,17 +2575,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_broad_still_balanced
 - balance: texture-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_broad_still_texture-forward_s1410613073_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -3297,8 +2588,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1410613073
     bed_r: 7722846
@@ -3310,17 +2599,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_broad_still_texture-forward
 - balance: bed-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_broad_drift_bed-forward_s2073585639_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -3328,8 +2612,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 2073585639
     bed_r: 281602220
@@ -3341,17 +2623,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_broad_drift_bed-forward
 - balance: balanced
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_broad_drift_balanced_s1495450835_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -3359,8 +2636,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1495450835
     bed_r: 603020859
@@ -3372,17 +2647,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_broad_drift_balanced
 - balance: texture-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_broad_drift_texture-forward_s393887415_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -3390,8 +2660,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 393887415
     bed_r: 216943948
@@ -3403,17 +2671,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_broad_drift_texture-forward
 - balance: bed-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_broad_breathing_bed-forward_s1575004970_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -3421,8 +2684,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1575004970
     bed_r: 1696922575
@@ -3434,17 +2695,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_broad_breathing_bed-forward
 - balance: balanced
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_broad_breathing_balanced_s106775190_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -3452,8 +2708,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 106775190
     bed_r: 726345340
@@ -3465,17 +2719,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_broad_breathing_balanced
 - balance: texture-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: pink
-  fade_seconds: 3
   filename: wn_pink_broad_breathing_texture-forward_s1590020321_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -3483,8 +2732,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1590020321
     bed_r: 670072254
@@ -3496,17 +2743,12 @@ variants:
     tilt_db_per_oct: -3.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_pink_broad_breathing_texture-forward
 - balance: bed-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_low-mid_still_bed-forward_s602360113_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -3514,8 +2756,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 602360113
     bed_r: 30666441
@@ -3527,17 +2767,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_low-mid_still_bed-forward
 - balance: balanced
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_low-mid_still_balanced_s552927571_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -3545,8 +2780,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 552927571
     bed_r: 984583708
@@ -3558,17 +2791,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_low-mid_still_balanced
 - balance: texture-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_low-mid_still_texture-forward_s997390051_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -3576,8 +2804,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 997390051
     bed_r: 1087356345
@@ -3589,17 +2815,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_low-mid_still_texture-forward
 - balance: bed-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_low-mid_drift_bed-forward_s937499486_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -3607,8 +2828,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 937499486
     bed_r: 1634706009
@@ -3620,17 +2839,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_low-mid_drift_bed-forward
 - balance: balanced
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_low-mid_drift_balanced_s301160167_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -3638,8 +2852,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 301160167
     bed_r: 1366270641
@@ -3651,17 +2863,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_low-mid_drift_balanced
 - balance: texture-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_low-mid_drift_texture-forward_s7793440_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -3669,8 +2876,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 7793440
     bed_r: 1499685562
@@ -3682,17 +2887,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_low-mid_drift_texture-forward
 - balance: bed-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_low-mid_breathing_bed-forward_s1258124584_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -3700,8 +2900,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1258124584
     bed_r: 292310133
@@ -3713,17 +2911,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_low-mid_breathing_bed-forward
 - balance: balanced
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_low-mid_breathing_balanced_s1932023335_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -3731,8 +2924,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1932023335
     bed_r: 447196246
@@ -3744,17 +2935,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_low-mid_breathing_balanced
 - balance: texture-forward
   band: low-mid
   band_high_hz: 800
   band_low_hz: 250
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_low-mid_breathing_texture-forward_s1382577587_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -3762,8 +2948,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1382577587
     bed_r: 1396689750
@@ -3775,17 +2959,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_low-mid_breathing_texture-forward
 - balance: bed-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_mid_still_bed-forward_s320953291_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -3793,8 +2972,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 320953291
     bed_r: 1972887266
@@ -3806,17 +2983,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_mid_still_bed-forward
 - balance: balanced
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_mid_still_balanced_s2125019060_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -3824,8 +2996,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 2125019060
     bed_r: 951952752
@@ -3837,17 +3007,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_mid_still_balanced
 - balance: texture-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_mid_still_texture-forward_s2021042110_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -3855,8 +3020,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 2021042110
     bed_r: 1825262220
@@ -3868,17 +3031,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_mid_still_texture-forward
 - balance: bed-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_mid_drift_bed-forward_s1742181745_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -3886,8 +3044,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1742181745
     bed_r: 687844551
@@ -3899,17 +3055,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_mid_drift_bed-forward
 - balance: balanced
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_mid_drift_balanced_s1547690611_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -3917,8 +3068,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1547690611
     bed_r: 1404131730
@@ -3930,17 +3079,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_mid_drift_balanced
 - balance: texture-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_mid_drift_texture-forward_s524750567_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -3948,8 +3092,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 524750567
     bed_r: 2010852488
@@ -3961,17 +3103,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_mid_drift_texture-forward
 - balance: bed-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_mid_breathing_bed-forward_s1222544090_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -3979,8 +3116,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1222544090
     bed_r: 1329840251
@@ -3992,17 +3127,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_mid_breathing_bed-forward
 - balance: balanced
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_mid_breathing_balanced_s767954655_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -4010,8 +3140,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 767954655
     bed_r: 629273223
@@ -4023,17 +3151,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_mid_breathing_balanced
 - balance: texture-forward
   band: mid
   band_high_hz: 2500
   band_low_hz: 800
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_mid_breathing_texture-forward_s2015466571_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -4041,8 +3164,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 2015466571
     bed_r: 84250562
@@ -4054,17 +3175,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_mid_breathing_texture-forward
 - balance: bed-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_high_still_bed-forward_s77164237_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -4072,8 +3188,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 77164237
     bed_r: 948301209
@@ -4085,17 +3199,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_high_still_bed-forward
 - balance: balanced
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_high_still_balanced_s2025057975_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -4103,8 +3212,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 2025057975
     bed_r: 555855767
@@ -4116,17 +3223,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_high_still_balanced
 - balance: texture-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_high_still_texture-forward_s2085876277_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -4134,8 +3236,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 2085876277
     bed_r: 745337267
@@ -4147,17 +3247,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_high_still_texture-forward
 - balance: bed-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_high_drift_bed-forward_s954372527_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -4165,8 +3260,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 954372527
     bed_r: 418187050
@@ -4178,17 +3271,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_high_drift_bed-forward
 - balance: balanced
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_high_drift_balanced_s251474877_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -4196,8 +3284,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 251474877
     bed_r: 387105036
@@ -4209,17 +3295,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_high_drift_balanced
 - balance: texture-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_high_drift_texture-forward_s1275246320_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -4227,8 +3308,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1275246320
     bed_r: 329680708
@@ -4240,17 +3319,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_high_drift_texture-forward
 - balance: bed-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_high_breathing_bed-forward_s1989145690_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -4258,8 +3332,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1989145690
     bed_r: 347217384
@@ -4271,17 +3343,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_high_breathing_bed-forward
 - balance: balanced
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_high_breathing_balanced_s156724758_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -4289,8 +3356,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 156724758
     bed_r: 632094901
@@ -4302,17 +3367,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_high_breathing_balanced
 - balance: texture-forward
   band: high
   band_high_hz: 8000
   band_low_hz: 2500
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_high_breathing_texture-forward_s183907932_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -4320,8 +3380,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 183907932
     bed_r: 1091080580
@@ -4333,17 +3391,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_high_breathing_texture-forward
 - balance: bed-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_broad_still_bed-forward_s916764773_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -4351,8 +3404,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 916764773
     bed_r: 1258679251
@@ -4364,17 +3415,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_broad_still_bed-forward
 - balance: balanced
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_broad_still_balanced_s1836846022_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -4382,8 +3428,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1836846022
     bed_r: 978503746
@@ -4395,17 +3439,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_broad_still_balanced
 - balance: texture-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_broad_still_texture-forward_s758361594_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -4413,8 +3452,6 @@ variants:
   lfo_depth: 0.0
   lfo_rate_hz: 0.0
   motion: still
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 758361594
     bed_r: 1410595446
@@ -4426,17 +3463,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_broad_still_texture-forward
 - balance: bed-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_broad_drift_bed-forward_s943743787_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -4444,8 +3476,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 943743787
     bed_r: 3771830
@@ -4457,17 +3487,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_broad_drift_bed-forward
 - balance: balanced
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_broad_drift_balanced_s1365549720_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -4475,8 +3500,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1365549720
     bed_r: 1403505570
@@ -4488,17 +3511,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_broad_drift_balanced
 - balance: texture-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_broad_drift_texture-forward_s1347051631_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -4506,8 +3524,6 @@ variants:
   lfo_depth: 0.1
   lfo_rate_hz: 0.02
   motion: drift
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1347051631
     bed_r: 1077657954
@@ -4519,17 +3535,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_broad_drift_texture-forward
 - balance: bed-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_broad_breathing_bed-forward_s456626427_master.wav
   gain_bed_db: -3.0
   gain_motion_db: -15.0
@@ -4537,8 +3548,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 456626427
     bed_r: 1654250030
@@ -4550,17 +3559,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_broad_breathing_bed-forward
 - balance: balanced
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_broad_breathing_balanced_s1687403382_master.wav
   gain_bed_db: -6.0
   gain_motion_db: -12.0
@@ -4568,8 +3572,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1687403382
     bed_r: 1815066941
@@ -4581,17 +3583,12 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_broad_breathing_balanced
 - balance: texture-forward
   band: broad
   band_high_hz: 6000
   band_low_hz: 200
-  bit_depth: 24
-  cell_seconds: 60
   color: brown
-  fade_seconds: 3
   filename: wn_brown_broad_breathing_texture-forward_s1891943957_master.wav
   gain_bed_db: -9.0
   gain_motion_db: -10.0
@@ -4599,8 +3596,6 @@ variants:
   lfo_depth: 0.2
   lfo_rate_hz: 0.08
   motion: breathing
-  repeats: 4
-  sample_rate: 48000
   seeds:
     bed_l: 1891943957
     bed_r: 330258830
@@ -4612,6 +3607,4 @@ variants:
     tilt_db_per_oct: -6.0
     tilt_high_hz: 20000
     tilt_low_hz: 20
-  target_lufs: -20.0
-  true_peak_max_dbtp: -3.0
   variant_id: wn_brown_broad_breathing_texture-forward

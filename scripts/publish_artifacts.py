@@ -31,6 +31,8 @@ def render_statuses(output_dir: Path) -> dict[str, str]:
             record = json.loads(line)
         except json.JSONDecodeError:
             continue
+        if not isinstance(record, dict):
+            continue
         variant_id = record.get("variant_id")
         exit_state = record.get("exit_state")
         if variant_id and exit_state:
@@ -39,14 +41,26 @@ def render_statuses(output_dir: Path) -> dict[str, str]:
 
 
 def qa_checks(output_dir: Path) -> dict[str, list[dict[str, object]]]:
+    """Per-file QA evidence, if the harness left a readable report behind.
+
+    The evidence decorates the manifest; a report that is missing, truncated or
+    the wrong shape leaves the manifest undecorated rather than stopping the
+    upload that carries the renders themselves.
+    """
     path = output_dir / "qa_results.json"
     if not path.exists():
         return {}
-    report = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return {}
+    files = report.get("files", []) if isinstance(report, dict) else []
+    if not isinstance(files, list):
+        return {}
     return {
         entry["filename"]: entry.get("checks", [])
-        for entry in report.get("files", [])
-        if entry.get("filename")
+        for entry in files
+        if isinstance(entry, dict) and isinstance(entry.get("filename"), str)
     }
 
 
@@ -99,26 +113,49 @@ def uploads(output_dir: Path, manifest: dict[str, object]) -> list[tuple[Path, s
     return files
 
 
+def _keyed(document: dict[str, object], section: str, key: str) -> dict[str, object]:
+    """Index one document section by a key, skipping entries that lack it.
+
+    The published copy is written by earlier runs and can be older, partial, or
+    hand-edited; an entry that cannot be identified is dropped rather than
+    aborting the publish that would have replaced it.
+    """
+    entries = document.get(section, [])
+    if not isinstance(entries, list):
+        return {}
+    return {
+        entry[key]: entry
+        for entry in entries
+        if isinstance(entry, dict) and isinstance(entry.get(key), str)
+    }
+
+
 def merged_releases(local: dict[str, object], published: dict[str, object]) -> dict[str, object]:
     """Keep releases that were published by earlier render runs."""
-    entries = {entry["id"]: entry for entry in published.get("releases", [])}  # type: ignore[union-attr]
-    entries.update({entry["id"]: entry for entry in local.get("releases", [])})  # type: ignore[union-attr]
+    entries = _keyed(published, "releases", "id")
+    entries.update(_keyed(local, "releases", "id"))
     return {**local, "releases": [entries[name] for name in sorted(entries)]}
 
 
 def merged(local: dict[str, object], published: dict[str, object]) -> dict[str, object]:
     """Keep already-published masters that this run did not re-render."""
-    entries = {entry["filename"]: entry for entry in published.get("artifacts", [])}  # type: ignore[union-attr]
-    entries.update({entry["filename"]: entry for entry in local["artifacts"]})  # type: ignore[index,union-attr]
+    entries = _keyed(published, "artifacts", "filename")
+    entries.update(_keyed(local, "artifacts", "filename"))
     return {**local, "artifacts": [entries[name] for name in sorted(entries)]}
 
 
 def published_manifest(s3, bucket: str, key: str) -> dict[str, object]:
-    """Read the manifest already in the bucket, treating a first publish as empty."""
+    """Read the manifest already in the bucket, treating a first publish as empty.
+
+    A missing object is the first publish; a truncated or non-object body is a
+    bucket that cannot be merged into, and is treated the same way so this run
+    republishes a complete document instead of failing.
+    """
     try:
-        return json.loads(s3.get_object(Bucket=bucket, Key=key)["Body"].read())
-    except s3.exceptions.ClientError:
+        document = json.loads(s3.get_object(Bucket=bucket, Key=key)["Body"].read())
+    except (s3.exceptions.ClientError, json.JSONDecodeError, UnicodeDecodeError):
         return {}
+    return document if isinstance(document, dict) else {}
 
 
 def client():

@@ -24,6 +24,7 @@ directory `web`.
 | Email sender | **Resend**, sending from the `ybellrecords.com` domain (account owned by eric@ybellrecords.com). |
 | Audio URL privacy | Console and APIs are gated, but **audio URLs stay shareable once grabbed** — `/api/audio/[filename]` is not session-gated. |
 | Tour style | **Hands-on.** The user performs each core action themselves; the tour reacts to what they actually did. |
+| Step copy | **Approved as written.** The §4 script is final v1 copy — no further review pass needed before build. |
 
 ---
 
@@ -205,12 +206,12 @@ sheets. Estimated ~450–550 lines: `web/app/ui/tutorial.tsx` plus CSS in
   cross-fades instead of the moving cutout, no pulse, no confetti.
 
 <a name="step-script"></a>
-### Step script (draft — copy to be tightened, see Q7)
+### Step script (owner-approved v1 copy)
 
 Types: **info** advances on Next; **action** advances when the named event
 fires (and always offers "Do it for me" after a stall).
 
-| # | Type | Tab | Target (`data-tour`) | Advance event | Message (draft) |
+| # | Type | Tab | Target (`data-tour`) | Advance event | Message (final) |
 |---|------|-----|----------------------|---------------|-----------------|
 | 1 | info | — | none (centered card) | — | **Welcome to Noise Lab.** You're about to design a noise variant, render it, and hear it — for real, not a demo. Takes about two minutes. |
 | 2 | action | Design | `design-params` | `param-selected` | Every track starts here. **Tap a color** — white, green, pink, or brown. The same choices always make the same sound. |
@@ -276,7 +277,8 @@ plus Playwright checks at 390×844 and 1280×900 per the
    reduced-motion paths.
 2. `data-tour` attributes + one-line `tour.notify(...)` calls in the
    existing handlers of `noise-lab.tsx`; tab driving via the real `setTab`.
-3. Mode-aware step definitions + copy from §4 (owner-reviewed before merge).
+3. Mode-aware step definitions + copy from §4 (already owner-approved —
+   implement verbatim).
 4. Seeded demo track (`web/demo/` master + sidecar, "Demo" chip, audio-route
    special case, hidden when published artifacts exist).
 5. Action celebrations (check flash, haptic), finale recap + one-shot
@@ -302,17 +304,14 @@ plus Playwright checks at 390×844 and 1280×900 per the
 
 ## 6. Open questions for the product owner
 
-Q1–Q3 and Q6 are answered (see Decisions above). Still open:
+Q1–Q3, Q6, and Q7 (step copy approved as written) are answered (see
+Decisions above). Still open:
 
 - **Q4 — Per-user or per-device first-run?** Plan says per-user (server
   flag), so a second device does *not* replay the tour. Confirm — or would
   you rather each new device gets the tour once?
 - **Q5 — Does skipping count as done?** Plan says yes (skip = never auto-show
   again, replay stays available). Alternative: re-offer once on next sign-in.
-- **Q7 — Copy voice.** The draft script in §4 is utilitarian. Edit the step
-  table directly — it's the single highest-leverage review you can do for
-  tour quality. Should the tone match anything existing (the info-tooltip
-  texts, Marlo brand voice)?
 - **Q10 — Real render during the tour: OK?** Hands-on means step 5 enqueues
   a genuine job (a worker render locally, a GitHub Actions run in dispatch
   mode). Fine, or should the tour's render be marked/throttled somehow?

@@ -134,7 +134,7 @@ export function loadVariants(configPath = CONFIG_PATH): Variant[] {
       },
       seeds: Object.fromEntries(Object.entries(seeds).map(([key, value]) => [key, number(value)])),
       durationSeconds: number(row.cell_seconds, number(output.cell_seconds)) * number(row.repeats, number(output.repeats)),
-      sampleRate: number(row.sample_rate, number(output.sample_rate, 48000)),
+      sampleRate: number(row.sample_rate, number(output.master_sample_rate, 96000)),
       targetLufs: number(row.target_lufs, number(output.target_lufs, -20)),
       truePeakMaxDbtp: number(row.true_peak_max_dbtp, number(output.true_peak_max_dbtp, -3)),
       pilot: pilots.get(variantId) ?? null,
