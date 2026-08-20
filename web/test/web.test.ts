@@ -154,6 +154,22 @@ test("numbers repeated queue attempts and detects superseded failures", () => {
   assert.equal(isSuperseded(jobs[0], jobs), false);
 });
 
+test("numbers and supersedes attempts within one take", () => {
+  const jobs = [
+    { id: "take-old", variantId: "same", takeMarker: "ta", status: "Failed" as const, queuedAt: "2026-08-09T12:00:00Z" },
+    { id: "take-retry", variantId: "same", takeMarker: "ta", status: "Failed" as const, queuedAt: "2026-08-09T12:01:00Z" },
+    { id: "take-sibling", variantId: "same", takeMarker: "tb", status: "Failed" as const, queuedAt: "2026-08-09T12:02:00Z" },
+  ];
+  assert.equal(attemptNumber(jobs[0], jobs), 1);
+  assert.equal(attemptNumber(jobs[1], jobs), 2);
+  assert.equal(attemptNumber(jobs[2], jobs), 1);
+  assert.equal(hasRepeatedVariant(jobs[0], jobs), true);
+  assert.equal(hasRepeatedVariant(jobs[2], jobs), false);
+  assert.equal(isSuperseded(jobs[0], jobs), true);
+  assert.equal(isSuperseded(jobs[1], jobs), false);
+  assert.equal(isSuperseded(jobs[2], jobs), false);
+});
+
 test("supersedes a batch only after every member has a newer job", () => {
   const members = ["pilot-a", "pilot-b"];
   const batch = { id: "batch", variantId: "pilot", status: "Failed" as const, queuedAt: "2026-08-09T12:00:00Z" };

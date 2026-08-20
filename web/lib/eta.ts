@@ -36,13 +36,21 @@ export function absoluteTime(iso: string): string {
   return `${datePart} ${timePart.slice(0, 8)} UTC`;
 }
 
+export function queueJobIdentity(job: Pick<QueueJob, "variantId" | "takeMarker">): string {
+  return JSON.stringify([job.variantId, job.takeMarker ?? null]);
+}
+
+function sameQueueTake(a: QueueJob, b: QueueJob): boolean {
+  return a.variantId === b.variantId && a.takeMarker === b.takeMarker;
+}
+
 export function hasRepeatedVariant(job: QueueJob, jobs: QueueJob[]): boolean {
-  return jobs.some((candidate) => candidate.id !== job.id && candidate.variantId === job.variantId);
+  return jobs.some((candidate) => candidate.id !== job.id && sameQueueTake(candidate, job));
 }
 
 export function attemptNumber(job: QueueJob, jobs: QueueJob[]): number {
   return jobs
-    .filter((candidate) => candidate.variantId === job.variantId)
+    .filter((candidate) => sameQueueTake(candidate, job))
     .sort((a, b) => {
       const byTime = new Date(a.queuedAt).getTime() - new Date(b.queuedAt).getTime();
       return byTime || a.id.localeCompare(b.id);
@@ -60,12 +68,12 @@ export function isSuperseded(job: QueueJob, jobs: QueueJob[], batchMembers?: str
   if (batchMembers) {
     if (batchMembers.length === 0) return false;
     return batchMembers.every((member) =>
-      jobs.some((candidate) => candidate.variantId === member && isNewer(candidate, job)),
+      jobs.some((candidate) => candidate.variantId === member && candidate.takeMarker === job.takeMarker && isNewer(candidate, job)),
     );
   }
   return jobs.some(
     (candidate) =>
-      candidate.variantId === job.variantId &&
+      sameQueueTake(candidate, job) &&
       candidate.id !== job.id &&
       isNewer(candidate, job),
   );

@@ -15,6 +15,30 @@ test("groups all attempts for a variant newest first", () => {
   assert.equal(grouped[0].latest.id, "pilot-5");
 });
 
+test("keeps distinct takes of one variant in separate cards", () => {
+  const jobs = [
+    job("take-a", "same", "2026-08-09T12:00:00Z", "Queued", { takeMarker: "ta" }),
+    job("take-b", "same", "2026-08-09T12:01:00Z", "Queued", { takeMarker: "tb" }),
+  ];
+  const grouped = groupJobs(jobs);
+  assert.equal(grouped.length, 2);
+  assert.deepEqual(grouped.map((item) => item.latest.id), ["take-b", "take-a"]);
+  assert.deepEqual(grouped.map((item) => item.attempts.length), [1, 1]);
+});
+
+test("keeps retries of one take in its attempt history", () => {
+  const jobs = [
+    job("take-old", "same", "2026-08-09T12:00:00Z", "Failed", { takeMarker: "ta" }),
+    job("take-retry", "same", "2026-08-09T12:01:00Z", "Failed", { takeMarker: "ta" }),
+    job("take-sibling", "same", "2026-08-09T12:02:00Z", "Queued", { takeMarker: "tb" }),
+  ];
+  const grouped = groupJobs(jobs);
+  assert.equal(grouped.length, 2);
+  const retried = grouped.find((item) => item.latest.id === "take-retry");
+  assert.ok(retried);
+  assert.deepEqual(retried.attempts.map((attempt) => attempt.id), ["take-retry", "take-old"]);
+});
+
 test("partitions grouped failures and keeps superseded jobs in history", () => {
   const jobs = [
     job("pilot-failed", "pilot", "2026-08-09T12:00:00Z", "Failed"),
@@ -42,4 +66,3 @@ test("groups completed jobs by local calendar day without contradictory labels",
   assert.deepEqual(buckets.map((bucket) => bucket.label), ["Today", "Yesterday", "This week", "Earlier"]);
   assert.deepEqual(buckets.map((bucket) => bucket.jobs.map((item) => item.variantId)), [["today"], ["yesterday"], ["week"], ["earlier"]]);
 });
-
