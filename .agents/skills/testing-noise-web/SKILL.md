@@ -230,6 +230,34 @@ the active panel (skipping `display:none` and closed `<details>`) and subtract i
 keeping 11px padding), which is under the 44px guideline even though `.mini-segment`,
 `.bulk-action` buttons and `.queue-link` all explicitly set `min-height: 44px`.
 
+## Testing the first-run guided tour (`web/app/ui/tutorial.tsx`)
+Auth is unconfigured locally ("open mode"), so the tour **does not auto-launch**. Launch it the way a
+user replays it: the current tab's info **(i)** button (top-right of the panel header) → **Replay
+tutorial** in the `.current-tab-tooltip`. If that button looks visible but clicks do nothing, check
+inherited `pointer-events` up the chain (`.current-tab-title` used to set `pointer-events: none`,
+which silently killed both Replay and Sign out); a temporary `.current-tab-tooltip { pointer-events:
+auto }` override is a good local workaround while confirming the root cause.
+
+Useful facts when testing it:
+- Steps are driven by real events (`tour.notify(...)`) from the app's own handlers, so a step only
+  advances if the underlying state actually changed. Always assert the real state (caption text, EQ
+  label, dock `aria-selected`, player `aria-label` flipping to "Pause track") — never just the card.
+- Action steps have **no Next button**; a **Do it for me** button appears only after 10s
+  (`.tutorial-do-it`), so wait ~11s before claiming it is missing.
+- The spotlight is four blocker divs + a `pointer-events: none` SVG ring. To debug a swallowed click,
+  use `document.elementFromPoint(cx, cy)` on the target's center — if it returns `.tutorial-card` or
+  `.tutorial-do-it`, the card is covering the target, not the cutout.
+- At 390x844 the card should top-anchor (`.tutorial-card.is-top`) whenever the measured target rect
+  would intersect the bottom placement; this is what keeps the Queue/Library dock steps tappable.
+- Local worker mode (`NOISE_RENDERING_AVAILABLE=1`) is required to get the action variants of the
+  render/queue steps; otherwise you get the "unavailable" info steps.
+- Render-done banner is one-shot, gated on `localStorage['noise.tutorial.render-banner']`; clear it
+  before each run, and drive the queued job to `"status": "Done"` in the queue JSONL (watcher polls
+  every 10s). The link deep-links to `#library/<variantId>`.
+- Isolation matters: concurrent edits in the same checkout trigger Fast Refresh mid-tour and reset
+  tour state. Snapshot the commit under test (`git archive` to /tmp, symlink `web/node_modules`) and
+  run it on its own port.
+
 ## Which config file the console actually reads (sample rate / duration assertions)
 `/api/variants` calls `loadVariants()` on **`config/variants.yaml`** (overridable with
 `NOISE_VARIANTS_FILE`); `config/variants_pilot.yaml` is only used for the `P1..P8` pilot labels and
