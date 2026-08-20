@@ -23,8 +23,8 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { LibraryTrack, QueueJob, Release, ReleaseTrack, Variant } from "@/lib/types";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { LibraryRecipe, LibraryTrack, QueueJob, Release, ReleaseTrack, Variant } from "@/lib/types";
 import type { DismissalRecord } from "@/lib/dismissals";
 import { absoluteTime, batchMembersForJob, knownVariantId, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
 import { groupCompletedByDay, partitionRenderJobs, type RenderJob } from "@/lib/render-jobs";
@@ -1278,6 +1278,7 @@ function TrackCard({ track, compact = false, onToast }: { track: LibraryTrack; c
   const [elapsed, setElapsed] = useState(0);
   const [duration, setDuration] = useState(track.durationSeconds);
   const [qaOpen, setQaOpen] = useState(false);
+  const [recipeOpen, setRecipeOpen] = useState(false);
   const [menu, setMenu] = useState<"overflow" | "download" | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const qaId = `qa-${track.variantId}`;
@@ -1353,7 +1354,19 @@ function TrackCard({ track, compact = false, onToast }: { track: LibraryTrack; c
   return (
     <Card as="article" id={`track-${track.variantId}`} padding="md" className="track-card">
       <div className="track-card-heading"><div className="track-card-title" title={title}>{title}{track.titleApproved && <span className="approved-marker">approved</span>}</div><div className="track-menu-wrap"><button type="button" className="icon-action" aria-label="More track actions" aria-haspopup="menu" aria-expanded={menu === "overflow"} onClick={() => setMenu(menu === "overflow" ? null : "overflow")}><MoreHorizontal size={19} /></button>{menu === "overflow" && <div className="track-menu" role="menu"><button type="button" role="menuitem" onClick={togglePlay}>{playing ? "Pause" : "Play"}</button><button type="button" role="menuitem" onClick={() => { setMenu(null); void generate(); }}><Sparkles size={14} /> Suggest SEO name</button><button type="button" role="menuitem" onClick={() => { setQaOpen(true); setMenu(null); document.getElementById(qaId)?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>View QA report</button><button type="button" role="menuitem" onClick={() => void copyUrl()}>Copy file URL <span className="developer-label">(developer)</span></button></div>}</div></div>
-      <div className="track-chips"><Chip>Matrix {track.matrixIndex}</Chip><Chip>{track.color}</Chip><Chip>{track.band}</Chip><Chip>{track.motion}</Chip></div>
+      <div className="track-chips">
+        <Disclosure
+          open={recipeOpen}
+          onOpenChange={setRecipeOpen}
+          className="recipe-disclosure"
+          triggerClassName="recipe-trigger"
+          triggerId={`recipe-${track.variantId}`}
+          contentId={`recipe-${track.variantId}-details`}
+          summary={<><Chip tone="brand">Matrix {track.matrixIndex}</Chip>{recipeOpen ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}</>}
+        >
+          <RecipeDetails recipe={track.recipe} variantId={track.variantId} />
+        </Disclosure>
+      </div>
       {track.renderedAt && <div className="track-date">Created <time title={absoluteTime(track.renderedAt)}>{formatCreatedDate(track.renderedAt)}</time></div>}
       <div className="custom-player">{audioElement}<button type="button" className="player-play" aria-label={playing ? "Pause track" : "Play track"} onClick={togglePlay}>{playing ? <Pause size={16} fill="currentColor" /> : <Play size={16} fill="currentColor" />}</button><span className="player-time">{formatDuration(elapsed)}</span><input className="player-scrubber" type="range" min={0} max={duration} step={0.1} value={Math.min(elapsed, duration)} aria-label="Seek track" onChange={(event) => seek(Number(event.target.value))} /><span className="player-time">{formatDuration(duration)}</span></div>
       <Disclosure open={qaOpen} onOpenChange={setQaOpen} className={metricClass} triggerClassName="qa-header" triggerId={qaId} contentId={`${qaId}-checks`} summary={<><span><span className="qa-metric-label">LUFS</span><strong>{track.measuredLufs ?? "—"}</strong></span><span><span className="qa-metric-label">True peak</span><strong>{track.measuredTruePeak ?? "—"}</strong></span><span className="qa-verdict">{track.qaVerdict}</span>{qaOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}</>}>
@@ -1362,6 +1375,68 @@ function TrackCard({ track, compact = false, onToast }: { track: LibraryTrack; c
       <div className="download-menu-wrap"><div className="download-split"><Button variant="neutral" type="button" onClick={() => download()} disabled={downloadBusy} className="download-main"><Download size={15} /> {downloadBusy ? "Preparing…" : "Download"}</Button><button type="button" className="download-chevron" aria-label="Download options" aria-haspopup="menu" aria-expanded={menu === "download"} onClick={() => setMenu(menu === "download" ? null : "download")}><ChevronDown size={15} /></button></div>{menu === "download" && <div className="track-menu download-menu" role="menu"><button type="button" role="menuitem" onClick={() => download()}><span>Master</span><small>{formatBytes(track.sizeBytes)}</small></button>{track.stems.filter((stem) => stem.exists).map((stem) => <button type="button" role="menuitem" key={stem.filename} onClick={() => download(stem.downloadUrl, stem.filename)}><span>Stem {stem.number} — {stem.stem}</span><small>{formatBytes(stem.sizeBytes)}</small></button>)}<div className="menu-separator" /><button type="button" role="menuitem" onClick={() => download(`/api/bundle/${encodeURIComponent(track.variantId)}`, `${track.variantId}.zip`)}><span>All as .zip</span><small>{formatBytes(track.sizeBytes + track.stems.filter((stem) => stem.exists).reduce((total, stem) => total + stem.sizeBytes, 0))}</small></button></div>}</div>
         {suggestion && <div className="mt-3 rounded-xl border border-[color:var(--separator)] p-3"><div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--ink-secondary)]">Review before approval</div><input value={suggestion.title} onChange={(event) => setSuggestion({ ...suggestion, title: event.target.value })} className="w-full border-b border-[color:var(--separator)] pb-1 text-sm font-semibold outline-none" /><textarea value={suggestion.description} onChange={(event) => setSuggestion({ ...suggestion, description: event.target.value })} className="mt-2 h-16 w-full resize-none text-xs leading-4 outline-none" /><div className="mt-2 flex justify-end gap-2"><Button variant="link" type="button" onClick={() => void regenerate()} disabled={busy}>Regenerate</Button><Button variant="primary" type="button" onClick={() => void approve()} disabled={busy}>{busy ? "Approving…" : "Approve"}</Button></div></div>}
     </Card>
+  );
+}
+
+function recipeNumber(value: number | null | undefined, suffix = ""): string {
+  return value === null || value === undefined || !Number.isFinite(value) ? "Not recorded" : `${value}${suffix}`;
+}
+
+function recipeDb(value: number): string {
+  return `${value > 0 ? "+" : ""}${value} dB`;
+}
+
+function RecipeField({ label, children }: { label: string; children: ReactNode }) {
+  return <div className="recipe-field"><span>{label}</span><strong>{children}</strong></div>;
+}
+
+function RecipeGroup({ title, children }: { title: string; children: ReactNode }) {
+  return <section className="recipe-group"><h4>{title}</h4><div className="recipe-fields">{children}</div></section>;
+}
+
+function RecipeDetails({ recipe, variantId }: { recipe: LibraryRecipe; variantId: string }) {
+  const eq = recipe.eq;
+  const reverb = recipe.reverb;
+  const nominalSeconds = recipe.cellSeconds * recipe.repeats;
+  const durationText = Number.isFinite(nominalSeconds)
+    ? recipe.tailSeconds === null
+      ? `${formatTail(nominalSeconds, 0)} · tail not recorded`
+      : formatTail(nominalSeconds, recipe.tailSeconds)
+    : "Not recorded";
+  const eqLabel = !recipe.fxRecorded ? "Not recorded" : eq ? EQ_PRESET_LABELS[eq.preset as EqPreset] ?? "Custom" : "Flat / none";
+  const reverbLabel = !recipe.fxRecorded ? "Not recorded" : reverb ? REVERB_PRESET_LABELS[reverb.preset as ReverbPreset] ?? "Custom" : "Off";
+  return (
+    <div className="recipe-details">
+      <RecipeGroup title="Variant">
+        <RecipeField label="Identity">{recipe.color} · {recipe.band} · {recipe.motion} · {recipe.balance}</RecipeField>
+        <RecipeField label="Band">{formatBandLabel(recipe.bandLowHz)}–{formatBandLabel(recipe.bandHighHz)} Hz</RecipeField>
+        <RecipeField label="LFO">{recipeNumber(recipe.lfoDepth)} depth · {recipeNumber(recipe.lfoRateHz, " Hz")} rate</RecipeField>
+        <RecipeField label="Per-stem gains">Bed {recipeDb(recipe.gainsDb.bed)} · Texture {recipeDb(recipe.gainsDb.texture)} · Motion {recipeDb(recipe.gainsDb.motion)}</RecipeField>
+        <RecipeField label="Spectrum">{recipeNumber(recipe.tiltDbPerOct, " dB/oct")}{recipe.bell ? ` · green bell ${recipe.bell.gainDb > 0 ? "+" : ""}${recipe.bell.gainDb} dB @ ${formatBandLabel(recipe.bell.centerHz)} Hz (Q ${recipe.bell.q})` : ""}</RecipeField>
+      </RecipeGroup>
+      <RecipeGroup title="EQ">
+        <RecipeField label="Preset">{eqLabel}</RecipeField>
+        {eq && <div className="recipe-eq-grid" aria-label="EQ band gains">{EQ_BAND_HZ.map((hz, index) => <RecipeField key={hz} label={`${formatBandLabel(hz)} Hz`}>{recipeDb(eq.gains_db[index])}</RecipeField>)}</div>}
+        {eq && <RecipeField label="Trim">{recipeDb(eq.trim_db)}</RecipeField>}
+      </RecipeGroup>
+      <RecipeGroup title="Reverb">
+        <RecipeField label="Preset">{reverbLabel}</RecipeField>
+        {reverb && <><RecipeField label="Room">{reverb.room_size}% · pre-delay {reverb.pre_delay_ms} ms</RecipeField><RecipeField label="Decay / damping">{reverb.reverberance}% · {reverb.damping}%</RecipeField><RecipeField label="Mix / tail">{reverb.mix_percent}% · {recipe.tailSeconds === null ? "Not recorded" : formatTail(nominalSeconds, recipe.tailSeconds)}</RecipeField></>}
+      </RecipeGroup>
+      <RecipeGroup title="Output & length">
+        <RecipeField label="Duration">{durationText}</RecipeField>
+        <RecipeField label="Cell × repeats">{recipe.cellSeconds}s × {recipe.repeats}</RecipeField>
+        <RecipeField label="Fade / format">{recipeNumber(recipe.fadeSeconds, " s")} · {recipeNumber(recipe.sampleRate, " Hz")} / {recipeNumber(recipe.bitDepth, "-bit")}</RecipeField>
+        <RecipeField label="Level">{recipeNumber(recipe.targetLufs, " LUFS")} target · {recipeNumber(recipe.truePeakMaxDbtp, " dBTP")} ceiling</RecipeField>
+      </RecipeGroup>
+      <RecipeGroup title="Provenance">
+        <RecipeField label="Seeds"><span className="recipe-seeds">{Object.entries(recipe.seeds).map(([key, seed]) => `${key} ${seed}`).join(" · ") || "Not recorded"}</span></RecipeField>
+        <RecipeField label="Audacity">{recipe.audacityVersion ?? "Not recorded"}</RecipeField>
+        <RecipeField label="Rendered at">{recipe.renderedAt ? <time dateTime={recipe.renderedAt}>{absoluteTime(recipe.renderedAt)}</time> : "Not recorded"}</RecipeField>
+        <RecipeField label="Variant ID"><span className="recipe-seeds">{variantId}</span></RecipeField>
+      </RecipeGroup>
+      <div className="recipe-footer-actions" aria-hidden="true" />
+    </div>
   );
 }
 

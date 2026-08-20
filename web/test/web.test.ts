@@ -50,8 +50,29 @@ for (const filename of stemFilenames.slice(0, 2)) {
 }
 fs.writeFileSync(path.join(renderDir, "present_master.json"), JSON.stringify({
   variant_id: "wn_white_mid_drift_balanced",
+  color: "green",
+  band: "high",
+  motion: "breathing",
+  balance: "texture-forward",
+  seeds: [101, 102, 103, 104, 105, 106],
+  band_low_hz: 1200,
+  band_high_hz: 8000,
+  lfo_depth: 0.25,
+  lfo_rate_hz: 0.04,
+  per_stem_gains: { bed: -8, texture: -4, motion: -11 },
+  target_lufs: -18,
+  true_peak_max_dbtp: -2,
   cell_seconds: 61.25,
   repeats: 4,
+  fade_seconds: 2,
+  sample_rate: 88200,
+  bit_depth: 24,
+  tilt_db_per_oct: -3,
+  bell: { gain_db: 2, center_hz: 1000, q: 1.2 },
+  fx: { eq: { preset: "custom", gains_db: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], trim_db: -2 } },
+  tail_seconds: 0,
+  audacity_version: "3.7.8",
+  render_timestamp: "2026-08-09T12:34:56.000Z",
   existing_key: "preserved",
   role: "master",
   stem: null,
@@ -196,6 +217,34 @@ test("assembles rendered and missing library tracks with QA evidence", async () 
   assert.equal(tracks[1].sizeBytes, 0);
 });
 
+test("derives a recipe from the sidecar and preserves unknown legacy fields", async () => {
+  const [, { libraryTracks }] = await modulesPromise;
+  const [rendered, missing] = await libraryTracks();
+  assert.deepEqual(rendered.recipe.seeds, {
+    bed_l: 101,
+    bed_r: 102,
+    texture_l: 103,
+    texture_r: 104,
+    motion_l: 105,
+    motion_r: 106,
+  });
+  assert.equal(rendered.recipe.color, "green");
+  assert.equal(rendered.recipe.bandLowHz, 1200);
+  assert.equal(rendered.recipe.gainsDb.texture, -4);
+  assert.equal(rendered.recipe.sampleRate, 88200);
+  assert.equal(rendered.recipe.bitDepth, 24);
+  assert.equal(rendered.recipe.fxRecorded, true);
+  assert.equal(rendered.recipe.eq?.preset, "custom");
+  assert.equal(rendered.recipe.reverb, null);
+  assert.equal(rendered.recipe.audacityVersion, "3.7.8");
+  assert.equal(rendered.recipe.renderedAt, "2026-08-09T12:34:56.000Z");
+  assert.equal(missing.recipe.fxRecorded, false);
+  assert.equal(missing.recipe.tailSeconds, null);
+  assert.equal(missing.recipe.audacityVersion, null);
+  assert.equal(missing.recipe.fadeSeconds, null);
+  assert.equal(missing.recipe.bitDepth, null);
+});
+
 test("groups the stems with their master and serves every file as audio", async () => {
   const [, { libraryTracks, audioAsset, bundleAssets }] = await modulesPromise;
   const [master, missing] = await libraryTracks();
@@ -263,6 +312,33 @@ const namingTrack = (overrides: Partial<LibraryTrack> = {}): LibraryTrack => ({
   measuredTruePeak: null,
   renderStatus: "Done",
   renderedAt: null,
+  recipe: {
+    color: "pink",
+    band: "mid",
+    motion: "drift",
+    balance: "balanced",
+    bandLowHz: 800,
+    bandHighHz: 2500,
+    lfoDepth: 0.1,
+    lfoRateHz: 0.02,
+    gainsDb: { bed: -6, motion: -12, texture: -9 },
+    seeds: {},
+    tiltDbPerOct: 0,
+    bell: null,
+    eq: null,
+    reverb: null,
+    fxRecorded: false,
+    cellSeconds: 60,
+    repeats: 4,
+    fadeSeconds: null,
+    sampleRate: 48000,
+    bitDepth: null,
+    targetLufs: -20,
+    truePeakMaxDbtp: -3,
+    tailSeconds: null,
+    audacityVersion: null,
+    renderedAt: null,
+  },
   title: "SEO Title",
   titleApproved: true,
   ...overrides,

@@ -26,6 +26,10 @@ export type Variant = {
     tiltDbPerOct: number;
     bell: { gainDb: number; centerHz: number; q: number } | null;
   };
+  cellSeconds?: number;
+  repeats?: number;
+  fadeSeconds?: number;
+  bitDepth?: number;
 };
 
 export type QaCheck = {
@@ -47,6 +51,34 @@ export type TrackStem = {
   exists: boolean;
 };
 
+export type LibraryRecipe = {
+  color: Color;
+  band: Band;
+  motion: Motion;
+  balance: Balance;
+  bandLowHz: number;
+  bandHighHz: number;
+  lfoDepth: number;
+  lfoRateHz: number;
+  gainsDb: { bed: number; motion: number; texture: number };
+  seeds: Record<string, number>;
+  tiltDbPerOct: number;
+  bell: { gainDb: number; centerHz: number; q: number } | null;
+  eq: import("./fx").FxBlock["eq"] | null;
+  reverb: import("./fx").FxBlock["reverb"] | null;
+  fxRecorded: boolean;
+  cellSeconds: number;
+  repeats: number;
+  fadeSeconds: number | null;
+  sampleRate: number;
+  bitDepth: number | null;
+  targetLufs: number;
+  truePeakMaxDbtp: number;
+  tailSeconds: number | null;
+  audacityVersion: string | null;
+  renderedAt: string | null;
+};
+
 export type LibraryTrack = Variant & {
   path: string;
   sizeBytes: number;
@@ -60,6 +92,7 @@ export type LibraryTrack = Variant & {
   measuredTruePeak: string | null;
   renderStatus: string;
   renderedAt: string | null;
+  recipe: LibraryRecipe;
   title?: string;
   description?: string;
   titleApproved?: boolean;

@@ -89,6 +89,10 @@ function number(value: unknown, fallback = 0): number {
   return typeof value === "number" ? value : fallback;
 }
 
+function optionalNumber(value: unknown): number | undefined {
+  return typeof value === "number" ? value : undefined;
+}
+
 function string(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
@@ -133,6 +137,10 @@ export function loadVariants(configPath = CONFIG_PATH): Variant[] {
         texture: number(row.gain_texture_db),
       },
       seeds: Object.fromEntries(Object.entries(seeds).map(([key, value]) => [key, number(value)])),
+      cellSeconds: number(row.cell_seconds, number(output.cell_seconds)),
+      repeats: number(row.repeats, number(output.repeats)),
+      fadeSeconds: optionalNumber(row.fade_seconds) ?? optionalNumber(output.fade_seconds),
+      bitDepth: optionalNumber(row.bit_depth) ?? optionalNumber(output.bit_depth),
       durationSeconds: number(row.cell_seconds, number(output.cell_seconds)) * number(row.repeats, number(output.repeats)),
       sampleRate: number(row.sample_rate, number(output.master_sample_rate, 96000)),
       targetLufs: number(row.target_lufs, number(output.target_lufs, -20)),
