@@ -352,7 +352,9 @@ button:disabled { cursor: not-allowed; }
 @keyframes tutorial-check-flash { 0% { stroke-width: 3; opacity: .72; } 45% { stroke-width: 6; opacity: 1; } 100% { stroke-width: 3; opacity: .9; } }
 @keyframes tutorial-check-scale { 0% { transform: scale(.35); opacity: 0; } 65% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes tutorial-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-.dock { position: fixed; z-index: 50; bottom: calc(24px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); }
+.dock { position: fixed; z-index: 50; bottom: calc(24px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%) scale(1); transform-origin: bottom center; transition: bottom var(--dur-nav) var(--ease-nav), transform var(--dur-nav) var(--ease-nav); }
+.noise-shell.is-tab-title-hidden { --dock-height: 46px; }
+.noise-shell.is-tab-title-hidden .dock { bottom: calc(14px + env(safe-area-inset-bottom)); transform: translateX(-50%) scale(.8); }
 .glassbar { position: relative; display: flex; align-items: center; gap: 4px; padding: 6px; border: .5px solid rgba(255,255,255,.65); border-radius: var(--radius-pill); background: linear-gradient(145deg, rgba(255,255,255,.55), rgba(255,255,255,.22) 45%, rgba(255,255,255,.32)); box-shadow: inset 0 1px 1px rgba(255,255,255,.9), inset 0 -1px 1px rgba(0,0,0,.04), 0 18px 44px rgba(30,30,60,.18), 0 4px 12px rgba(30,30,60,.08); -webkit-backdrop-filter: blur(22px) saturate(190%); backdrop-filter: blur(22px) saturate(190%); }
 .glassbar::before { position: absolute; top: 1.5px; right: 14%; left: 14%; height: 42%; border-radius: var(--radius-pill); background: linear-gradient(180deg, rgba(255,255,255,.75), rgba(255,255,255,0)); content: ""; pointer-events: none; }
 .tab-lens { position: absolute; z-index: 0; top: 6px; bottom: 6px; border-radius: var(--radius-pill); background: linear-gradient(160deg, rgba(255,255,255,.95), rgba(255,255,255,.65)); box-shadow: inset 0 1px 1px rgba(255,255,255,1), inset 0 -1px 2px rgba(0,0,0,.06), 0 3px 10px rgba(20,20,50,.14); transition: left .38s cubic-bezier(.3,1.35,.4,1), width .38s cubic-bezier(.3,1.35,.4,1); }
@@ -432,6 +434,7 @@ button:disabled { cursor: not-allowed; }
   .bell-smile { clip-path: none; }
   .round-action.is-refreshing svg { animation: none; }
   .signin-card input, .signin-card .ui-button { transition: none; }
+  .dock { transition: none; }
   .skeleton { animation: none; background: var(--surface-skeleton); }
 }
 @media (max-width: 520px) {
@@ -448,6 +451,7 @@ button:disabled { cursor: not-allowed; }
   .skeleton-play-button { width: 56px; height: 56px; }
   .skeleton-action-button { min-height: 56px; }
   .dock { right: 10px; left: 10px; transform: none; }
+  .noise-shell.is-tab-title-hidden .dock { transform: scale(.8); }
   .glassbar { justify-content: space-between; width: 100%; }
   .dock-tab { flex: 1; min-width: 0; min-height: 48px; justify-content: center; padding: 10px 6px; }
   .release-section { padding-right: 14px; padding-left: 14px; }
