@@ -115,7 +115,7 @@ export function tutorialSteps(mode: TourMode): TourStep[] {
       id: "done",
       kind: "info",
       title: "That's the loop",
-      body: "Rename a track with the sparkle button, and bundle approved masters under Releases in your Library when you're ready. Replay this any time from the (i) button.",
+      body: "Rename a track with the sparkle button, and keep your approved masters together in your Library when you're ready. Replay this any time from the (i) button.",
     },
   ];
 }
@@ -149,7 +149,7 @@ export function finaleCopy(snapshot: TourSnapshot): string {
   const queued = snapshot.renderStatus === "Queued" || snapshot.renderStatus === "Rendering"
     ? " Your render is still queued."
     : "";
-  return `You designed ${snapshot.params ?? "your sound"}, queued ${snapshot.renderLabel ?? "your track"}, and ${playback}.${queued} Rename a track with the sparkle button, and bundle approved masters under Releases in your Library when you're ready. Replay this any time from the (i) button.`;
+  return `You designed ${snapshot.params ?? "your sound"}, queued ${snapshot.renderLabel ?? "your track"}, and ${playback}.${queued} Rename a track with the sparkle button, and keep your approved masters together in your Library when you're ready. Replay this any time from the (i) button.`;
 }
 
 export function shouldFireRenderBanner(alreadyShown: boolean, status: string | undefined): boolean {

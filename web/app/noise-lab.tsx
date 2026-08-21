@@ -85,6 +85,9 @@ const TAB_ICONS = {
   releases: Rocket,
 } as const;
 
+// Releases is temporarily hidden and is expected to return.
+const RELEASES_ENABLED = false;
+
 const SWATCH_FILLS: Record<string, string> = {
   white: "#F6F6F4",
   green: "#3FAE62",
@@ -301,7 +304,8 @@ function useHashRoute(): AppRoute {
   useEffect(() => {
     const sync = () => {
       const rawHash = window.location.hash;
-      const next = parseRoute(rawHash);
+      const parsed = parseRoute(rawHash);
+      const next: AppRoute = RELEASES_ENABLED || parsed.tab !== "releases" ? parsed : { tab: "library", activity: parsed.activity };
       const canonical = serializeRoute(next);
       const legacy = /^#(?:design|queue)(?:\?.*)?$/.test(rawHash);
       if (legacy && rawHash !== canonical) {
@@ -947,7 +951,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
   const tabsRef = useRef<HTMLElement>(null);
   const lensRef = useRef<HTMLDivElement>(null);
   const libraryCount = tracks.filter((track) => track.exists && !seenLibraryIds.has(track.renderKey)).length;
-  const releaseCount = releases.filter((release) => release.ladder.ready && !release.ladder.submitted).length;
+  const releaseCount = RELEASES_ENABLED ? releases.filter((release) => release.ladder.ready && !release.ladder.submitted).length : 0;
   const selected = useMemo(() => variants.find((variant) => variant.color === selection.color && variant.band === selection.band && variant.motion === selection.motion && variant.balance === selection.balance), [selection, variants]);
   const pilotCount = variants.filter((variant) => variant.pilot !== null).length;
   const [fx, setFx] = useFxState(selected?.variantId);
@@ -1179,6 +1183,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
     navigate({ tab: "library", trackId: variantId, activity: false }, route.activity);
   }, [navigate, route.activity]);
   const selectTab = useCallback((item: "create" | "library" | "releases") => {
+    if (item === "releases" && !RELEASES_ENABLED) return;
     if (tab === item && !route.trackId && !route.releaseId) return;
     // Tracks/Releases are sections of one Library destination, so switching
     // between them replaces the section route instead of growing the Back stack.
@@ -1206,7 +1211,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
           }
         });
       });
-    } else if (tab === "releases") {
+    } else if (RELEASES_ENABLED && tab === "releases") {
       void refresh();
     }
   }, [refresh, route.trackId, tab]);
@@ -1326,7 +1331,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
           </div>
           )}
         </div>
-        {tab !== "create" && (
+        {tab !== "create" && RELEASES_ENABLED && (
           <div className="library-sections" role="tablist" aria-label="Library sections">
             {(["library", "releases"] as const).map((section) => (
               <button key={section} type="button" role="tab" aria-selected={tab === section} aria-controls={`panel-${section}`} className={`library-section-tab ${tab === section ? "is-active" : ""}`} onClick={() => selectTab(section)}>
@@ -1337,7 +1342,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
           </div>
         )}
         <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} tourVariantId={trackedRender?.variantId} loading={loading} initialLoad={initialLoad} lastSync={lastLibrarySync} syncFailed={librarySyncFailed} onRefresh={() => void refresh()} onRenderAgain={(track, repeats) => queue(track.variantId, { repeats, takeMarker: `t${Date.now().toString(36)}${window.crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`, fx: track.recipe.fxRecorded ? { ...(track.recipe.eq ? { eq: track.recipe.eq } : {}), ...(track.recipe.reverb ? { reverb: track.recipe.reverb } : {}) } : null, toast: `Matrix ${track.matrixIndex} take queued as a new library entry.` })} onToast={setToast} onTrackPlay={(variantId) => { setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "playing")); tour.notify("track-played", undefined, { variantId }); }} onTrackPlayError={(variantId) => setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "error"))} /></div>
-        <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} /></div>
+        {RELEASES_ENABLED && <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} /></div>}
       </div>
       <div className={`current-tab-title ${tabTitleVisible ? "" : "is-hidden"}`} aria-hidden={tabTitleVisible ? undefined : true}>
         <span key={dockTab} className="current-tab-title-text">{dockTab === "create" ? "Create" : "Library"}</span>
@@ -1348,7 +1353,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
             create: "Dial in a variant, audition it, and queue the render.",
             library: "Everything you've made — finished masters with their QA evidence.",
             releases: "Assemble and ship releases from your rendered masters.",
-          })[tab]}</div>
+          })[!RELEASES_ENABLED && tab === "releases" ? "library" : tab]}</div>
           <button type="button" className="tooltip-replay" onClick={() => { setTabInfoOpen(false); tour.start({ replay: true }); }}>Replay tutorial</button>
           {authConfigured && <button type="button" className="tooltip-sign-out" onClick={() => void signOut({ callbackUrl: "/signin" })}>Sign out</button>}
         </div>}
