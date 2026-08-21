@@ -1371,7 +1371,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
           </div>
           <p className="activity-sheet-note">{queueStrings.queueNote[renderMode]}</p>
           <div className="activity-sheet-body">
-          <Queue jobs={jobs} tourVariantId={trackedRender?.variantId} initialLoad={initialLoad} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onRetry={retry} onDone={(job) => { openLibrary(knownVariantId(job.variantId, variants) ?? undefined); }} onDismiss={(jobId) => setDismissedJobIds((current) => new Set(current).add(jobId))} onToast={setToast} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} />
+            <Queue jobs={jobs} tourVariantId={trackedRender?.variantId} initialLoad={initialLoad} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onRetry={retry} onDone={(job) => { openLibrary(knownVariantId(job.variantId, variants) ?? undefined); }} onDismiss={(jobId) => setDismissedJobIds((current) => new Set(current).add(jobId))} onToast={setToast} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} />
           </div>
         </div>
       </div>}
