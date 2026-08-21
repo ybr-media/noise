@@ -1,5 +1,11 @@
 # Queue Tab Redesign — Plan
 
+> **Superseded (2026-08-21).** The Queue tab no longer exists. Its status
+> reporting moved to the header pill, its per-track state into the Library, and
+> its failure/history/archive views into the render activity sheet. See
+> `docs/two-tab-consolidation.md`. The ETA, deep-link and failure-handling
+> solutions below still describe how the code works; only the tab does not.
+
 **Product:** Noise Lab (mobile-first web console) · **Date:** 2026-08-09
 **Code grounding:** `web/app/noise-lab.tsx` (Queue component), `web/lib/dispatch.ts`, `web/lib/queue.ts`, `web/app/api/queue/route.ts`, `web/lib/types.ts`, `web/app/globals.css`
 
