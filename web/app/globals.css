@@ -137,7 +137,7 @@ button:disabled { cursor: not-allowed; }
   .signin-page { padding: 0; }
   .signin-card { display: flex; min-height: 100svh; padding: 0; border-radius: 0; background: transparent; box-shadow: none; }
   .signin-aside { flex: 0 0 40%; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 24px; margin: 0; padding: 48px; background: var(--mascot-yellow); }
-  .signin-card .bell-mark { width: 40px; height: 40px; }
+  .signin-card .bell-mark { box-sizing: content-box; width: 40px; height: 40px; padding: 10px; border-radius: 50%; background: var(--surface); }
   .signin-wordmark { font-size: 18px; }
   .signin-tagline { display: block; max-width: 240px; margin: 6px 0 0; color: var(--mascot-yellow-ink); font-size: 13px; line-height: 1.5; }
   .signin-form-panel { display: grid; flex: 1 1 60%; align-content: center; padding: 48px; background: var(--surface); }
