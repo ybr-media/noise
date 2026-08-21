@@ -32,26 +32,33 @@ async function claim(key: string): Promise<boolean> {
   return result === "OK";
 }
 
+function skip(reason: string, runId?: string): "skipped" {
+  console.log(`[render-email] skipped${runId ? ` runId=${runId}` : ""} reason=${reason}`);
+  return "skipped";
+}
+
 export async function notifyRenderComplete(notification: RenderNotification): Promise<"sent" | "skipped"> {
   try {
-    if (notification.kind !== "render-complete") return "skipped";
-    if (process.env.NOISE_RENDER_EMAILS === "0") return "skipped";
+    if (notification.kind !== "render-complete") return skip("invalid-kind", notification.runId);
+    if (process.env.NOISE_RENDER_EMAILS === "0") return skip("disabled", notification.runId);
     const requestedBy = notification.requestedBy?.trim().toLowerCase();
-    if (!requestedBy || !isAllowedEmail(requestedBy)) return "skipped";
-    if (!process.env.AUTH_RESEND_KEY?.trim() || !process.env.AUTH_EMAIL_FROM?.trim()) return "skipped";
-    if (missingAuthEnv().length > 0) return "skipped";
+    if (!requestedBy) return skip("no-requester", notification.runId);
+    if (!isAllowedEmail(requestedBy)) return skip("disallowed-recipient", notification.runId);
+    if (!process.env.AUTH_RESEND_KEY?.trim() || !process.env.AUTH_EMAIL_FROM?.trim()) return skip("missing-resend-config", notification.runId);
+    if (missingAuthEnv().length > 0) return skip("missing-auth-config", notification.runId);
     const base = appUrl();
-    if (!base) return "skipped";
+    if (!base) return skip("missing-app-url", notification.runId);
     const user = await getAuthUserByEmail(requestedBy);
-    if (!user || (user as AdapterLike).renderEmails === false) return "skipped";
+    if (!user) return skip("user-not-found", notification.runId);
+    if ((user as AdapterLike).renderEmails === false) return skip("opted-out", notification.runId);
     const id = notification.runId || `${notification.finishedAt}:${notification.renderKeys.join(",")}`;
-    if (!(await claim(`render-notify:${id}`))) return "skipped";
+    if (!(await claim(`render-notify:${id}`))) return skip("already-notified", notification.runId);
     invalidateArtifactCache();
     const tracks = await libraryTracks();
     const resolved = notification.renderKeys
       .map((renderKey) => tracks.find((track) => track.renderKey === renderKey && track.exists))
       .filter((track): track is NonNullable<typeof track> => Boolean(track));
-    if (!resolved.length) return "skipped";
+    if (!resolved.length) return skip("no-resolvable-render-keys", notification.runId);
     const downloadUrls: Record<string, string> = {};
     if (resolved.length === 1) {
       const expiresAt = Date.now() + 14 * 24 * 60 * 60 * 1000;
@@ -75,9 +82,10 @@ export async function notifyRenderComplete(notification: RenderNotification): Pr
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
     });
+    console.log(`[render-email] sent${notification.runId ? ` runId=${notification.runId}` : ""}`);
     return "sent";
   } catch {
-    return "skipped";
+    return skip("error", notification.runId);
   }
 }
 

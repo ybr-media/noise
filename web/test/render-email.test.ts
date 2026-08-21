@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { buildRenderEmail } from "../lib/render-email";
+import { buildRenderEmail, renderFxSummary } from "../lib/render-email";
 import { signDownloadToken, verifyDownloadToken } from "../lib/download-token";
 import { notifyRenderComplete } from "../lib/render-notifications";
 import type { LibraryTrack } from "../lib/types";
@@ -58,6 +58,17 @@ test("render email contains title, facts, FX text, and both links", () => {
   assert.match(email.text, /api\/download/);
 });
 
+test("flat dry render omits the FX row while preserving the flat chip summary", () => {
+  const dry = track("dry");
+  dry.recipe.eq = null;
+  dry.recipe.reverb = null;
+  const email = buildRenderEmail({ tracks: [dry], appUrl: "https://noise.example", finishedAt: new Date().toISOString() });
+  assert.match(email.html, /Frequency response — EQ: Flat/);
+  assert.doesNotMatch(email.html, /<p[^>]*>EQ: Flat<\/p>/);
+  assert.doesNotMatch(email.text, /EQ: Flat/);
+  assert.equal(renderFxSummary(dry), "EQ: Flat");
+});
+
 test("batch render email caps the list and has no per-track download", () => {
   const tracks = Array.from({ length: 8 }, (_, index) => track(`track-${index + 1}`));
   const email = buildRenderEmail({ tracks, appUrl: "https://noise.example", finishedAt: new Date().toISOString() });
@@ -88,5 +99,68 @@ test("notification gating skips missing requesters and the global kill switch", 
   } finally {
     if (previous === undefined) delete process.env.NOISE_RENDER_EMAILS;
     else process.env.NOISE_RENDER_EMAILS = previous;
+  }
+});
+
+test("notification gating skips disallowed, opted-out, claimed, and unresolved requests", async () => {
+  const previousEnv = {
+    ALLOWED_EMAILS: process.env.ALLOWED_EMAILS,
+    AUTH_SECRET: process.env.AUTH_SECRET,
+    AUTH_RESEND_KEY: process.env.AUTH_RESEND_KEY,
+    AUTH_EMAIL_FROM: process.env.AUTH_EMAIL_FROM,
+    NOISE_APP_URL: process.env.NOISE_APP_URL,
+    UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL,
+    UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN,
+  };
+  const previousFetch = globalThis.fetch;
+  const requests: string[] = [];
+  let user: Record<string, unknown> = { id: "user-1", email: "austin@example.com", renderEmails: false };
+  let claimSucceeds = true;
+  process.env.ALLOWED_EMAILS = "austin@example.com";
+  process.env.AUTH_SECRET = "auth-secret";
+  process.env.AUTH_RESEND_KEY = "resend-secret";
+  process.env.AUTH_EMAIL_FROM = "Noise Lab <noise@example.com>";
+  process.env.NOISE_APP_URL = "https://noise.example";
+  process.env.UPSTASH_REDIS_REST_URL = "https://redis.example";
+  process.env.UPSTASH_REDIS_REST_TOKEN = "redis-token";
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    const url = String(input);
+    requests.push(url);
+    if (url.includes("api.resend.com")) return new Response("unexpected resend request", { status: 500 });
+    const commands = JSON.parse(String(init?.body)) as string[][];
+    const results = commands.map(([command, key]) => {
+      if (command === "get" && key.startsWith("user:email:")) return { result: "user-1" };
+      if (command === "get" && key === "user:user-1") return { result: JSON.stringify(user) };
+      if (command === "set" && key.startsWith("render-notify:")) return { result: claimSucceeds ? "OK" : null };
+      return { result: null };
+    });
+    return new Response(JSON.stringify(results));
+  }) as typeof fetch;
+  try {
+    assert.equal(await notifyRenderComplete({
+      kind: "render-complete", requestedBy: "not-allowed@example.com", renderKeys: ["missing"], finishedAt: new Date().toISOString(),
+    }), "skipped");
+
+    assert.equal(await notifyRenderComplete({
+      kind: "render-complete", requestedBy: "austin@example.com", renderKeys: ["missing"], runId: "opted-out", finishedAt: new Date().toISOString(),
+    }), "skipped");
+
+    user = { id: "user-1", email: "austin@example.com", renderEmails: true };
+    claimSucceeds = false;
+    assert.equal(await notifyRenderComplete({
+      kind: "render-complete", requestedBy: "austin@example.com", renderKeys: ["missing"], runId: "claimed", finishedAt: new Date().toISOString(),
+    }), "skipped");
+
+    claimSucceeds = true;
+    assert.equal(await notifyRenderComplete({
+      kind: "render-complete", requestedBy: "austin@example.com", renderKeys: ["missing"], runId: "unresolved", finishedAt: new Date().toISOString(),
+    }), "skipped");
+    assert.equal(requests.some((url) => url.includes("api.resend.com")), false);
+  } finally {
+    globalThis.fetch = previousFetch;
+    for (const [name, value] of Object.entries(previousEnv)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
   }
 });

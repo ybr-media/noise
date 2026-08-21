@@ -63,17 +63,19 @@ async function drain() {
       const track = requestedBy
         ? (await libraryTracks()).find((candidate) => candidate.variantId === job.variantId && candidate.exists)
         : undefined;
-      const status = requestedBy
-        ? await notifyRenderComplete({
-            kind: "render-complete",
-            requestedBy,
-            renderKeys: [track?.renderKey ?? job.variantId],
-            runId: job.id,
-            finishedAt: job.finishedAt ?? new Date().toISOString(),
-          })
-        : "skipped";
-      if (!requestedBy) console.log(`[render-email] skipped ${job.id}: no requester`);
-      else console.log(`[render-email] ${status} ${job.id}`);
+      if (!requestedBy) {
+        console.log(`[render-email] skipped runId=${job.id} reason=no-requester`);
+      } else if (!track) {
+        console.log(`[render-email] skipped runId=${job.id} reason=no-library-track`);
+      } else {
+        await notifyRenderComplete({
+          kind: "render-complete",
+          requestedBy,
+          renderKeys: [track.renderKey],
+          runId: job.id,
+          finishedAt: job.finishedAt ?? new Date().toISOString(),
+        });
+      }
     } catch (error) {
       console.error(`[render-email] failed ${job.id}: ${error instanceof Error ? error.message : String(error)}`);
     }

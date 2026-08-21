@@ -35,3 +35,17 @@ def test_main_exits_zero_when_endpoint_unreachable(tmp_path: Path, monkeypatch) 
     monkeypatch.setenv("RUN_ID", "run-1")
     monkeypatch.setattr(notify_render, "notify", lambda *_args: False)
     assert notify_render.main([str(tmp_path)]) == 0
+
+
+def test_notify_does_not_retry_client_errors(monkeypatch) -> None:
+    attempts = 0
+
+    def urlopen(_request, timeout):
+        nonlocal attempts
+        attempts += 1
+        raise notify_render.urllib.error.HTTPError("https://noise.example", 401, "unauthorized", {}, None)
+
+    monkeypatch.setattr(notify_render.urllib.request, "urlopen", urlopen)
+    payload = {"kind": "render-complete", "requestedBy": "austin@example.com", "renderKeys": ["one"], "runId": "run-1", "finishedAt": "now"}
+    assert notify_render.notify(payload, "https://noise.example", "secret") is False
+    assert attempts == 1

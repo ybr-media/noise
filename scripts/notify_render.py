@@ -73,7 +73,10 @@ def notify(payload: dict[str, object], app_url: str, secret: str) -> bool:
                     return True
                 if response.status < 500:
                     return False
-        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError):
+        except urllib.error.HTTPError as error:
+            if error.code < 500:
+                return False
+        except (urllib.error.URLError, TimeoutError, OSError):
             pass
         if attempt < 2:
             time.sleep(delay)
