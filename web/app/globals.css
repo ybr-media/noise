@@ -228,8 +228,9 @@ button:disabled { cursor: not-allowed; }
 .approved-marker { margin-left: 7px; color: var(--success); font-size: 10px; font-weight: 500; }
 .icon-action { display: grid; width: 34px; height: 34px; place-items: center; margin: -6px -8px 0 0; border: 0; border-radius: 50%; color: var(--ink-secondary); background: transparent; }
 .icon-action:hover, .icon-action:focus-visible { color: var(--ink); background: var(--surface-sunken); outline: none; }
-.library-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
-.library-toolbar > .header-sync-caption { flex: 1 1 auto; margin: 0 0 2px; }
+.library-toolbar { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.library-toolbar > .view-toggle { align-self: flex-end; }
+.library-toolbar > .header-sync-caption { flex: 1 1 auto; margin: 0 0 10px; }
 .view-toggle { margin: 22px 0 6px; }
 .library-refresh-shell > .library-toolbar > .section-title, .library-refresh-shell > .library-toolbar > .view-toggle { margin-top: 0; }
 .track-date { margin-top: 10px; color: var(--ink-secondary); font-size: 11px; }
@@ -461,6 +462,12 @@ button:disabled { cursor: not-allowed; }
   .download-chevron { width: 38px; }
 }
 
+.activity-backdrop { position: fixed; z-index: 60; inset: 0; display: grid; align-items: end; background: rgba(22,22,26,.24); }
+.activity-sheet { display: flex; flex-direction: column; width: min(100%, 660px); max-height: 88vh; margin: 0 auto; padding: 20px 22px calc(20px + env(safe-area-inset-bottom)); border-radius: var(--radius-card) 24px 0 0; background: var(--surface); box-shadow: 0 -12px 34px rgba(20,20,50,.18); }
+.activity-sheet-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.activity-sheet-header h2 { margin: 0; font-size: 18px; }
+.activity-sheet-note { margin: 6px 0 0; color: var(--ink-secondary); font-size: var(--text-xs); line-height: 1.45; }
+.activity-sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .queue-confirm-backdrop { position: fixed; z-index: 70; inset: 0; display: grid; align-items: end; background: rgba(22,22,26,.24); }
 .queue-confirm-sheet { width: min(100%, 660px); margin: 0 auto; padding: 22px; border-radius: var(--radius-card) 24px 0 0; background: var(--surface); box-shadow: 0 -12px 34px rgba(20,20,50,.18); }
 .queue-confirm-sheet h2 { margin: 0; font-size: 18px; }

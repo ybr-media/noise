@@ -18,7 +18,7 @@ export type TourEventSpec = TourEvent & { target?: string };
 export type TourStep = {
   id: string;
   kind: "info" | "action";
-  tab?: "design" | "queue" | "library";
+  tab?: "design" | "library";
   target?: string;
   event?: TourEventType;
   group?: string;
@@ -46,24 +46,20 @@ export function tutorialSteps(mode: TourMode): TourStep[] {
       title: "Create the track",
       body: "Create track queues a real job with the engine: full-length master plus stems. Nothing here is a mock.",
     };
-  const queueStep: TourStep = mode === "unavailable"
+  const progressStep: TourStep = mode === "unavailable"
     ? {
-      id: "queue-unavailable",
+      id: "progress-unavailable",
       kind: "info",
-      tab: "queue",
-      target: "dock-queue",
-      title: "Your queue",
-      body: "When designs render elsewhere, their real statuses appear here.",
+      target: "render-status",
+      title: "Where renders show up",
+      body: "When designs render elsewhere, this line tracks them, and finished masters land in the Library.",
     }
     : {
-      id: "queue-tab",
-      kind: "action",
-      tab: "queue",
-      target: "dock-queue",
-      event: "tab-changed",
-      group: "queue",
-      title: "Follow it to Queue",
-      body: "That badge on Queue is your job. Open it.",
+      id: "progress",
+      kind: "info",
+      target: "render-status",
+      title: "Real status, no fake progress",
+      body: "This line follows your render on every tab — Queued, then Running, then Ready. Tap it for the full detail. You don't have to wait here; we'll tell you when it lands.",
     };
   return [
     {
@@ -102,15 +98,7 @@ export function tutorialSteps(mode: TourMode): TourStep[] {
       body: "EQ presets — Warm Bed, Airy, Midnight, Telephone — are starting points you can nudge band by band, whether EQ is already on or you switch it on. Reverb adds a room. Both bake into the render, not just the preview.",
     },
     renderStep,
-    queueStep,
-    {
-      id: "queue-status",
-      kind: "info",
-      tab: "queue",
-      target: "queue-job",
-      title: "Real status, no fake progress",
-      body: "Jobs read Queued, then Running, then Ready, and the header says what the runner itself is doing. You don't have to wait here — we'll tell you when it lands.",
-    },
+    progressStep,
     {
       id: "library-play",
       kind: "action",

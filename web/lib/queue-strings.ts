@@ -1,5 +1,5 @@
 import type { QueueJob, Variant } from "./types";
-import { queuedJobsAhead, renderEstimate } from "./eta";
+import { queueAheadLabel, queuedJobsAhead, renderEstimate } from "./eta";
 
 export type RenderMode = "local" | "dispatch" | "unavailable";
 export type RenderStats = { medianRenderSeconds: number | null; sampleSize: number };
@@ -43,7 +43,7 @@ export function variantChips(variantId: string, variants: Variant[]): string[] {
 
 /** How far along an unfinished take is, phrased as an estimate and never a countdown. */
 export function renderProgressCopy(job: QueueJob, jobs: QueueJob[], mode: RenderMode, stats: RenderStats): string {
-  if (mode === "local") return job.status === "Queued" ? `${queuedJobsAhead(job.id, jobs)} jobs ahead` : queueStrings.rendering;
+  if (mode === "local") return job.status === "Queued" ? queueAheadLabel(queuedJobsAhead(job.id, jobs)) : queueStrings.rendering;
   const elapsed = job.startedAt ? (Date.now() - new Date(job.startedAt).getTime()) / 1000 : 0;
   if (job.status === "Rendering") return `${renderEstimate(stats.medianRenderSeconds, stats.sampleSize, elapsed)} left`;
   return stats.sampleSize ? `Typically ${renderEstimate(stats.medianRenderSeconds, stats.sampleSize)} once started` : renderEstimate(null, 0);

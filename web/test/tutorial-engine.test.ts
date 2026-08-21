@@ -8,10 +8,13 @@ test("the tour script is data-driven and branches render copy by mode", () => {
   const local = tutorialSteps("local");
   const dispatch = tutorialSteps("dispatch");
   const unavailable = tutorialSteps("unavailable");
-  assert.equal(local.length, 9);
+  assert.equal(local.length, 8);
   assert.equal(dispatch.find((step) => step.id === "render")?.kind, "action");
   assert.equal(unavailable.find((step) => step.id === "render-unavailable")?.kind, "info");
-  assert.equal(unavailable.find((step) => step.id === "queue-unavailable")?.kind, "info");
+  assert.equal(unavailable.find((step) => step.id === "progress-unavailable")?.kind, "info");
+  // Render progress is a header state now, not a tab you are sent to.
+  assert.equal(local.find((step) => step.id === "progress")?.target, "render-status");
+  assert.equal(local.some((step) => step.target?.includes("queue")), false);
   assert.equal(local.find((step) => step.id === "param-color")?.target, "design-color");
   assert.equal(local.find((step) => step.id === "param-shape")?.target, "design-shape");
   assert.equal(local.find((step) => step.id === "library-play")?.eventSequence?.length, 2);
