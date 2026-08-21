@@ -9,7 +9,11 @@ export function shouldBypassAuth(pathname: string): boolean {
     || pathname === "/favicon.ico"
     || (!pathname.startsWith("/api/") && /\/[^/]+\.[^/]+$/.test(pathname))
     || pathname.startsWith("/api/auth/")
-    || pathname.startsWith("/api/audio/");
+    || pathname.startsWith("/api/audio/")
+    || pathname.startsWith("/api/og/")
+    || pathname.startsWith("/api/download/")
+    || pathname === "/api/renders/notify"
+    || pathname === "/api/notifications/unsubscribe";
 }
 
 export function accessForRequest(pathname: string, authenticated: boolean): "next" | "redirect" | "unauthorized" {

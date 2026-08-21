@@ -45,7 +45,6 @@ import {
   defaultFx,
   eqIsFlat,
   eqPresetState,
-  eqResponseDb,
   formatBandLabel,
   formatTail,
   fxBadges,
@@ -61,6 +60,7 @@ import {
   type ReverbPreset,
   type ReverbState,
 } from "@/lib/fx";
+import { eqCardPoints } from "@/lib/eq-card";
 import { lintNames } from "@/lib/name-lint";
 import { formatBytes } from "@/lib/format";
 import { newestTracksByVariant } from "@/lib/track-map";
@@ -482,30 +482,17 @@ function formatQueueDuration(seconds: number): string {
 }
 
 function drawEqCurve(ctx: CanvasRenderingContext2D, width: number, gainsDb: number[], flat: boolean) {
-  const minHz = 30;
-  const maxHz = 16000;
+  const points = eqCardPoints(gainsDb, width, 150);
   ctx.save();
+  ctx.beginPath();
+  points.forEach(({ x, y }, index) => (index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+  ctx.strokeStyle = flat ? TOKENS.separator : "rgba(0,122,255,0.75)";
+  ctx.lineWidth = flat ? 1.5 : 2;
+  ctx.stroke();
   if (flat) {
-    ctx.strokeStyle = TOKENS.separator;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(0, 75);
-    ctx.lineTo(width, 75);
-    ctx.stroke();
     ctx.restore();
     return;
   }
-  const points: [number, number][] = [];
-  for (let x = 0; x <= width; x += 3) {
-    const hz = minHz * Math.pow(maxHz / minHz, x / width);
-    const db = eqResponseDb(gainsDb, hz);
-    points.push([x, 75 - (db / EQ_MAX_ABS_DB) * 60]);
-  }
-  ctx.beginPath();
-  points.forEach(([x, y], index) => (index === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
-  ctx.strokeStyle = "rgba(0,122,255,0.75)";
-  ctx.lineWidth = 2;
-  ctx.stroke();
   ctx.lineTo(width, 150);
   ctx.lineTo(0, 150);
   ctx.closePath();

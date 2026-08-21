@@ -3,6 +3,7 @@ import { sanitizeFxBlock } from "./fx";
 import { enqueue } from "./queue";
 import { RENDER_MODE, findVariant, resolveSelection, validateRenderOverrides, type RenderMode, type RenderSelection } from "./config";
 import type { QueueJob } from "./types";
+import { resolveCurrentUser } from "./me";
 
 type QueueActionPayload = {
   error?: string;
@@ -27,11 +28,13 @@ export async function submitQueueSelection(selection: RenderSelection): Promise<
     return { status: 400, payload: { error: "Choose one or more known variants" } };
   }
   const fx = sanitizeFxBlock(selection.fx);
+  const resolved = await resolveCurrentUser();
+  const requestedBy = "email" in resolved ? resolved.email : undefined;
   if (RENDER_MODE === "local") {
-    return { status: 202, payload: { mode: RENDER_MODE, jobs: enqueue(variantIds, fx, overrides) } };
+    return { status: 202, payload: { mode: RENDER_MODE, jobs: enqueue(variantIds, fx, overrides, requestedBy) } };
   }
   try {
-    await dispatchRender(dispatchInput, fx, overrides);
+    await dispatchRender(dispatchInput, fx, overrides, requestedBy);
   } catch (error) {
     return { status: 502, payload: { error: error instanceof Error ? error.message : "Render dispatch failed" } };
   }

@@ -23,6 +23,13 @@ Authentication is configured entirely through environment variables:
 - `ALLOWED_EMAILS` — comma-separated exact addresses and/or domains, such as
   `@ybellrecords.com,austin@marlo.today`.
 
+| Variable | Where | Purpose |
+| --- | --- | --- |
+| `NOISE_APP_URL` | Vercel + Actions repo variable | Absolute base URL for render-email links and images; falls back to `AUTH_URL`, then `https://${VERCEL_URL}`. |
+| `NOISE_NOTIFY_SECRET` | Vercel + Actions secret | HMAC key shared by Actions and the render callback. |
+| `NOISE_DOWNLOAD_SECRET` | Vercel | Signing key for expiring download and unsubscribe tokens; defaults to `AUTH_SECRET`. |
+| `NOISE_RENDER_EMAILS` | Vercel | Set to `0` to disable all render-complete emails. |
+
 Magic links expire after 15 minutes and can only be used once. Missing
 authentication configuration fails at the authentication boundary; the sign-in
 page and build remain available while credentials are being provisioned.

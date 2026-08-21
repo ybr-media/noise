@@ -6,6 +6,8 @@ import { parse, stringify } from "yaml";
 import { CONFIG_PATH, RENDER_DIR } from "../lib/config";
 import { QUEUE_PATH } from "../lib/queue";
 import type { QueueJob } from "../lib/types";
+import { notifyRenderComplete } from "../lib/render-notifications";
+import { libraryTracks } from "../lib/library";
 
 const intervalMs = Number(process.env.NOISE_WORKER_INTERVAL_MS ?? 2500);
 
@@ -48,12 +50,34 @@ async function drain() {
   try {
     await render(job);
     job.status = "Done";
+    job.finishedAt = new Date().toISOString();
     delete job.error;
   } catch (error) {
     job.status = "Failed";
     job.error = error instanceof Error ? error.message : String(error);
   }
   writeJobs(jobs);
+  if (job.status === "Done") {
+    const requestedBy = job.requestedBy;
+    try {
+      const track = requestedBy
+        ? (await libraryTracks()).find((candidate) => candidate.variantId === job.variantId && candidate.exists)
+        : undefined;
+      const status = requestedBy
+        ? await notifyRenderComplete({
+            kind: "render-complete",
+            requestedBy,
+            renderKeys: [track?.renderKey ?? job.variantId],
+            runId: job.id,
+            finishedAt: job.finishedAt ?? new Date().toISOString(),
+          })
+        : "skipped";
+      if (!requestedBy) console.log(`[render-email] skipped ${job.id}: no requester`);
+      else console.log(`[render-email] ${status} ${job.id}`);
+    } catch (error) {
+      console.error(`[render-email] failed ${job.id}: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
 }
 
 console.log(`Noise Lab worker watching ${QUEUE_PATH}`);
