@@ -17,7 +17,7 @@ export const queueStrings = {
   r2Cleanup: { queued: "R2 deletion queued", failed: "R2 deletion could not be queued", unavailable: "R2 deletion unavailable" },
   runHistory: (count: number) => `Run history · ${count}`,
   synced: (value: string) => `Synced ${value}`,
-  statusCaption: { idle: "Idle", queued: "Queued · waiting for runner", rendering: (count: number) => `Rendering · ${count} running` },
+  statusCaption: { idle: "Idle", queued: "Queued · waiting for runner", rendering: (count: number) => `Rendering · ${count} running`, failed: "Render failed — see activity" },
   waitingCaption: (count: number) => count > 1 ? `Queued · ${count} waiting` : "Queued · waiting for runner",
   rendering: "Worker is rendering",
   failedAt: (step: string, exitCode?: number | null) => `Failed at step: ${step}${exitCode === null || exitCode === undefined ? "" : ` (exit ${exitCode})`}`,
@@ -55,8 +55,9 @@ export function renderFailureCopy(job: QueueJob, name: string): string {
   return job.error ?? queueStrings.failure(name, job.status);
 }
 
-export function renderStatusSummary(activeCount: number, waitingCount: number): string {
+export function renderStatusSummary(activeCount: number, waitingCount: number, needsAttention = false): string {
   if (activeCount) return queueStrings.statusCaption.rendering(activeCount);
   if (waitingCount) return queueStrings.waitingCaption(waitingCount);
+  if (needsAttention) return queueStrings.statusCaption.failed;
   return queueStrings.statusCaption.idle;
 }

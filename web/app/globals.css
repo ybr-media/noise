@@ -239,12 +239,6 @@ button:disabled { cursor: not-allowed; }
 .library-section-tab.is-active { color: var(--ink); background: var(--surface); box-shadow: 0 2px 8px rgba(0,0,0,.10), 0 0 0 0.5px rgba(0,0,0,.04); }
 .library-section-count { display: grid; min-width: 20px; height: 20px; place-items: center; padding: 0 6px; border-radius: var(--radius-pill); color: var(--surface); background: var(--ink-tertiary); font-size: var(--text-2xs); font-weight: 700; }
 .library-section-tab.is-active .library-section-count { background: var(--brand); }
-.library-pending { margin-bottom: var(--gap-list); }
-.pending-track { padding: 16px 24px; }
-.pending-track-title { color: var(--ink); font-size: var(--text-lg); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pending-track-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
-.pending-track-footer { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 10px; }
-.pending-track-caption { min-width: 0; overflow: hidden; color: var(--ink-secondary); font-size: var(--text-xs); text-overflow: ellipsis; }
 .track-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
 .track-row-play { width: 32px; height: 32px; color: var(--surface); background: var(--ink); }
 .track-row-body { min-width: 0; flex: 1; }
@@ -376,11 +370,13 @@ button:disabled { cursor: not-allowed; }
 .queue-sync-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .render-status { display: flex; flex: 1 1 auto; align-items: center; gap: 7px; min-width: 0; margin: 6px 0 0 10px; padding: 0; border: 0; color: var(--ink-secondary); background: transparent; font-size: var(--text-xs); text-align: left; pointer-events: auto; }
 .render-status.is-busy { color: var(--ink); }
+.render-status.is-danger { color: var(--danger); }
 .render-status-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .current-tab-title.is-hidden .render-status { pointer-events: none; }
 .queue-refresh-shell > .queue-group:first-of-type > .section-title { margin-top: 0; }
 .queue-sync-dot { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: var(--success); }
 .queue-sync-dot.is-active { background: var(--link); animation: pulse-blue 1.4s ease-in-out infinite; }
+.queue-sync-dot.is-attention { background: var(--danger); }
 .queue-job-list { display: grid; gap: var(--gap-list); }
 .queue-name { color: var(--ink); font-size: var(--text-lg); font-weight: 600; overflow-wrap: normal; word-break: normal; }
 .queue-title-row { align-items: center; }

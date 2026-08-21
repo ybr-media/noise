@@ -2,8 +2,8 @@
 
 **Product:** Noise Lab (mobile-first web console) · **Date:** 2026-08-21
 **Supersedes:** the Queue-tab portions of `docs/queue-redesign-plan.md`
-**Code grounding:** `web/app/noise-lab.tsx`, `web/lib/library-lifecycle.ts`,
-`web/lib/queue-strings.ts`, `web/app/ui/tutorial.tsx`, `web/app/globals.css`
+**Code grounding:** `web/app/noise-lab.tsx`, `web/lib/queue-strings.ts`,
+`web/app/ui/tutorial.tsx`, `web/app/globals.css`
 
 ---
 
@@ -35,32 +35,28 @@ Two dock destinations. Three panels. One render state.
 | Concern | Before | After |
 |---|---|---|
 | Is anything rendering? | Queue tab | Header pill, every tab |
-| Where will my track land? | Queue, then Library | Library, as an In progress row |
+| Where will my track land? | Queue, then Library | Library, once the master exists |
 | Why did it fail? | Queue tab | Render activity sheet |
 | Assemble a release | Releases tab | Library → Releases section |
 
 **The header pill** (`RenderStatus`) reports the renderer on every tab: a dot
-plus `Idle` / `Queued · 3 waiting` / `Rendering · 2 running`. Sync freshness went
-to the tooltip so the words that matter survive a 390px header. Polling now
-follows active work rather than the tab you are standing on.
+plus `Idle` / `Queued · 3 waiting` / `Rendering · 2 running`. When no work is
+active, a non-dismissed failure changes it to a danger state that says
+`Render failed — see activity`. Sync freshness went to the tooltip so the words
+that matter survive a 390px header. Polling now follows active work rather than
+the tab you are standing on.
 
-**The Library's unit is the take, not the file.** A render you just asked for
-appears immediately where it is going to land, and becomes a master in place.
-`lib/library-lifecycle.ts` decides what qualifies, and deliberately excludes two
-things:
-
-- **Batch jobs.** A dispatched run's `variantId` can be `pilot` or `full`, so one
-  job becomes many tracks. 144 pending Library rows is worse than one activity
-  row.
-- **Failures for a variant that already has a playable master.** The file is
-  there; only the diagnostics are missing, and diagnostics are not Library
-  content.
+**The Library contains finished masters only.** In-flight and failed jobs belong
+in the activity sheet, where their status, diagnostics, retry controls, run
+history, and dismissal archive have the right shape. The Library empty state
+directs users back to the render-status pill instead of pretending an unfinished
+take is already a Library row.
 
 **The activity sheet** keeps everything a Library row is the wrong shape for:
 failure diagnostics (failed step, exit code, runner, logs), run history across
 attempts, retry, the dismissal archive with its R2 cleanup state, and batch jobs.
-It opens from the header pill or from a pending row's Details, and closes on
-Escape or backdrop. It also got the empty state the Queue tab never had.
+It opens from the header pill, and closes on Escape, backdrop, close, or browser
+Back. It also got the empty state the Queue tab never had.
 
 ## 3. Phasing
 
@@ -69,8 +65,10 @@ pointed at an element that had stopped existing.
 
 1. **Global render status.** Add the header pill; move the Library's freshness
    caption into the Library toolbar to free the header slot. Tour untouched.
-2. **Library speaks the lifecycle.** In-flight and failed takes appear as
-   Library rows. Tour untouched.
+2. **Library lifecycle rows (reverted).** PR #145 Phase 2 briefly put in-flight
+   and failed takes in Library. That approach is reverted at the user's request:
+   Library shows finished masters only, and render lifecycle remains in the
+   activity sheet entered from the header pill.
 3. **Retire the Queue tab.** Dock drops to three; Queue's content moves wholesale
    into the activity sheet. The tour's `queue-tab` and `queue-status` steps
    collapse into one info step on the header pill — nine steps become eight.
@@ -82,10 +80,8 @@ pointed at an element that had stopped existing.
 Named honestly, because these were real properties of the old Queue:
 
 - **Chronology.** Queue was time-ordered ("Today / Yesterday / This week").
-  Library sorts by `matrixIndex` then `renderKey`. Pending takes are pinned above
-  the masters and sorted newest-first, but finished masters stay in matrix order,
-  so "what did I just make" is answered by the In progress section rather than by
-  the list as a whole.
+  Library sorts finished masters by `matrixIndex` then `renderKey`; render
+  lifecycle chronology and failure history remain in the activity sheet.
 - **One screen showing every job at once.** Fine at 1–8 renders. A large batch
   now reads as a single activity-sheet row instead of a scannable list. This is a
   deliberate trade: the batch case is rare and the single-track case is constant.
@@ -107,6 +103,10 @@ The routing and client cleanup follow-ups from the consolidation are complete:
 - **Client bulk rendering is removed.** The client queues one selected
   variant at a time. Server and shared selectors still accept `pilot` and
   `full` for CI-dispatched jobs.
+- **The Phase 2 take-as-Library-row experiment is reverted.** In-flight and
+  failed takes are no longer rendered as Library rows. The activity sheet is
+  the sole lifecycle surface, entered from the header pill; the pill reports
+  active work and non-dismissed failures.
 
 Library still sorts masters by matrix index with no recency option; that remains
 open because it is a product decision, not a routing cleanup.
