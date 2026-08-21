@@ -18,7 +18,7 @@ export type TourEventSpec = TourEvent & { target?: string };
 export type TourStep = {
   id: string;
   kind: "info" | "action";
-  tab?: "design" | "library";
+  tab?: "create" | "library";
   target?: string;
   event?: TourEventType;
   group?: string;
@@ -32,16 +32,16 @@ export function tutorialSteps(mode: TourMode): TourStep[] {
     ? {
       id: "render-unavailable",
       kind: "info",
-      tab: "design",
-      target: "design-render",
+      tab: "create",
+      target: "create-render",
       title: "Browse, not render",
       body: "This console is browse-only — designs render elsewhere and land in the Library.",
     }
     : {
       id: "render",
       kind: "action",
-      tab: "design",
-      target: "design-render",
+      tab: "create",
+      target: "create-render",
       event: "render-enqueued",
       title: "Create the track",
       body: "Create track queues a real job with the engine: full-length master plus stems. Nothing here is a mock.",
@@ -71,8 +71,8 @@ export function tutorialSteps(mode: TourMode): TourStep[] {
     {
       id: "param-color",
       kind: "action",
-      tab: "design",
-      target: "design-color",
+      tab: "create",
+      target: "create-color",
       event: "param-selected",
       group: "color",
       title: "Pick a color",
@@ -81,8 +81,8 @@ export function tutorialSteps(mode: TourMode): TourStep[] {
     {
       id: "param-shape",
       kind: "action",
-      tab: "design",
-      target: "design-shape",
+      tab: "create",
+      target: "create-shape",
       event: "param-selected",
       group: "shape",
       title: "Now narrow it down",
@@ -91,8 +91,8 @@ export function tutorialSteps(mode: TourMode): TourStep[] {
     {
       id: "fx",
       kind: "action",
-      tab: "design",
-      target: "design-fx",
+      tab: "create",
+      target: "create-fx",
       event: "fx-changed",
       title: "Optional: EQ and reverb",
       body: "EQ presets — Warm Bed, Airy, Midnight, Telephone — are starting points you can nudge band by band, whether EQ is already on or you switch it on. Reverb adds a room. Both bake into the render, not just the preview.",
@@ -115,7 +115,7 @@ export function tutorialSteps(mode: TourMode): TourStep[] {
       id: "done",
       kind: "info",
       title: "That's the loop",
-      body: "Rename a track with the sparkle button, and bundle approved masters into a Release when you're ready. Replay this any time from the (i) button.",
+      body: "Rename a track with the sparkle button, and bundle approved masters under Releases in your Library when you're ready. Replay this any time from the (i) button.",
     },
   ];
 }
@@ -149,7 +149,7 @@ export function finaleCopy(snapshot: TourSnapshot): string {
   const queued = snapshot.renderStatus === "Queued" || snapshot.renderStatus === "Rendering"
     ? " Your render is still queued."
     : "";
-  return `You designed ${snapshot.params ?? "your sound"}, queued ${snapshot.renderLabel ?? "your track"}, and ${playback}.${queued} Rename a track with the sparkle button, and bundle approved masters into a Release when you're ready. Replay this any time from the (i) button.`;
+  return `You designed ${snapshot.params ?? "your sound"}, queued ${snapshot.renderLabel ?? "your track"}, and ${playback}.${queued} Rename a track with the sparkle button, and bundle approved masters under Releases in your Library when you're ready. Replay this any time from the (i) button.`;
 }
 
 export function shouldFireRenderBanner(alreadyShown: boolean, status: string | undefined): boolean {

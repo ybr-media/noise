@@ -15,8 +15,8 @@ test("the tour script is data-driven and branches render copy by mode", () => {
   // Render progress is a header state now, not a tab you are sent to.
   assert.equal(local.find((step) => step.id === "progress")?.target, "render-status");
   assert.equal(local.some((step) => step.target?.includes("queue")), false);
-  assert.equal(local.find((step) => step.id === "param-color")?.target, "design-color");
-  assert.equal(local.find((step) => step.id === "param-shape")?.target, "design-shape");
+  assert.equal(local.find((step) => step.id === "param-color")?.target, "create-color");
+  assert.equal(local.find((step) => step.id === "param-shape")?.target, "create-shape");
   assert.equal(local.find((step) => step.id === "library-play")?.eventSequence?.length, 2);
   assert.equal(local.find((step) => step.id === "param-color")?.title, "Pick a color");
   assert.doesNotMatch(local.find((step) => step.id === "param-color")?.body ?? "", /colour/i);

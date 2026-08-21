@@ -79,7 +79,7 @@ button:disabled { cursor: not-allowed; }
 .soft-card { background: var(--surface); border-radius: var(--radius-card); box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px rgba(20,20,50,.06); }
 .card-padding-sm { padding: 14px 16px; }
 .card-padding-md { padding: 20px; }
-.design-stack { display: flex; flex-direction: column; gap: var(--gap-list); }
+.create-stack { display: flex; flex-direction: column; gap: var(--gap-list); }
 .spectrum-card { padding: 22px 24px; }
 .spectrum-frame { height: 150px; overflow: hidden; border-radius: var(--radius-control); background: var(--surface) repeating-linear-gradient(90deg, transparent 0 12px, rgba(0,0,0,.045) 12px 13px); background-blend-mode: multiply; }
 .spectrum-ticks { display: flex; justify-content: space-between; margin: 10px 0 0; color: var(--ink-secondary); font-size: var(--text-base); }
@@ -234,6 +234,11 @@ button:disabled { cursor: not-allowed; }
 .view-toggle { margin: 22px 0 6px; }
 .library-refresh-shell > .library-toolbar > .section-title, .library-refresh-shell > .library-toolbar > .view-toggle { margin-top: 0; }
 .track-date { margin-top: 10px; color: var(--ink-secondary); font-size: 11px; }
+.library-sections { display: flex; gap: 2px; width: 100%; padding: 4px; border-radius: var(--radius-control); background: var(--surface-inset); }
+.library-section-tab { display: flex; flex: 1 1 0; align-items: center; justify-content: center; gap: 7px; min-width: 0; min-height: 40px; padding: 0 12px; border: 0; border-radius: var(--radius-chip); color: var(--ink-secondary); background: transparent; font-size: var(--text-md); font-weight: 600; transition: background 180ms ease, color 180ms ease; }
+.library-section-tab.is-active { color: var(--ink); background: var(--surface); box-shadow: 0 2px 8px rgba(0,0,0,.10), 0 0 0 0.5px rgba(0,0,0,.04); }
+.library-section-count { display: grid; min-width: 20px; height: 20px; place-items: center; padding: 0 6px; border-radius: var(--radius-pill); color: var(--surface); background: var(--ink-tertiary); font-size: var(--text-2xs); font-weight: 700; }
+.library-section-tab.is-active .library-section-count { background: var(--brand); }
 .library-pending { margin-bottom: var(--gap-list); }
 .pending-track { padding: 16px 24px; }
 .pending-track-title { color: var(--ink); font-size: var(--text-lg); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

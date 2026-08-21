@@ -80,7 +80,7 @@ import { playedTrackIdAfterPlayback, useTutorial, type TourStep, type TourSnapsh
 import { Switch } from "./ui/switch";
 
 const TAB_ICONS = {
-  design: SlidersHorizontal,
+  create: SlidersHorizontal,
   library: LibraryBig,
   releases: Rocket,
 } as const;
@@ -342,7 +342,7 @@ function SkeletonPanel({ label, children }: { label: string; children: React.Rea
 function DesignSkeleton() {
   return (
     <SkeletonPanel label="Loading design controls…">
-      <div className="design-stack">
+      <div className="create-stack">
         <Card as="section" padding="md" className="spectrum-card">
           <div className="spectrum-frame"><Skeleton height="100%" radius={16} /></div>
           <div className="spectrum-ticks"><Skeleton width={38} height={13} /><Skeleton width={28} height={13} /><Skeleton width={20} height={13} /><Skeleton width={24} height={13} /></div>
@@ -896,7 +896,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
   const [queueStats, setQueueStats] = useState({ medianRenderSeconds: null as number | null, sampleSize: 0 });
   const [renderMode, setRenderMode] = useState<"local" | "dispatch" | "unavailable">("local");
   const [releaseMode, setReleaseMode] = useState<"local" | "dispatch" | "unavailable">("local");
-  const [tab, setTab] = useState<"design" | "library" | "releases">("design");
+  const [tab, setTab] = useState<"create" | "library" | "releases">("create");
   const [releaseId, setReleaseId] = useState<string | undefined>();
   const [selection, setSelection] = useState({ color: "white", band: "mid", motion: "drift", balance: "balanced" });
   const [toast, setToast] = useState<ToastState | null>(null);
@@ -916,7 +916,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
   const [renderBanner, setRenderBanner] = useState<{ variantId: string } | null>(null);
   const [trackedRender, setTrackedRender] = useState<{ variantId: string } | null>(null);
   const [playedTrackId, setPlayedTrackId] = useState<string | null>(null);
-  const libraryReturnTab = useRef<"design" | "releases" | null>(null);
+  const libraryReturnTab = useRef<"create" | "releases" | null>(null);
   const retryInFlight = useRef(false);
   const queueRef = useRef<(ids: string[], label: "one" | "pilot" | "full") => Promise<void>>(async () => {});
   const tabsRef = useRef<HTMLElement>(null);
@@ -1100,12 +1100,12 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
     return () => window.clearInterval(timer);
   }, [renderBanner, trackedRender]);
   const openLibrary = useCallback((variantId?: string) => {
-    libraryReturnTab.current = tab === "library" ? "design" : tab;
+    libraryReturnTab.current = tab === "library" ? "create" : tab;
     window.location.hash = variantId ? `library/${variantId}` : "library";
   }, [tab]);
-  const selectTab = useCallback((item: "design" | "library" | "releases") => {
+  const selectTab = useCallback((item: "create" | "library" | "releases") => {
     if (item === "library") {
-      libraryReturnTab.current = tab === "library" ? "design" : tab;
+      libraryReturnTab.current = tab === "library" ? "create" : tab;
       window.location.hash = "library";
     } else if (item === "releases") {
       setReleaseId(undefined);
@@ -1162,12 +1162,12 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
       if (window.location.hash === "") setReleaseId(undefined);
       return;
     }
-    libraryReturnTab.current ??= tab === "library" ? "design" : tab;
+    libraryReturnTab.current ??= tab === "library" ? "create" : tab;
     loadLibraryFromHash();
   }, [loadLibraryFromHash, loadReleasesFromHash, tab]);
   useEffect(() => {
     if (window.location.hash === "#library" || window.location.hash.startsWith("#library/")) {
-      libraryReturnTab.current = "design";
+      libraryReturnTab.current = "create";
       loadLibraryFromHash();
     }
   }, [loadLibraryFromHash]);
@@ -1182,7 +1182,8 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
     const dock = tabsRef.current;
     const moveLens = () => {
       const lens = lensRef.current;
-      const active = dock?.querySelector<HTMLElement>(`[data-tab="${tab}"]`);
+      // Releases is a section inside Library, so the lens rests on the Library tab for both.
+      const active = dock?.querySelector<HTMLElement>(`[data-tab="${tab === "create" ? "create" : "library"}"]`);
       if (!dock || !lens || !active) return;
       lens.style.left = `${active.offsetLeft}px`;
       lens.style.width = `${active.offsetWidth}px`;
@@ -1254,6 +1255,8 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
   const queueActiveCount = jobs.filter((job) => job.status === "Rendering").length;
   const queueWaitingCount = jobs.filter((job) => job.status === "Queued").length;
   const libraryTakes = pendingTakes(jobs, variants, tracks);
+  // Releases is a section of Library, so two dock destinations cover three panels.
+  const dockTab: "create" | "library" = tab === "create" ? "create" : "library";
   const takeName = (take: PendingTake) => formatQueueDisplayName(take.variantId, variants, { pilot: pilotCount, full: variants.length });
   const takeChips = (take: PendingTake) => variantChips(take.variantId, variants);
   const takeCaption = (take: PendingTake) => take.status === "Failed" || take.status === "Cancelled"
@@ -1270,10 +1273,10 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
         <h1 className="sr-only">Noise Lab</h1>
         {renderBanner && <Banner tone="success" className="tutorial-render-banner"><span>Your first render is done — <button type="button" onClick={() => { setRenderBanner(null); openLibrary(renderBanner.variantId); }}>hear it in the Library</button></span></Banner>}
 
-        <div id="panel-design" role="tabpanel" aria-labelledby="tab-design" className={`panel ${tab === "design" ? "panel-show" : ""}`} hidden={tab !== "design"}>
+        <div id="panel-create" role="tabpanel" aria-labelledby="tab-create" className={`panel ${tab === "create" ? "panel-show" : ""}`} hidden={tab !== "create"}>
           {initialLoad && !selected && <DesignSkeleton />}
           {selected && (
-          <div className="design-stack">
+          <div className="create-stack">
             <Card as="section" padding="md" className="spectrum-card">
               <div className="spectrum-frame"><Spectrum analyser={preview.analyser} playing={preview.playing} eqGains={fx.eq.gainsDb} eqBadge={eqIsFlat(fx.eq) ? null : EQ_PRESET_LABELS[fx.eq.preset]} /></div>
               <div className="spectrum-ticks"><span>30 Hz</span><span>500</span><span>2k</span><span>16k</span></div>
@@ -1282,36 +1285,46 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
               <button type="button" onClick={preview.toggle} aria-label={preview.playing ? "Stop approximate preview" : "Play approximate preview"} className="play-button">
                 {preview.playing ? <Pause size={27} fill="white" strokeWidth={0} /> : <Play size={27} fill="white" strokeWidth={0} className="ml-1" />}
               </button>
-              <Button variant="primary" type="button" data-tour="design-render" onClick={() => void queue([selected.variantId], "one")} disabled={queueing} title="Queues only the currently selected variant." aria-label={`Queue only the currently selected variant, variant #${selected.matrixIndex} of ${variants.length}`}>
+              <Button variant="primary" type="button" data-tour="create-render" onClick={() => void queue([selected.variantId], "one")} disabled={queueing} title="Queues only the currently selected variant." aria-label={`Queue only the currently selected variant, variant #${selected.matrixIndex} of ${variants.length}`}>
                 <Layers size={16} />
                 <span>{queueing ? "Creating…" : "Create track"}</span>
               </Button>
             </div>
             <Card as="section" padding="md" className="controls-card">
-              <div data-tour="design-color"><ParamRow label="Color" caption={PARAM_CAPTIONS[selection.color]}><SwatchRow options={OPTIONS.color} value={selection.color} onChange={(value) => { setSelection((old) => ({ ...old, color: value })); tour.notify("param-selected", "color"); }} label="Color" /></ParamRow></div>
-              <div data-tour="design-shape">
+              <div data-tour="create-color"><ParamRow label="Color" caption={PARAM_CAPTIONS[selection.color]}><SwatchRow options={OPTIONS.color} value={selection.color} onChange={(value) => { setSelection((old) => ({ ...old, color: value })); tour.notify("param-selected", "color"); }} label="Color" /></ParamRow></div>
+              <div data-tour="create-shape">
                 <ParamRow label="Band" caption={PARAM_CAPTIONS[selection.band]}><GlyphSegmented options={OPTIONS.band} value={selection.band} onChange={(value) => { setSelection((old) => ({ ...old, band: value })); tour.notify("param-selected", "shape"); }} label="Band" /></ParamRow>
                 <ParamRow label="Motion" caption={PARAM_CAPTIONS[selection.motion]}><GlyphSegmented options={OPTIONS.motion} value={selection.motion} onChange={(value) => { setSelection((old) => ({ ...old, motion: value })); tour.notify("param-selected", "shape"); }} label="Motion" /></ParamRow>
                 <ParamRow label="Balance" caption={PARAM_CAPTIONS[selection.balance]}><GlyphSegmented options={OPTIONS.balance} value={selection.balance} onChange={(value) => { setSelection((old) => ({ ...old, balance: value })); tour.notify("param-selected", "shape"); }} label="Balance" /></ParamRow>
               </div>
             </Card>
-            <div data-tour="design-fx">
+            <div data-tour="create-fx">
               <EqSection fx={fx} onChange={updateFx} variantId={selected.variantId} />
               <ReverbSection fx={fx} onChange={updateFx} nominalSeconds={selected.durationSeconds} variantId={selected.variantId} />
             </div>
           </div>
           )}
         </div>
+        {tab !== "create" && (
+          <div className="library-sections" role="tablist" aria-label="Library sections">
+            {(["library", "releases"] as const).map((section) => (
+              <button key={section} type="button" role="tab" aria-selected={tab === section} aria-controls={`panel-${section}`} className={`library-section-tab ${tab === section ? "is-active" : ""}`} onClick={() => selectTab(section)}>
+                {section === "library" ? "Tracks" : "Releases"}
+                {section === "releases" && releaseCount > 0 && <span className="library-section-count">{releaseCount}</span>}
+              </button>
+            ))}
+          </div>
+        )}
         <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} takes={libraryTakes} takeName={takeName} takeChips={takeChips} takeCaption={takeCaption} tourVariantId={trackedRender?.variantId} loading={loading} initialLoad={initialLoad} lastSync={lastLibrarySync} syncFailed={librarySyncFailed} onRefresh={() => void refresh()} onOpenActivity={() => setActivityOpen(true)} onRenderAgain={(track, repeats) => queue([track.variantId], "one", { repeats, takeMarker: `t${Date.now().toString(36)}${window.crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`, fx: track.recipe.fxRecorded ? { ...(track.recipe.eq ? { eq: track.recipe.eq } : {}), ...(track.recipe.reverb ? { reverb: track.recipe.reverb } : {}) } : null, toast: `Matrix ${track.matrixIndex} take queued as a new library entry.` })} onToast={setToast} onTrackPlay={(variantId) => { setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "playing")); tour.notify("track-played", undefined, { variantId }); }} onTrackPlayError={(variantId) => setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "error"))} /></div>
         <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} /></div>
       </div>
       <div className={`current-tab-title ${tabTitleVisible ? "" : "is-hidden"}`} aria-hidden={tabTitleVisible ? undefined : true}>
-        <span key={tab} className="current-tab-title-text">{tab[0].toUpperCase() + tab.slice(1)}</span>
+        <span key={dockTab} className="current-tab-title-text">{dockTab === "create" ? "Create" : "Library"}</span>
         <RenderStatus activeCount={queueActiveCount} waitingCount={queueWaitingCount} lastSync={lastQueueSync} onOpen={() => setActivityOpen(true)} hidden={!tabTitleVisible} />
         <button type="button" className="info-button current-tab-title-info" tabIndex={tabTitleVisible ? 0 : -1} aria-label={`How to use ${tab[0].toUpperCase() + tab.slice(1)}`} aria-expanded={tabInfoOpen} aria-controls="current-tab-tooltip" onClick={() => setTabInfoOpen((open) => !open)}><Info size={16} /></button>
         {tabInfoOpen && <div id="current-tab-tooltip" role="note" className="current-tab-tooltip">
           <div>{({
-            design: "Dial in a variant, audition it, and queue the render.",
+            create: "Dial in a variant, audition it, and queue the render.",
             library: "Everything you've made — renders in flight and finished masters with their QA evidence.",
             releases: "Assemble and ship releases from your rendered masters.",
           })[tab]}</div>
@@ -1321,11 +1334,12 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
       </div>
       <div className="dock"><nav ref={tabsRef} className="glassbar" role="tablist" aria-label="Primary">
         <div ref={lensRef} className="tab-lens" aria-hidden="true" />
-        {(["design", "library", "releases"] as const).map((item) => {
-          const count = item === "library" ? libraryCount + libraryTakes.length : item === "releases" ? releaseCount : 0;
+        {(["create", "library"] as const).map((item) => {
+          const active = dockTab === item;
+          const count = item === "library" ? libraryCount + libraryTakes.length : 0;
           const label = item[0].toUpperCase() + item.slice(1);
           const Icon = TAB_ICONS[item];
-          return <button key={item} id={`tab-${item}`} type="button" data-tab={item} data-tour={item === "library" ? "dock-library" : undefined} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${label}${count ? `, ${count}` : ""}`} title={label} onClick={() => selectTab(item)} className={`dock-tab ${tab === item ? "is-active" : ""}`}><span className="dock-tab-icon" aria-hidden="true"><Icon size={22} strokeWidth={2.1} />{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</span></button>;
+          return <button key={item} id={`tab-${item}`} type="button" data-tab={item} data-tour={item === "library" ? "dock-library" : undefined} role="tab" aria-controls={`panel-${item}`} aria-selected={active} aria-label={`${label}${count ? `, ${count}` : ""}`} title={label} onClick={() => selectTab(item)} className={`dock-tab ${active ? "is-active" : ""}`}><span className="dock-tab-icon" aria-hidden="true"><Icon size={22} strokeWidth={2.1} />{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</span></button>;
         })}
       </nav></div>
       {activityOpen && <div className="activity-backdrop" role="presentation" onClick={() => setActivityOpen(false)}>
