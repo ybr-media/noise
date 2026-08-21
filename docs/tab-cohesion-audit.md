@@ -63,15 +63,10 @@ Every row in that table is a decision that was made four times instead of once.
 
 ### A. Navigation — the "jumping" itself
 
-**A1. Two routing models in one tab bar.** `noise-lab.tsx:1140-1153`. Tapping Design or Queue
-calls `setTab(item)`. Tapping Library or Releases sets `window.location.hash`. Consequences a user
-actually feels:
-
-- Back works from Library and Releases, and exits the app from Design and Queue.
-- Only two of four tabs are linkable or refresh-stable.
-- The return path is a guess: `libraryReturnTab.current ??= tab === "library" ? "queue" : tab`
-  (`noise-lab.tsx:998`). If you are on Library and press Library again, the app has decided that
-  "back" means Queue. Nothing in the UI suggests that.
+**A1. Unified hash routing.** `web/lib/route.ts` is the single source of truth for the
+Create/Library/Releases view, detail ids, and the orthogonal activity-sheet flag. Every tab
+transition is a hash navigation, so Back and Forward are consistent and refresh preserves the
+view. Legacy `#design` and `#queue` links are redirected to their canonical routes.
 
 **A2. All four panels are mounted at once and share one scroll position.** `noise-lab.tsx:1087-1122`
 renders every panel with `hidden={tab !== …}`. Scroll 800px down Design, tap Library, and the
@@ -298,14 +293,22 @@ it is only used by `Toast` and the spectrum canvas. Canvas drawing should read t
 
 ### 4.3 Navigation contract
 
-One decision, applied to all four tabs — **route everything**. Hash routing already works for two
-tabs; extend it rather than removing it:
+The route contract is now implemented rather than proposed:
 
-- `#design`, `#queue`, `#library`, `#releases` are all real routes; `#library/<id>` and
-  `#releases/<id>` stay as detail routes.
-- `setTab` becomes derived state from the hash. Delete `libraryReturnTab` and its guess.
-- Back always means "the previous tab you were on", because the browser holds the stack.
-- Persist scroll position **per tab** and restore it, instead of `scrollTo(0)` on every switch.
+- `web/lib/route.ts` parses and serializes `#create`, `#library`,
+  `#library/<render-key-or-variant-id>`, `#releases`, and `#releases/<id>`.
+  The empty hash is Create; `#design` and `#queue` are compatibility redirects.
+- `tab`, release/detail ids, and activity-sheet visibility are derived from the
+  hash. There is no return-tab state or route guessing.
+- The activity sheet uses `?activity`: opening pushes a route, and Escape,
+  backdrop, close, and browser Back all pop it.
+- Switching between the Tracks and Releases sections replaces the current
+  section route, avoiding a history entry for every tap. Entering or leaving
+  the Library destination remains a normal push so Back returns to the prior
+  destination.
+- Scroll-to-top runs only when the tab changes. A Library detail route still
+  refreshes, scrolls to the matching track, and applies its highlight on a cold
+  load.
 - Reorder the panel JSX to match the dock order (fixes A4).
 - Pair the panel transition with the lens: one `--dur-nav` / `--ease-nav`, cross-fade out as well as
   in, and honour `prefers-reduced-motion`.

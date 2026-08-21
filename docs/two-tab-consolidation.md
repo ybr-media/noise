@@ -92,11 +92,21 @@ Named honestly, because these were real properties of the old Queue:
 - **A tab-sized target for render status.** The pill is smaller than a dock tab.
   It is on every screen, which we judged the better end of that trade.
 
-## 5. Follow-ups not taken
+## 5. Follow-ups
 
-- The activity sheet is React state, not a hash route, so Back does not close it.
-  `tab-cohesion-audit.md` §3.A1 is right that mixed routing is a problem; this
-  adds one more instance rather than fixing the underlying split.
-- Library still sorts masters by matrix index with no recency option.
-- `queue(ids, "pilot" | "full")` remains callable with no UI. Either give bulk
-  rendering a home in the activity sheet or delete the path.
+The routing and client cleanup follow-ups from the consolidation are complete:
+
+- **One hash route for view state.** Create, Library, and Releases are derived
+  from `web/lib/route.ts`. Canonical routes are `#create`, `#library`,
+  `#library/<render-key-or-variant-id>`, `#releases`, and
+  `#releases/<id>`. The empty hash remains Create, and `#design` / `#queue`
+  redirect to Create / Library; the latter opens the activity sheet.
+- **Activity is a route flag.** `?activity` composes with every tab. Opening
+  pushes the flag, while Escape, backdrop, close, and Back pop it, so refresh
+  and browser navigation preserve the same sheet state.
+- **Client bulk rendering is removed.** The client queues one selected
+  variant at a time. Server and shared selectors still accept `pilot` and
+  `full` for CI-dispatched jobs.
+
+Library still sorts masters by matrix index with no recency option; that remains
+open because it is a product decision, not a routing cleanup.
