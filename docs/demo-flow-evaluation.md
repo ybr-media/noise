@@ -16,6 +16,10 @@ so every step advanced on the app's own `tour.notify(...)` events, never by forc
 Per `.agents/skills/testing-noise-web/SKILL.md`, auth is unconfigured locally, so the tour was
 launched the way a user replays it: **(i) → Replay tutorial**.
 
+The spotlight findings in §9 additionally required per-frame sampling: geometry of all four scrim
+divs and the ring `<rect>` read on every `requestAnimationFrame` across a step transition, plus
+`elementFromPoint` probes around the hole corners at 4× device scale.
+
 Every number and every quoted string below was captured from the running app. Where I state a
 consequence for the *authenticated* first run (which cannot be exercised locally on this branch —
 there is no `NOISE_TEST_USER_FILE` hook here), I say so and cite the code path.
@@ -26,14 +30,19 @@ there is no `NOISE_TEST_USER_FILE` hook here), I say so and cite the code path.
 
 **The tour is well built and it tells the truth about everything except itself.**
 
-The engine is genuinely good — I want to say that first, because most of what follows is
-criticism of copy and exits, not of architecture. Steps advance on real application events, so
-the user actually performs each action; the spotlight is correctly non-interactive
+The step machine is genuinely good — I want to say that first. Steps advance on real application
+events, so the user actually performs each action; the spotlight is correctly non-interactive
 (`pointer-events: none` verified, hit-testing the ring centre returns the real control every
 time); the card flips between top and bottom anchoring so it never covers its own target. That
 is a real guided tour, not a slideshow.
 
-Three things break it, and they are all promises:
+**Its rendering is a different story.** The dimming and the highlight are two unrelated objects —
+four plain `<div>`s and an `<svg><rect>` — with nothing binding them. They disagree about where
+the spotlight is: the corners leak undimmed page, and mid-transition the two come apart by as
+much as **198 px** before snapping back. At rest they agree to 0.00 px, which is why this
+survives screenshot review and fails in use (§9).
+
+Four things break the tour. Three are promises; the fourth is the edges:
 
 1. **It promises you will hear what you made, and hands you a stock file.** Step 1 says *"design
    a sound, render it for real, and hear the result."* Step 8 points at a **bundled demo master**,
@@ -44,9 +53,13 @@ Three things break it, and they are all promises:
 3. **Every exit is a trapdoor.** Escape — one keypress, no confirmation — ends the tour and marks
    the tutorial complete. On a real first run that also POSTs completion to the server, so the
    tour never comes back on its own (§5).
+4. **The spotlight edges are not tight.** A square hole under a rounded ring leaks live page at
+   all four corners; the scrim and ring animate on separate clocks; there is no blur, in an app
+   whose whole visual language is blurred glass (§9).
 
-None of this needs the engine rebuilt. §9 is a work plan whose Phase A is copy, exits, and one
-sidecar file.
+The step machine does not need rebuilding — but the scrim does, and it is a contained change:
+one element with the hole cut out of it, instead of four that cannot track it. §10 is the work
+plan.
 
 ---
 
@@ -74,10 +87,10 @@ are `action` steps. Captured state per step:
 
 - **Real-event progression.** Every action step waited for the app's own handler to fire. Nothing
   advanced on a click the app hadn't actually processed.
-- **The spotlight is honest.** `getComputedStyle('.tutorial-ring').pointerEvents === "none"`, and
-  `document.elementFromPoint()` at the ring's centre returned the real target
+- **The spotlight is honest about interaction.** `getComputedStyle('.tutorial-ring').pointerEvents
+  === "none"`, and `document.elementFromPoint()` at the ring's centre returned the real target
   (`swatch-row`, `glyph-segment is-selected`, `custom-player`) — never the card. The highlighted
-  control is genuinely the control.
+  control is genuinely the control. *(How that spotlight is drawn is a separate matter — §9.)*
 - **Placement adapts.** `.tutorial-card.is-top` engaged on steps 3, 4, and 8 — exactly the steps
   whose targets sit low enough that a bottom-anchored card would cover them.
 - **Back-navigation is not a trap.** I expected Back from step 7 into the completed step 6 to
@@ -124,7 +137,7 @@ queued"* and *"played a master from your Library"* — **the code knows** the us
 their own work, and says so honestly at the emotional peak of a two-minute onboarding. The honesty
 is right; the promise in step 1 is what is wrong.
 
-**Fix — pick one, this is a product call (§10 Q1):**
+**Fix — pick one, this is a product call (§11 Q1):**
 
 - **(a) Reframe the promise.** Step 1 stops promising "hear the result" and promises what the tour
   can actually deliver in two minutes: design something real, send a real job, and hear what a
@@ -277,7 +290,162 @@ Never swap the body.
 
 ---
 
-## 9. Work plan for Devin
+## 9. F-8, F-9, F-10 — The spotlight edges
+
+The three findings in this section are one bug wearing three faces, so read the diagnosis before
+the fixes. **The dimming and the highlight are two separate objects.** The scrim is four plain
+`<div>`s; the ring is an `<svg><rect>`. Nothing binds them together, so their edges disagree — at
+rest, in motion, and in style.
+
+```tsx
+<div className="tutorial-blocker tutorial-blocker-top"    style={{ height: rect.top }} />
+<div className="tutorial-blocker tutorial-blocker-left"   style={{ top: rect.top, left: 0, width: rect.left, height: rect.height }} />
+<div className="tutorial-blocker tutorial-blocker-right"  style={{ top: rect.top, left: rect.right, right: 0, height: rect.height }} />
+<div className="tutorial-blocker tutorial-blocker-bottom" style={{ top: rect.bottom, bottom: 0 }} />
+<svg className="tutorial-ring"><rect x={rect.left} y={rect.top} width={rect.width} height={rect.height} rx="16" /></svg>
+```
+<sub>`tutorial.tsx:411-416`</sub>
+
+### F-8. The hole is square; the ring is round. The corners leak.
+
+The ring is drawn with `rx="16"`. The four scrim divs have `border-radius: 0`. So the dimmed
+region stops in a hard right angle while the highlight curves away from it, and the crescent
+between them is **undimmed live page**.
+
+Measured on step 2, spotlight at `x:30 y:365.5 w:330 h:112`:
+
+| | value |
+|---|---|
+| ring corner radius | `rx="16"` |
+| scrim hole corner radius | `0px` |
+| `elementFromPoint` at hole corner **+2,+2** | `param-row` — **the live page** |
+| `elementFromPoint` at hole corner **+4,+4** | `param-row` |
+| `elementFromPoint` at hole corner **+8,+8** | `param-row` |
+| `elementFromPoint` **outside** the hole (−6,−6) | `tutorial-blocker-top` ✅ |
+
+The scrim is not merely lighter at the corners — it is **absent**. About **55 px² per corner**
+(`r² − πr²/4` at r=16), four corners, on every step. `edges-corner-TL.png` shows it at 4× zoom: a
+pale wedge sitting outside the red arc, brighter than the scrim around it.
+
+### F-9. The scrim and the ring do not move together.
+
+This is the one that reads as "not tight". Frame-by-frame trace of a step advance, sampling the
+top blocker's inner edge against the ring's `y`, every `requestAnimationFrame`:
+
+| dt (ms) | scrim hole top | ring `y` (attr) | ring `y` (computed CSS) |
+|---|---|---|---|
+| 0–400 | 365.5 | 365.5 | 365.5 |
+| **434** | 365.5 | **477.5** | 365.5 |
+| 467 | 365.5 | 469.5 | 365.5 |
+| 500 | 365.5 | 444.5 | 365.5 |
+| 534 | 365.5 | 404.5 | 365.5 |
+| 567 | 365.5 | 360.5 | 365.5 |
+
+The ring's geometry **attribute** snaps to the new target and then eases, while the scrim holds its
+old position. Peak divergence across the move:
+
+| measurement | peak |
+|---|---|
+| scrim inner edge vs. ring, vertical | **112.00 px** |
+| left blocker bottom vs. bottom blocker top | **197.50 px** |
+| scrim inner edge vs. ring, horizontal | 0.00 px |
+
+For roughly a quarter of a second on **every one of the eight transitions**, the ring is floating
+over a hole that is somewhere else, and the scrim is torn open along a ~198 px seam. At rest all
+these deltas are 0.00 px — which is why it looks fine in a screenshot and wrong in use.
+
+The cause is two animation systems driven from one state update: CSS transitions on SVG geometry
+(`transition: x .45s, y .45s, width .45s, height .45s`, `globals.css:288`) versus CSS transitions
+on div layout (`transition: top, right, bottom, left, width, height` × `.45s`, `globals.css:282`).
+Note the computed CSS `y` never changes at all — only the attribute does — so the two layers are
+not even interpolating the same quantity.
+
+Two aggravating factors in the same declarations:
+
+- **The ring pulses while it travels.** `animation: tutorial-pulse 1.8s ease-in-out infinite`
+  (opacity `.72 ↔ 1`) keeps running through the move; measured range during the transition was
+  **0.72 → 1.00**. The highlight fades in and out *while* relocating, which reads as flicker
+  rather than a confident move.
+- **Twenty-four animated layout properties.** Four divs × six properties, all of
+  `top/right/bottom/left/width/height` — none composited, all forcing layout each frame.
+
+### F-10. There is no blur, and the timing is a fourth motion curve.
+
+The scrim is flat `rgba(22,22,26,.58)`; `backdrop-filter` computes to **`none`**. The app uses
+`backdrop-filter: blur(...)` in three places — `.glassbar` (`blur(22px) saturate(190%)`),
+`.action-row` (`blur(18px) saturate(180%)`), `.release-footer` (`blur(18px)`). The tour is the one
+full-screen surface in the product that dims the app and it does not participate in the app's own
+glass idiom.
+
+The tour also invents its own motion: `.45s cubic-bezier(.32,.72,0,1)`, against the declared
+tokens `--dur-nav: 260ms` and `--ease-nav: cubic-bezier(.2,.8,.25,1)`. `docs/design-quality-audit.md`
+P1-4 already counted three navigation durations against those tokens; this is the fourth.
+
+### The fix: make the hole and the ring the same object
+
+Do not tune the four divs — they cannot be made to track a separately-animated ring, and adding
+`border-radius` to each one still cannot produce a rounded hole. Collapse the scrim to **one
+element with the hole cut out of it**, and drive the ring from the same numbers.
+
+```tsx
+// one scrim, one source of geometry
+const pad = 8;
+const r   = 16;
+const x = rect.left - pad, y = rect.top - pad;
+const w = rect.width + pad * 2, h = rect.height + pad * 2;
+
+<div
+  className="tutorial-scrim"
+  style={{ clipPath: `path(evenodd, '${viewportRect()} ${roundedRect(x, y, w, h, r)}')` }}
+/>
+<svg className="tutorial-ring"><rect x={x} y={y} width={w} height={h} rx={r} /></svg>
+```
+
+```css
+.tutorial-scrim {
+  position: fixed; inset: 0; z-index: 0; pointer-events: auto;
+  background: rgba(22,22,26,.52);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+          backdrop-filter: blur(14px) saturate(140%);
+}
+```
+
+Why this settles all three findings at once:
+
+- **F-8 disappears by construction** — the hole *is* the rounded rect, same `r` as the ring, so
+  there is no corner region to leak through.
+- **F-9 disappears** if both the `clipPath` string and the `<rect>` attributes are written from
+  one eased value. Interpolate `{x,y,w,h}` yourself in a `requestAnimationFrame` loop (or a small
+  spring) and set both in the same frame — then they are incapable of desyncing. Do **not** rely
+  on two independent CSS transitions again.
+- **F-10** is one declaration: blur on the scrim, and retire `.45s cubic-bezier(.32,.72,0,1)` in
+  favour of `--dur-nav`/`--ease-nav`.
+
+Also: **pad the hole.** Today it is the raw `getBoundingClientRect()`, so padding measures
+**0 px on every side** and the 3 px ring straddles the control's own edge — 1.5 px of the
+highlight lands *on* the thing it is highlighting. A `pad` of 6–8 px is what makes a spotlight
+look deliberate rather than shrink-wrapped.
+
+And **stop the pulse during the move** — gate it on a settled state, or drop the infinite pulse
+entirely in favour of a single attention beat when the ring arrives.
+
+Two implementation notes so this doesn't stall:
+
+- `clip-path: path()` on an HTML element is Chromium/Safari-supported but **not** Firefox
+  (`path()` is behind a flag there). If Firefox matters, use `mask-image` with an inline SVG
+  `<mask>`, or an SVG `<path fill-rule="evenodd">` scrim — the SVG route loses `backdrop-filter`,
+  so it is blur *or* Firefox unless you layer a blurred div beneath a masked one.
+- Keep the reduced-motion block (`globals.css:369-374`); it already kills these transitions
+  correctly and the rAF loop must honour it too — snap, don't interpolate.
+
+**Accept for the whole section:** at every step and at four sampled frames per transition,
+(a) `elementFromPoint` inside the scrim region returns the scrim, never page content, including
+within 8 px of each hole corner; (b) the scrim's inner edge and the ring's rect agree to within
+1 px on all four sides; (c) `backdrop-filter` on the scrim is not `none`; (d) padding between the
+target's bounding box and the hole is ≥ 6 px on all four sides.
+
+---
+## 10. Work plan for Devin
 
 Baseline on `devin/demo-first-run` builds clean. Everything in Phase A is confined to
 `web/app/ui/tutorial.tsx`, `web/app/globals.css`, and `web/demo/demo_first_render.json`.
@@ -308,19 +476,39 @@ Baseline on `devin/demo-first-run` builds clean. Everything in Phase A is confin
     return to the previous step, and it removes the "my only option is to quit" feeling that
     powers §4 and §5.
 
-### Phase C — The promise (needs §10 Q1 answered first)
+### Phase C — Tighten the spotlight (§9)
 
-11. Reframe step 1 and step 8, or hold step 8 for the user's own render (§3).
+This is one change, not four, and the order matters — do 11 first and 12–14 come nearly free.
+
+11. **Collapse the four blockers into one scrim with the hole cut out** (§9). One element,
+    `clip-path: path(evenodd, …)` (or an SVG `<mask>` if Firefox is in scope), rounded to the
+    same `r` as the ring. *Accept:* `elementFromPoint` returns the scrim everywhere outside the
+    hole, including within 8 px of each corner.
+12. **Drive the scrim path and the ring rect from one eased value in one frame** (§9) — a `rAF`
+    interpolation, not two CSS transitions. *Accept:* sampled at four frames per transition, the
+    scrim's inner edge and the ring agree within 1 px on all four sides.
+13. **Pad the hole 6–8 px** (§9). Today it is the raw `getBoundingClientRect()` and the 3 px ring
+    lands on the control. *Accept:* padding ≥ 6 px on all four sides.
+14. **Blur the scrim, and use the motion tokens** (§9). `backdrop-filter: blur(14px)
+    saturate(140%)`; retire `.45s cubic-bezier(.32,.72,0,1)` for `--dur-nav`/`--ease-nav`.
+    *Accept:* computed `backdrop-filter` is not `none`; no fourth easing curve in
+    `globals.css`. Keep the reduced-motion block honouring both — snap, don't interpolate.
+15. **Stop the ring pulsing while it travels** (§9). Measured 0.72 → 1.00 opacity mid-move.
+    *Accept:* opacity is constant for the duration of a transition.
+
+### Phase D — The promise (needs §11 Q1 answered first)
+
+16. Reframe step 1 and step 8, or hold step 8 for the user's own render (§3).
 
 ### Housekeeping
 
-12. **`.agents/skills/testing-noise-web/SKILL.md` says the tour has "11 steps"** and lists
+17. **`.agents/skills/testing-noise-web/SKILL.md` says the tour has "11 steps"** and lists
     `button.tutorial-next` as labelled "Done" on the last step. The step count is now **9**. The
     skill is the test contract for this feature — correct it in the same PR as any step change.
 
 ---
 
-## 10. Decisions needed from Austin
+## 11. Decisions needed from Austin
 
 1. **Q1 — Should the tour promise "hear your own render"?** Option (a) reframe the copy and let
    the render-done banner deliver the payoff later; option (b) hold step 8 until the user's render
