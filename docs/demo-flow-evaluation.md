@@ -1,18 +1,20 @@
 # First-run tour evaluation — Noise Lab console
 
-**What this evaluates:** the guided first-run tour (`web/app/ui/tutorial.tsx`) — the nine-step
+**What this evaluates:** the guided first-run tour (`web/app/ui/tutorial.tsx`) — the eight-step
 walkthrough a new user is dropped into on first sign-in, and the flow it drives them through.
 
-**Commit under test:** `5052cbb` on `devin/demo-first-run` (the demo integration branch: phase-1
-auth, phase-2 first-run tracking, phase-3 tour, the v2 redesign, and the relaunch fix). The tour
-is **not on `main`** — nothing under `web/` there references it.
+**Commit under test:** originally `5052cbb` on `devin/demo-first-run`. **The tour has since landed
+on `main`** — re-verified against `5fce2db` (`main`, PR #145 "queue-library-consolidation"), which
+removed the Queue tab and folded its steps into one. Every finding below was re-checked against
+that commit and **all of them still hold**; the structural facts in this section (step count, tab
+names, the step table) are the current ones. See "What changed, and what didn't" below.
 
 **Method:** production build (`npm run build && npm start`) with `NOISE_RENDERING_AVAILABLE=1`
-so the render and queue steps take their **action** variants rather than the "unavailable" info
-variants, served against the real `config/` matrix and the bundled `web/demo/` track. Driven with
-Playwright at 390×844, walking all nine steps with **genuine clicks** — a real swatch, a real
-segment, a real FX toggle, the real *Create track* button, the real dock tabs, the real player —
-so every step advanced on the app's own `tour.notify(...)` events, never by forcing state.
+so the render step takes its **action** variant rather than the "unavailable" info variant,
+served against the real `config/` matrix and the bundled `web/demo/` track. Driven with
+Playwright at 390×844 with **genuine clicks** — a real swatch, a real segment, a real FX toggle,
+the real *Create track* button, the real dock tabs, the real player — so every step advanced on
+the app's own `tour.notify(...)` events, never by forcing state.
 Per `.agents/skills/testing-noise-web/SKILL.md`, auth is unconfigured locally, so the tour was
 launched the way a user replays it: **(i) → Replay tutorial**.
 
@@ -21,8 +23,8 @@ divs and the ring `<rect>` read on every `requestAnimationFrame` across a step t
 `elementFromPoint` probes around the hole corners at 4× device scale.
 
 Every number and every quoted string below was captured from the running app. Where I state a
-consequence for the *authenticated* first run (which cannot be exercised locally on this branch —
-there is no `NOISE_TEST_USER_FILE` hook here), I say so and cite the code path.
+consequence for the *authenticated* first run (which cannot be exercised locally — there is no
+`NOISE_TEST_USER_FILE` hook on `main` either, confirmed), I say so and cite the code path.
 
 ---
 
@@ -45,8 +47,8 @@ survives screenshot review and fails in use (§9).
 Four things break the tour. Three are promises; the fourth is the edges:
 
 1. **It promises you will hear what you made, and hands you a stock file.** Step 1 says *"design
-   a sound, render it for real, and hear the result."* Step 8 points at a **bundled demo master**,
-   because your render is still queued — and the finale says so out loud (§3).
+   a sound, render it for real, and hear the result."* The `library-play` step points at a
+   **bundled demo master**, because your render is still queued — and the finale says so out loud (§3).
 2. **The step labelled "Optional" is the one step you cannot skip.** Step 4 is an `action` step:
    no Next, no Back. The only ways past it are to do it, wait ten seconds, or abandon the tour
    (§4).
@@ -65,23 +67,49 @@ plan.
 
 ## 2. The tour, as it actually runs
 
-Nine steps in `local`/`dispatch` mode (`tutorialSteps()`, `tutorial.tsx:30-133`). Six of the nine
-are `action` steps. Captured state per step:
+**Eight** steps in `local`/`dispatch` mode (`tutorialSteps()`). **Five of the eight are `action`
+steps.** Enumerated from `tutorialSteps()` on `main` and walked live at 390×844:
 
-| # | id | kind | Next | Back | Card | Advanced by |
+| # | id | kind | Next | Back | tab | target |
 |---|---|---|---|---|---|---|
-| 1 | `welcome` | info | ✅ | — | bottom | Next |
-| 2 | `param-color` | **action** | ❌ | ❌ | bottom | clicking a real swatch |
-| 3 | `param-shape` | **action** | ❌ | ❌ | **top** | clicking a real segment |
-| 4 | `fx` | **action** | ❌ | ❌ | **top** | toggling EQ/Reverb |
-| 5 | `render` | **action** | ❌ | ❌ | bottom | real *Create track* |
-| 6 | `queue-tab` | **action** | ❌ | ❌ | bottom | real dock tap |
-| 7 | `queue-status` | info | ✅ | ✅ | bottom | Next |
-| 8 | `library-play` | **action** ×2 | ❌ | ❌ | **top** → bottom | dock tap, then real play |
-| 9 | `done` | info | ✅ (Done) | ✅ | bottom | Done |
+| 1 | `welcome` | info | ✅ | — | — | — |
+| 2 | `param-color` | **action** | ❌ | ❌ | `create` | `create-color` |
+| 3 | `param-shape` | **action** | ❌ | ❌ | `create` | `create-shape` |
+| 4 | `fx` | **action** | ❌ | ❌ | `create` | `create-fx` |
+| 5 | `render` | **action** | ❌ | ❌ | `create` | `create-render` |
+| 6 | `progress` | info | ✅ | ✅ | — | `render-status` |
+| 7 | `library-play` | **action** | ❌ | ❌ | `library` | `dock-library` |
+| 8 | `done` | info | ✅ (Done) | ✅ | — | — |
 
-**Back exists on 3 of 9 steps.** `.tutorial-back` renders only when `step.kind === "info"`
-(`tutorial.tsx:428`). Once you are past the welcome card, you cannot go back until step 7.
+In `unavailable` mode the same eight ids appear with `render` → `render-unavailable` and
+`progress` → `progress-unavailable`, both `info`, leaving **four** action steps.
+
+**Back renders on info steps only** — `.tutorial-back` is gated on `step.kind === "info"`, so of
+the three info steps one is the first card; **Back is reachable on 2 of 8**. Once you are past
+the welcome card you cannot go back until step 6.
+
+### What changed since `5052cbb`, and what didn't
+
+**Changed (structure only):**
+
+- The **Queue tab no longer exists**. The dock is `create`, `library` — confirmed live.
+- The two queue steps (`queue-tab` action + `queue-status` info) collapsed into **one info step**,
+  `progress`, targeting `render-status`. That removes a whole dock-tap action step.
+- `tab: "design"` → `tab: "create"`; targets `design-*` → `create-*`.
+- Step count **9 → 8**; action steps **6 → 5**.
+
+**Not changed — every finding in §3–§9 was re-verified on `main` and still holds:**
+
+| Finding | Status on `main` `5fce2db` |
+|---|---|
+| §3 payoff is a stock file | `tourTrackId` fallback identical; `finaleCopy()` still branches and still appends *"Your render is still queued."* |
+| §4 "Optional" is unskippable | `fx` step is still `kind: "action"` |
+| §5 Escape is a trapdoor | `if (event.key === "Escape") onSkip()` — identical |
+| §6 ten seconds of nothing | `setTimeout(() => setDoItVisible(true), 10000)` — identical |
+| §7 demo sidecar contradicts copy | `stem_filenames: []`, `render_timestamp: "2025-01-01T00:00:00.000Z"`, no `qa_verdict`/`qa_checks` |
+| §8 confetti over the card | `.tutorial-confetti` `z-index: 3` vs `.tutorial-card` `2` — identical |
+| §8 celebration swaps the body | `const body = isFinale ? finaleCopy(snapshot) : celebration ?? step.body` — identical |
+| §9 spotlight edges | **CSS byte-identical.** Live on `main`: 4 blockers, ring `rx="16"`, scrim `border-radius: 0px`, `backdrop-filter: none`, padding ≈ **0 px** |
 
 **What is genuinely good, and should survive any rework:**
 
@@ -91,12 +119,15 @@ are `action` steps. Captured state per step:
   === "none"`, and `document.elementFromPoint()` at the ring's centre returned the real target
   (`swatch-row`, `glyph-segment is-selected`, `custom-player`) — never the card. The highlighted
   control is genuinely the control. *(How that spotlight is drawn is a separate matter — §9.)*
-- **Placement adapts.** `.tutorial-card.is-top` engaged on steps 3, 4, and 8 — exactly the steps
+- **Placement adapts.** `.tutorial-card.is-top` engaged on exactly the steps
   whose targets sit low enough that a bottom-anchored card would cover them.
-- **Back-navigation is not a trap.** I expected Back from step 7 into the completed step 6 to
-  deadlock, since `tab-changed` had already fired and the Queue tab was already active. It does
-  not: re-tapping the already-selected Queue tab re-fires the event and the tour moves on.
-  Tested, works, no action needed.
+- **Back-navigation was not a trap.** On `5052cbb` I expected Back from `queue-status` into the
+  completed `queue-tab` step to deadlock, since `tab-changed` had already fired and the Queue tab
+  was already active. It did not — re-tapping the already-selected tab re-fired the event.
+  **This test no longer applies:** both queue steps are gone on `main`, and the info step that
+  replaced them (`progress`) has no target tab to return into. The equivalent risk now sits at
+  Back from `done` into `library-play`; I have not re-tested that path, so treat it as unverified
+  rather than as a known-good.
 
 ---
 
@@ -107,7 +138,7 @@ This is the finding that matters. Step 1 sets the promise:
 > "You'll design a sound, render it for real, and hear the result. Two minutes, and you keep
 > whatever you make."
 
-Step 8 sets the task: **"Hear a master."** But which master?
+The `library-play` step sets the task: **"Hear a master."** But which master?
 
 ```ts
 const tourTrackId = tourVariantId && tracks.some((t) => t.exists && t.variantId === tourVariantId)
@@ -141,11 +172,11 @@ is right; the promise in step 1 is what is wrong.
 
 - **(a) Reframe the promise.** Step 1 stops promising "hear the result" and promises what the tour
   can actually deliver in two minutes: design something real, send a real job, and hear what a
-  finished master sounds like. Step 8 then names the demo track as a demo *on purpose*
+  finished master sounds like. `library-play` then names the demo track as a demo *on purpose*
   ("Here's one we rendered earlier — yours is still cooking"), and the existing render-done banner
   (`noise-lab.tsx:1229`, deep-linking to `#library/<variantId>`) becomes the real payoff, arriving
   later. Cheapest, and honest.
-- **(b) Make the promise true.** Hold step 8 until the user's own render lands, with the tour
+- **(b) Make the promise true.** Hold `library-play` until the user's own render lands, with the tour
   parked on the Queue. Only viable if a render reliably completes in tour time — which it does not
   in `dispatch` mode.
 
@@ -158,7 +189,8 @@ formatter the Queue and Library use.
 
 ## 4. F-2 — The step marked "Optional" is the only one you cannot skip
 
-Step 4 is titled **"Optional: EQ and reverb"**. Captured state:
+The `fx` step is titled **"Optional: EQ and reverb"**. Captured state (from the original
+`5052cbb` run — the step is still `kind: "action"` on `main`, now numbered 4 of 8):
 
 ```json
 { "count": "Step 4 of 9", "title": "Optional: EQ and reverb",
@@ -182,7 +214,8 @@ right semantics, and the engine already supports both halves.
 
 ## 5. F-3 — Every exit is a trapdoor, and Escape is the trapdoor you fall through
 
-Measured, from step 1 of a fresh tour:
+Measured, from step 1 of a fresh tour (original `5052cbb` run; the Escape handler is byte-identical
+on `main`):
 
 ```
 before Escape : {"count":"Step 1 of 9","title":"Make your first track"}
@@ -220,7 +253,7 @@ Measured: **`.tutorial-do-it` became visible 9,884 ms after the step opened**
 (`setTimeout(..., 10000)`, `tutorial.tsx:301`).
 
 On an action step the user either performs the action or looks at a card with no forward control
-at all for nearly ten seconds. Six of nine steps are action steps. If someone hesitates on two of
+at all for nearly ten seconds. Five of eight steps are action steps. If someone hesitates on two of
 them — reading the copy, glancing away — that is twenty seconds of a tour that opened by promising
 two minutes.
 
@@ -235,10 +268,10 @@ visible way forward.
 
 ## 7. F-5 — The demo track contradicts the copy pointing at it
 
-Step 8's body makes two specific claims about the track it is spotlighting. Both are false for the
+The `library-play` step's body makes two specific claims about the track it is spotlighting. Both are false for the
 bundled demo master. From `GET /api/library` and `web/demo/demo_first_render.json`:
 
-| Step 8 says | The demo track actually has |
+| `library-play` says | The demo track actually has |
 |---|---|
 | "Each one carries its own **QA numbers**" | `qaVerdict: "UNAVAILABLE"`, LUFS `–`, true peak `–`, **0 QA checks** |
 | "downloads as the master, **a single stem**, or all of it as a zip" | `stem_filenames: []` — **no stems** |
@@ -252,7 +285,7 @@ first-time user is told to open.
 
 **Fix (cheapest item in this document):** regenerate the demo sidecar with real QA numbers and at
 least one stem so the copy is true, and set `render_timestamp` at build or first read rather than
-pinning it. If stems for the demo are not worth the bytes, cut "a single stem" from step 8's copy
+pinning it. If stems for the demo are not worth the bytes, cut "a single stem" from the `library-play` copy
 instead — but do not ship a sentence the spotlighted track disproves.
 
 ---
@@ -350,7 +383,7 @@ old position. Peak divergence across the move:
 | left blocker bottom vs. bottom blocker top | **197.50 px** |
 | scrim inner edge vs. ring, horizontal | 0.00 px |
 
-For roughly a quarter of a second on **every one of the eight transitions**, the ring is floating
+For roughly a quarter of a second on **every one of the seven transitions**, the ring is floating
 over a hole that is somewhere else, and the scrim is torn open along a ~198 px seam. At rest all
 these deltas are 0.00 px — which is why it looks fine in a screenshot and wrong in use.
 
@@ -460,7 +493,7 @@ Baseline on `devin/demo-first-run` builds clean. Everything in Phase A is confin
 3. **Skip ≠ complete** (§5). Only step 9 marks the tutorial done. *Accept:* skipping at step 3,
    then reloading as the same user, relaunches the tour.
 4. **Fix the demo sidecar** (§7) — real QA numbers, at least one stem, non-hardcoded
-   `render_timestamp`; or amend step 8's copy to match. *Accept:* nothing step 8 claims is
+   `render_timestamp`; or amend the `library-play` copy to match. *Accept:* nothing that step claims is
    contradicted by the card it spotlights.
 5. **Confetti behind the card** (§8). *Accept:* no particle overlaps the finale text.
 6. **Stop the celebration swapping the body** (§8). *Accept:* card height is unchanged between
@@ -498,12 +531,12 @@ This is one change, not four, and the order matters — do 11 first and 12–14 
 
 ### Phase D — The promise (needs §11 Q1 answered first)
 
-16. Reframe step 1 and step 8, or hold step 8 for the user's own render (§3).
+16. Reframe `welcome` and `library-play`, or hold `library-play` for the user's own render (§3).
 
 ### Housekeeping
 
 17. **`.agents/skills/testing-noise-web/SKILL.md` says the tour has "11 steps"** and lists
-    `button.tutorial-next` as labelled "Done" on the last step. The step count is now **9**. The
+    `button.tutorial-next` as labelled "Done" on the last step. The step count is now **8**. The
     skill is the test contract for this feature — correct it in the same PR as any step change.
 
 ---
@@ -511,7 +544,7 @@ This is one change, not four, and the order matters — do 11 first and 12–14 
 ## 11. Decisions needed from Austin
 
 1. **Q1 — Should the tour promise "hear your own render"?** Option (a) reframe the copy and let
-   the render-done banner deliver the payoff later; option (b) hold step 8 until the user's render
+   the render-done banner deliver the payoff later; option (b) hold `library-play` until the user's render
    lands. *Recommendation: (a).* In `dispatch` mode a render is minutes of Actions time, so (b)
    either strands the user on the Queue or quietly becomes (a) anyway — and (a) is a copy change,
    not an engine change.
@@ -519,6 +552,6 @@ This is one change, not four, and the order matters — do 11 first and 12–14 
    session, only completion persists. The counter-argument is that a user who skips twice is
    telling you something. If you prefer the current behaviour, then Escape at minimum must stop
    being an exit (§5.1) — one reflex keypress should not permanently consume a first run.
-3. **Q3 — Is the bundled demo track worth stems and real QA?** Adding both makes step 8's copy
+3. **Q3 — Is the bundled demo track worth stems and real QA?** Adding both makes the `library-play` copy
    true and makes the Library step demonstrate the QA story properly. The cost is repo bytes.
    *Recommendation: yes for QA numbers (a sidecar edit, no bytes), your call on stems.*
