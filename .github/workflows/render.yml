@@ -25,6 +25,10 @@ on:
         description: Optional lowercase marker inserted into output filenames for a new take
         required: false
         default: ''
+      requested_by:
+        description: Optional email address of the render requester
+        required: false
+        default: ''
 
 concurrency:
   group: render
@@ -117,6 +121,16 @@ jobs:
           R2_BUCKET: ${{ vars.R2_BUCKET || 'noise-labs' }}
           R2_PREFIX: ${{ inputs.prefix }}
         run: .venv/bin/python scripts/publish_artifacts.py out
+
+      - name: Notify the requester
+        if: success() && inputs.requested_by != ''
+        continue-on-error: true
+        env:
+          APP_URL: ${{ vars.NOISE_APP_URL }}
+          NOTIFY_SECRET: ${{ secrets.NOISE_NOTIFY_SECRET }}
+          REQUESTED_BY: ${{ inputs.requested_by }}
+          RUN_ID: ${{ github.run_id }}
+        run: .venv/bin/python scripts/notify_render.py out
 
       - name: Prune the bucket
         env:

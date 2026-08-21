@@ -4,6 +4,7 @@ import Resend from "next-auth/providers/resend";
 import { isAllowedEmail } from "@/lib/allowlist";
 import { TUTORIAL_VERSION } from "@/lib/tutorial";
 import { TOKENS } from "@/app/ui/tokens";
+import { sendEmail } from "@/lib/email";
 
 const REQUIRED_AUTH_ENV = [
   "AUTH_SECRET",
@@ -96,6 +97,7 @@ export function lazyAdapter(): Adapter {
             ...(args[0] as Record<string, unknown>),
             tutorialCompletedAt: null,
             tutorialVersion: TUTORIAL_VERSION,
+            renderEmails: true,
           };
         }
         return method.apply(adapter, args);
@@ -130,24 +132,15 @@ const authConfig = {
       apiKey: process.env.AUTH_RESEND_KEY ?? "",
       from: process.env.AUTH_EMAIL_FROM ?? "",
       maxAge: 15 * 60,
-      async sendVerificationRequest({ identifier, url, provider }) {
+      async sendVerificationRequest({ identifier, url }) {
         if (!isAllowedEmail(identifier)) return;
         assertAuthEnv();
-        const response = await fetch("https://api.resend.com/emails", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.AUTH_RESEND_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            from: provider.from!,
-            to: identifier,
-            subject: "Your Noise Lab sign-in link",
-            html: emailTemplate(url),
-            text: `Sign in to Noise Lab: ${url}\n\nThis link expires in 15 minutes. If you did not request it, ignore this email.`,
-          }),
+        await sendEmail({
+          to: identifier,
+          subject: "Your Noise Lab sign-in link",
+          html: emailTemplate(url),
+          text: `Sign in to Noise Lab: ${url}\n\nThis link expires in 15 minutes. If you did not request it, ignore this email.`,
         });
-        if (!response.ok) throw new Error(`Unable to send sign-in email: ${await response.text()}`);
       },
     }),
   ],

@@ -83,6 +83,10 @@ type RemoteManifest = { artifacts?: Artifact[] };
 
 let cached: { index: ArtifactIndex; at: number } | null = null;
 
+export function invalidateArtifactCache(): void {
+  cached = null;
+}
+
 async function remoteIndex(baseUrl: string): Promise<ArtifactIndex> {
   if (cached && Date.now() - cached.at < MANIFEST_TTL_MS) return cached.index;
   const artifacts = new Map<string, Artifact>();

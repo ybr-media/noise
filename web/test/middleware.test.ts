@@ -9,8 +9,8 @@ test("signed-out console pages redirect and signed-in pages pass through", () =>
   assert.equal(accessForRequest("/api/me", false), "unauthorized");
 });
 
-test("auth, signin, static, and audio paths bypass the session gate", () => {
-  for (const pathname of ["/signin", "/_next/static/chunk.js", "/_next/image", "/favicon.ico", "/api/auth/session", "/api/audio/example.wav"]) {
+test("auth, signin, static, audio, and render-email paths bypass the session gate", () => {
+  for (const pathname of ["/signin", "/_next/static/chunk.js", "/_next/image", "/favicon.ico", "/api/auth/session", "/api/audio/example.wav", "/api/og/track/key", "/api/download/token", "/api/renders/notify", "/api/notifications/unsubscribe"]) {
     assert.equal(shouldBypassAuth(pathname), true, pathname);
     assert.equal(accessForRequest(pathname, false), "next", pathname);
   }
@@ -21,6 +21,7 @@ test("audio range URLs stay open while other APIs remain protected", () => {
   assert.equal(accessForRequest("/api/audio/example.wav?download=1", false), "next");
   assert.equal(accessForRequest("/api/queue", false), "unauthorized");
   assert.equal(accessForRequest("/api/bundle/variant.v1", false), "unauthorized");
+  assert.equal(accessForRequest("/api/renders/preview", false), "unauthorized");
 });
 
 test("missing auth configuration enables explicit open mode", () => {

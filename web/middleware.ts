@@ -26,5 +26,5 @@ export default function middleware(request: NextRequest, event: NextFetchEvent) 
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|signin(?:/.*)?|api/auth(?:/.*)?|api/audio(?:/.*)?|(?!(?:api/)).*\\.[^/]+$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|signin(?:/.*)?|api/auth(?:/.*)?|api/audio(?:/.*)?|api/og(?:/.*)?|api/download(?:/.*)?|api/renders/notify|api/notifications/unsubscribe|(?!(?:api/)).*\\.[^/]+$).*)"],
 };

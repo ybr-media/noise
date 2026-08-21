@@ -103,6 +103,7 @@ export type LibraryTrack = Variant & {
 export type QueueJob = {
   id: string;
   variantId: string;
+  requestedBy?: string;
   status: "Queued" | "Rendering" | "Done" | "Failed" | "Cancelled";
   queuedAt: string;
   error?: string;

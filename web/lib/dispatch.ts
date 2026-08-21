@@ -27,7 +27,12 @@ export function runUrl(runId: number | string): string {
   return `https://github.com/${DISPATCH_REPO}/actions/runs/${runId}`;
 }
 
-export async function dispatchRender(variants: string, fx: FxBlock | null = null, overrides?: RenderOverrides): Promise<void> {
+export async function dispatchRender(
+  variants: string,
+  fx: FxBlock | null = null,
+  overrides?: RenderOverrides,
+  requestedBy?: string,
+): Promise<void> {
   const response = await fetch(`${API}/repos/${DISPATCH_REPO}/actions/workflows/${DISPATCH_WORKFLOW}/dispatches`, {
     method: "POST",
     headers: dispatchHeaders(),
@@ -37,6 +42,7 @@ export async function dispatchRender(variants: string, fx: FxBlock | null = null
         variants,
         ...(fx ? { fx: JSON.stringify(fx) } : {}),
         ...(overrides ? { repeats: String(overrides.repeats), take_marker: overrides.takeMarker } : {}),
+        ...(requestedBy ? { requested_by: requestedBy } : {}),
       },
     }),
   });
