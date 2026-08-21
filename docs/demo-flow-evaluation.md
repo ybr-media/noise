@@ -9,11 +9,17 @@ removed the Queue tab and folded its steps into one. Every finding below was re-
 that commit and **all of them still hold**; the structural facts in this section (step count, tab
 names, the step table) are the current ones. See "What changed, and what didn't" below.
 
-**Still current at `77b06ba`** (`main`, through PR #148 hash-routing). `web/app/ui/tutorial.tsx`,
-the `.tutorial-*` CSS rules, and `web/demo/` are **byte-identical** between `5fce2db` and
-`77b06ba`; the `tourTrackId` fallback in `noise-lab.tsx` is unchanged (now at `:1437`), the
-`render-status` target still exists, and the dock is still `["create", "library"]`. Nothing in
-this document is affected by those commits.
+**Still current at `9b8971d`** (`main`, through PRs #147 hide-Library-Releases, #151 compact-dock,
+#152 render-complete-email). Checked at each step:
+
+- `.tutorial-*` CSS rules and `web/demo/demo_first_render.json`: **byte-identical** since `5fce2db`.
+- `tourTrackId` fallback in `noise-lab.tsx`: unchanged (now at `:1429`); the `render-status` target
+  still exists; the dock is still `["create", "library"]`.
+- `tutorial.tsx`: **one copy-only change** at `9b8971d` — the `done` body and `finaleCopy()` tail
+  dropped the Releases mention ("bundle approved masters under Releases" → "keep your approved
+  masters together"), following #147. Step count, step kinds, targets and the `finaleCopy()`
+  branch are untouched, and the finale text this document quotes ends at *"Your render is still
+  queued."* — before the edited tail. **No finding is affected.**
 
 **Method:** production build (`npm run build && npm start`) with `NOISE_RENDERING_AVAILABLE=1`
 so the render step takes its **action** variant rather than the "unavailable" info variant,
@@ -541,9 +547,13 @@ This is one change, not four, and the order matters — do 11 first and 12–14 
 
 ### Housekeeping
 
-17. **`.agents/skills/testing-noise-web/SKILL.md` says the tour has "11 steps"** and lists
+17. **`.agents/skills/testing-noise-web/SKILL.md` says the tour has "11 steps"** (`:50`) and lists
     `button.tutorial-next` as labelled "Done" on the last step. The step count is now **8**. The
     skill is the test contract for this feature — correct it in the same PR as any step change.
+    *Note:* the skill was edited as recently as PR #153 ("Update testing-noise-web skill for
+    render-email routes") and the stale count survived that edit, so it will not fix itself. It
+    also still describes the removed Queue tab ("keeps the Queue/Library dock steps tappable",
+    `:381`) and "render/queue steps" (`:383`).
 
 ---
 
