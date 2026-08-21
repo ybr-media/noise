@@ -233,6 +233,12 @@ button:disabled { cursor: not-allowed; }
 .view-toggle { margin: 22px 0 6px; }
 .library-refresh-shell > .library-toolbar > .section-title, .library-refresh-shell > .library-toolbar > .view-toggle { margin-top: 0; }
 .track-date { margin-top: 10px; color: var(--ink-secondary); font-size: 11px; }
+.library-pending { margin-bottom: var(--gap-list); }
+.pending-track { padding: 16px 24px; }
+.pending-track-title { color: var(--ink); font-size: var(--text-lg); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pending-track-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+.pending-track-footer { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.pending-track-caption { min-width: 0; overflow: hidden; color: var(--ink-secondary); font-size: var(--text-xs); text-overflow: ellipsis; }
 .track-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
 .track-row-play { width: 32px; height: 32px; color: var(--surface); background: var(--ink); }
 .track-row-body { min-width: 0; flex: 1; }
