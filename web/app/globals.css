@@ -79,7 +79,7 @@ button:disabled { cursor: not-allowed; }
 .soft-card { background: var(--surface); border-radius: var(--radius-card); box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px rgba(20,20,50,.06); }
 .card-padding-sm { padding: 14px 16px; }
 .card-padding-md { padding: 20px; }
-.design-stack { display: flex; flex-direction: column; gap: var(--gap-list); }
+.create-stack { display: flex; flex-direction: column; gap: var(--gap-list); }
 .spectrum-card { padding: 22px 24px; }
 .spectrum-frame { height: 150px; overflow: hidden; border-radius: var(--radius-control); background: var(--surface) repeating-linear-gradient(90deg, transparent 0 12px, rgba(0,0,0,.045) 12px 13px); background-blend-mode: multiply; }
 .spectrum-ticks { display: flex; justify-content: space-between; margin: 10px 0 0; color: var(--ink-secondary); font-size: var(--text-base); }
@@ -228,10 +228,23 @@ button:disabled { cursor: not-allowed; }
 .approved-marker { margin-left: 7px; color: var(--success); font-size: 10px; font-weight: 500; }
 .icon-action { display: grid; width: 34px; height: 34px; place-items: center; margin: -6px -8px 0 0; border: 0; border-radius: 50%; color: var(--ink-secondary); background: transparent; }
 .icon-action:hover, .icon-action:focus-visible { color: var(--ink); background: var(--surface-sunken); outline: none; }
-.library-toolbar { display: flex; align-items: flex-end; justify-content: space-between; }
+.library-toolbar { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.library-toolbar > .view-toggle { align-self: flex-end; }
+.library-toolbar > .header-sync-caption { flex: 1 1 auto; margin: 0 0 10px; }
 .view-toggle { margin: 22px 0 6px; }
 .library-refresh-shell > .library-toolbar > .section-title, .library-refresh-shell > .library-toolbar > .view-toggle { margin-top: 0; }
 .track-date { margin-top: 10px; color: var(--ink-secondary); font-size: 11px; }
+.library-sections { display: flex; gap: 2px; width: 100%; padding: 4px; border-radius: var(--radius-control); background: var(--surface-inset); }
+.library-section-tab { display: flex; flex: 1 1 0; align-items: center; justify-content: center; gap: 7px; min-width: 0; min-height: 40px; padding: 0 12px; border: 0; border-radius: var(--radius-chip); color: var(--ink-secondary); background: transparent; font-size: var(--text-md); font-weight: 600; transition: background 180ms ease, color 180ms ease; }
+.library-section-tab.is-active { color: var(--ink); background: var(--surface); box-shadow: 0 2px 8px rgba(0,0,0,.10), 0 0 0 0.5px rgba(0,0,0,.04); }
+.library-section-count { display: grid; min-width: 20px; height: 20px; place-items: center; padding: 0 6px; border-radius: var(--radius-pill); color: var(--surface); background: var(--ink-tertiary); font-size: var(--text-2xs); font-weight: 700; }
+.library-section-tab.is-active .library-section-count { background: var(--brand); }
+.library-pending { margin-bottom: var(--gap-list); }
+.pending-track { padding: 16px 24px; }
+.pending-track-title { color: var(--ink); font-size: var(--text-lg); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pending-track-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+.pending-track-footer { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.pending-track-caption { min-width: 0; overflow: hidden; color: var(--ink-secondary); font-size: var(--text-xs); text-overflow: ellipsis; }
 .track-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; }
 .track-row-play { width: 32px; height: 32px; color: var(--surface); background: var(--ink); }
 .track-row-body { min-width: 0; flex: 1; }
@@ -361,7 +374,10 @@ button:disabled { cursor: not-allowed; }
 .queue-refresh-shell { touch-action: pan-y; }
 .queue-sync-caption { display: flex; align-items: center; gap: 7px; margin: 0 2px 18px; color: var(--ink-secondary); font-size: 12px; }
 .queue-sync-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.current-tab-title .queue-sync-caption { flex: 1 1 auto; min-width: 0; margin: 6px 0 0 10px; font-size: var(--text-xs); }
+.render-status { display: flex; flex: 1 1 auto; align-items: center; gap: 7px; min-width: 0; margin: 6px 0 0 10px; padding: 0; border: 0; color: var(--ink-secondary); background: transparent; font-size: var(--text-xs); text-align: left; pointer-events: auto; }
+.render-status.is-busy { color: var(--ink); }
+.render-status-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.current-tab-title.is-hidden .render-status { pointer-events: none; }
 .queue-refresh-shell > .queue-group:first-of-type > .section-title { margin-top: 0; }
 .queue-sync-dot { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: var(--success); }
 .queue-sync-dot.is-active { background: var(--link); animation: pulse-blue 1.4s ease-in-out infinite; }
@@ -451,6 +467,12 @@ button:disabled { cursor: not-allowed; }
   .download-chevron { width: 38px; }
 }
 
+.activity-backdrop { position: fixed; z-index: 60; inset: 0; display: grid; align-items: end; background: rgba(22,22,26,.24); }
+.activity-sheet { display: flex; flex-direction: column; width: min(100%, 660px); max-height: 88vh; margin: 0 auto; padding: 20px 22px calc(20px + env(safe-area-inset-bottom)); border-radius: var(--radius-card) 24px 0 0; background: var(--surface); box-shadow: 0 -12px 34px rgba(20,20,50,.18); }
+.activity-sheet-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.activity-sheet-header h2 { margin: 0; font-size: 18px; }
+.activity-sheet-note { margin: 6px 0 0; color: var(--ink-secondary); font-size: var(--text-xs); line-height: 1.45; }
+.activity-sheet-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .queue-confirm-backdrop { position: fixed; z-index: 70; inset: 0; display: grid; align-items: end; background: rgba(22,22,26,.24); }
 .queue-confirm-sheet { width: min(100%, 660px); margin: 0 auto; padding: 22px; border-radius: var(--radius-card) 24px 0 0; background: var(--surface); box-shadow: 0 -12px 34px rgba(20,20,50,.18); }
 .queue-confirm-sheet h2 { margin: 0; font-size: 18px; }
