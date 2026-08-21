@@ -1298,7 +1298,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
                 <ParamRow label="Balance" caption={PARAM_CAPTIONS[selection.balance]}><GlyphSegmented options={OPTIONS.balance} value={selection.balance} onChange={(value) => { setSelection((old) => ({ ...old, balance: value })); tour.notify("param-selected", "shape"); }} label="Balance" /></ParamRow>
               </div>
             </Card>
-            <div data-tour="create-fx">
+            <div className="fx-stack" data-tour="create-fx">
               <EqSection fx={fx} onChange={updateFx} variantId={selected.variantId} />
               <ReverbSection fx={fx} onChange={updateFx} nominalSeconds={selected.durationSeconds} variantId={selected.variantId} />
             </div>
