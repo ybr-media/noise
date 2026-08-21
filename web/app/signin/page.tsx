@@ -25,23 +25,30 @@ export default function SignInPage() {
   return (
     <main className="signin-page">
       <Card className="signin-card">
-        <BellMark />
-        <p className="signin-wordmark">Noise Lab</p>
-        {sent ? (
-          <section aria-live="polite">
-            <h1>Check your email</h1>
-            <p>We sent a sign-in link if that address is invited to Noise Lab. The link expires in 15 minutes.</p>
-            <Button type="button" variant="neutral" onClick={() => setSent(false)}>Use a different email</Button>
-          </section>
-        ) : (
-          <form onSubmit={submit}>
-            <h1>Sign in</h1>
-            <p>Use your invited email address to open the console.</p>
-            <label htmlFor="email">Email address</label>
-            <input id="email" name="email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" />
-            <Button type="submit" disabled={busy}>{busy ? "Sending…" : "Send sign-in link"}</Button>
-          </form>
-        )}
+        <aside className="signin-aside">
+          <BellMark />
+          <div className="signin-aside-foot">
+            <p className="signin-wordmark">Noise Lab</p>
+            <p className="signin-tagline">Authoring console for y-bell records</p>
+          </div>
+        </aside>
+        <div className="signin-form-panel">
+          {sent ? (
+            <section aria-live="polite">
+              <h1>Check your email</h1>
+              <p>We sent a sign-in link if that address is invited to Noise Lab. The link expires in 15 minutes.</p>
+              <Button type="button" variant="neutral" onClick={() => setSent(false)}>Use a different email</Button>
+            </section>
+          ) : (
+            <form onSubmit={submit}>
+              <h1>Sign in</h1>
+              <p>Use your invited email address to open the console.</p>
+              <label htmlFor="email">Email address</label>
+              <input id="email" name="email" type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" />
+              <Button type="submit" disabled={busy}>{busy ? "Sending…" : "Send sign-in link"}</Button>
+            </form>
+          )}
+        </div>
       </Card>
     </main>
   );
