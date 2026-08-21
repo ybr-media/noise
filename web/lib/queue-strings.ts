@@ -14,6 +14,7 @@ export const queueStrings = {
   runHistory: (count: number) => `Run history · ${count}`,
   synced: (value: string) => `Synced ${value}`,
   statusCaption: { idle: "Idle", queued: "Queued · waiting for runner", rendering: (count: number) => `Rendering · ${count} running` },
+  waitingCaption: (count: number) => count > 1 ? `Queued · ${count} waiting` : "Queued · waiting for runner",
   rendering: "Worker is rendering",
   failedAt: (step: string, exitCode?: number | null) => `Failed at step: ${step}${exitCode === null || exitCode === undefined ? "" : ` (exit ${exitCode})`}`,
   attempt: (number: number, time: string) => `Attempt ${number} · ${time}`,
@@ -25,3 +26,13 @@ export const queueStrings = {
     unavailable: "This deployment has no renderer configured, so it browses published outputs only.",
   },
 } as const;
+
+/**
+ * One line describing what the renderer is doing right now, for the header
+ * status pill that every tab shows.
+ */
+export function renderStatusSummary(activeCount: number, waitingCount: number): string {
+  if (activeCount) return queueStrings.statusCaption.rendering(activeCount);
+  if (waitingCount) return queueStrings.waitingCaption(waitingCount);
+  return queueStrings.statusCaption.idle;
+}

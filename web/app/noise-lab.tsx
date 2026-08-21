@@ -29,7 +29,7 @@ import type { LibraryRecipe, LibraryTrack, QueueJob, Release, ReleaseTrack, Vari
 import type { DismissalRecord } from "@/lib/dismissals";
 import { absoluteTime, batchMembersForJob, knownVariantId, queueJobIdentity, queuedJobsAhead, relativeTime, renderEstimate } from "@/lib/eta";
 import { groupCompletedByDay, oldestFirstAttempts, partitionRenderJobs, pendingRenderJobCount, type RenderJob } from "@/lib/render-jobs";
-import { queueStrings } from "@/lib/queue-strings";
+import { queueStrings, renderStatusSummary } from "@/lib/queue-strings";
 import { formatDisplayName, formatQueueDisplayName, OPTIONS } from "@/lib/variant-labels";
 import { usePullRefresh } from "@/lib/use-pull-refresh";
 import type { DerivedRelease } from "@/lib/releases";
@@ -1097,6 +1097,23 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
     libraryReturnTab.current = tab === "library" ? "queue" : tab;
     window.location.hash = variantId ? `library/${variantId}` : "library";
   }, [tab]);
+  const selectTab = useCallback((item: "design" | "library" | "queue" | "releases") => {
+    if (item === "library") {
+      libraryReturnTab.current = tab === "library" ? "queue" : tab;
+      window.location.hash = "library";
+    } else if (item === "releases") {
+      setReleaseId(undefined);
+      window.location.hash = "releases";
+    } else if (window.location.hash === "#library" || window.location.hash.startsWith("#library/") || window.location.hash === "#releases" || window.location.hash.startsWith("#releases/")) {
+      libraryReturnTab.current = item;
+      window.location.hash = "";
+    } else {
+      libraryReturnTab.current = null;
+      setTab(item);
+    }
+    if (item === "queue" || item === "library") tourNotifyRef.current("tab-changed", item);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [tab]);
   const loadLibraryFromHash = useCallback(() => {
     const match = window.location.hash.match(/^#library\/(.+)$/);
     if (!match && window.location.hash !== "#library") return;
@@ -1230,8 +1247,6 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
 
   const queueActiveCount = jobs.filter((job) => job.status === "Rendering").length;
   const queueWaitingCount = jobs.filter((job) => job.status === "Queued").length;
-  const queueSyncStatus = queueActiveCount ? queueStrings.statusCaption.rendering(queueActiveCount) : queueWaitingCount ? queueStrings.statusCaption.queued : queueStrings.statusCaption.idle;
-  const queueSyncCaption = `${queueSyncStatus} · ${queueStrings.synced(lastQueueSync ? relativeTime(lastQueueSync) : "—")}`;
 
   return (
     <main className={`noise-shell min-h-screen w-full ${tabTitleVisible ? "" : "is-tab-title-hidden"}`} data-tutorial-ready={firstRun.ready ? "true" : "false"} style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif' }}>
@@ -1275,14 +1290,13 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
           </div>
           )}
         </div>
-        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} tourVariantId={trackedRender?.variantId} loading={loading} initialLoad={initialLoad} onRefresh={() => void refresh()} onRenderAgain={(track, repeats) => queue([track.variantId], "one", { repeats, takeMarker: `t${Date.now().toString(36)}${window.crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`, fx: track.recipe.fxRecorded ? { ...(track.recipe.eq ? { eq: track.recipe.eq } : {}), ...(track.recipe.reverb ? { reverb: track.recipe.reverb } : {}) } : null, toast: `Matrix ${track.matrixIndex} take queued as a new library entry.` })} onToast={setToast} onTrackPlay={(variantId) => { setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "playing")); tour.notify("track-played", undefined, { variantId }); }} onTrackPlayError={(variantId) => setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "error"))} /></div>
+        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} tourVariantId={trackedRender?.variantId} loading={loading} initialLoad={initialLoad} lastSync={lastLibrarySync} syncFailed={librarySyncFailed} onRefresh={() => void refresh()} onRenderAgain={(track, repeats) => queue([track.variantId], "one", { repeats, takeMarker: `t${Date.now().toString(36)}${window.crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`, fx: track.recipe.fxRecorded ? { ...(track.recipe.eq ? { eq: track.recipe.eq } : {}), ...(track.recipe.reverb ? { reverb: track.recipe.reverb } : {}) } : null, toast: `Matrix ${track.matrixIndex} take queued as a new library entry.` })} onToast={setToast} onTrackPlay={(variantId) => { setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "playing")); tour.notify("track-played", undefined, { variantId }); }} onTrackPlayError={(variantId) => setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "error"))} /></div>
         <div id="panel-queue" role="tabpanel" aria-labelledby="tab-queue" className={`panel ${tab === "queue" ? "panel-show" : ""}`} hidden={tab !== "queue"}><Queue jobs={jobs} tourVariantId={trackedRender?.variantId} initialLoad={initialLoad} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onRetry={retry} onDone={(job) => void openLibrary(knownVariantId(job.variantId, variants) ?? undefined)} onToast={setToast} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} /></div>
         <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} /></div>
       </div>
       <div className={`current-tab-title ${tabTitleVisible ? "" : "is-hidden"}`} aria-hidden={tabTitleVisible ? undefined : true}>
         <span key={tab} className="current-tab-title-text">{tab === "queue" ? "Queue" : tab[0].toUpperCase() + tab.slice(1)}</span>
-        {tab === "queue" && <span className="queue-sync-caption" aria-live="polite"><span className={`queue-sync-dot ${queueActiveCount ? "is-active" : ""}`} /><span className="queue-sync-text">{queueSyncCaption}</span></span>}
-        {tab === "library" && <HeaderSyncCaption lastSync={lastLibrarySync} syncFailed={librarySyncFailed} loading={loading} onRefresh={() => void refresh()} hidden={!tabTitleVisible} />}
+        <RenderStatus activeCount={queueActiveCount} waitingCount={queueWaitingCount} lastSync={lastQueueSync} onOpen={() => selectTab("queue")} hidden={!tabTitleVisible} />
         <button type="button" className="info-button current-tab-title-info" tabIndex={tabTitleVisible ? 0 : -1} aria-label={tab === "queue" ? "How rendering works" : `How to use ${tab[0].toUpperCase() + tab.slice(1)}`} aria-expanded={tabInfoOpen} aria-controls="current-tab-tooltip" onClick={() => setTabInfoOpen((open) => !open)}><Info size={16} /></button>
         {tabInfoOpen && <div id="current-tab-tooltip" role="note" className="current-tab-tooltip">
           <div>{({
@@ -1301,28 +1315,34 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
           const count = item === "queue" ? queueCount : item === "library" ? libraryCount : item === "releases" ? releaseCount : 0;
           const label = item === "queue" ? "Queue" : item[0].toUpperCase() + item.slice(1);
           const Icon = TAB_ICONS[item];
-          return <button key={item} id={`tab-${item}`} type="button" data-tab={item} data-tour={item === "queue" ? "dock-queue" : item === "library" ? "dock-library" : undefined} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${label}${count ? `, ${count}` : ""}`} title={label} onClick={() => {
-            if (item === "library") {
-              libraryReturnTab.current = tab === "library" ? "queue" : tab;
-              window.location.hash = "library";
-            } else if (item === "releases") {
-              setReleaseId(undefined);
-              window.location.hash = "releases";
-            } else if (window.location.hash === "#library" || window.location.hash.startsWith("#library/") || window.location.hash === "#releases" || window.location.hash.startsWith("#releases/")) {
-              libraryReturnTab.current = item;
-              window.location.hash = "";
-            } else {
-              libraryReturnTab.current = null;
-              setTab(item);
-            }
-            if (item === "queue" || item === "library") tour.notify("tab-changed", item);
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }} className={`dock-tab ${tab === item ? "is-active" : ""}`}><span className="dock-tab-icon" aria-hidden="true"><Icon size={22} strokeWidth={2.1} />{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</span></button>;
+          return <button key={item} id={`tab-${item}`} type="button" data-tab={item} data-tour={item === "queue" ? "dock-queue" : item === "library" ? "dock-library" : undefined} role="tab" aria-controls={`panel-${item}`} aria-selected={tab === item} aria-label={`${label}${count ? `, ${count}` : ""}`} title={label} onClick={() => selectTab(item)} className={`dock-tab ${tab === item ? "is-active" : ""}`}><span className="dock-tab-icon" aria-hidden="true"><Icon size={22} strokeWidth={2.1} />{count > 0 && <span className={`count-badge ${item === "library" ? "dim" : ""}`}>{count}</span>}</span></button>;
         })}
       </nav></div>
       {toast && <Toast message={toast.message} error={toast.error} action={toast.action} onClose={() => setToast(null)} />}
       {tour.overlay}
     </main>
+  );
+}
+
+/**
+ * The renderer's state, shown in the header of every tab. Renders happen in the
+ * background, so the answer to "is my track ready yet?" should never be a tab
+ * you have to go and visit.
+ */
+function RenderStatus({ activeCount, waitingCount, lastSync, onOpen, hidden }: { activeCount: number; waitingCount: number; lastSync: string | null; onOpen: () => void; hidden: boolean }) {
+  const [, setSyncTick] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setSyncTick((tick) => tick + 1), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const busy = activeCount + waitingCount > 0;
+  const summary = renderStatusSummary(activeCount, waitingCount);
+  const caption = `${summary} · ${queueStrings.synced(lastSync ? relativeTime(lastSync) : "—")}`;
+  return (
+    <button type="button" className={`render-status ${busy ? "is-busy" : ""}`} data-tour="render-status" tabIndex={hidden ? -1 : 0} aria-label={`${summary}. Open the render queue.`} onClick={onOpen}>
+      <span className={`queue-sync-dot ${activeCount ? "is-active" : ""}`} aria-hidden="true" />
+      <span className="render-status-text" aria-live="polite">{caption}</span>
+    </button>
   );
 }
 
@@ -1337,7 +1357,7 @@ function HeaderSyncCaption({ lastSync, syncFailed, loading, onRefresh, hidden }:
   return <span className="header-sync-caption" aria-live="polite">{caption}</span>;
 }
 
-function Library({ tracks, tourVariantId, loading, initialLoad, onRefresh, onRenderAgain, onToast, onTrackPlay, onTrackPlayError }: { tracks: LibraryTrack[]; tourVariantId?: string; loading: boolean; initialLoad: boolean; onRefresh: () => void; onRenderAgain: (track: LibraryTrack, repeats: number) => Promise<void>; onToast: (toast: { message: string; error?: boolean }) => void; onTrackPlay: (variantId: string) => void; onTrackPlayError: (variantId: string) => void }) {
+function Library({ tracks, tourVariantId, loading, initialLoad, lastSync, syncFailed, onRefresh, onRenderAgain, onToast, onTrackPlay, onTrackPlayError }: { tracks: LibraryTrack[]; tourVariantId?: string; loading: boolean; initialLoad: boolean; lastSync: string | null; syncFailed: boolean; onRefresh: () => void; onRenderAgain: (track: LibraryTrack, repeats: number) => Promise<void>; onToast: (toast: { message: string; error?: boolean }) => void; onTrackPlay: (variantId: string) => void; onTrackPlayError: (variantId: string) => void }) {
   const [view, setView] = useState<"cards" | "rows">("cards");
   const { pullDistance, refreshShellRef } = usePullRefresh(loading, onRefresh);
   useEffect(() => {
@@ -1361,7 +1381,7 @@ function Library({ tracks, tourVariantId, loading, initialLoad, onRefresh, onRen
   return (
     <section ref={refreshShellRef} className="panel-section library-refresh-shell">
       {pullDistance > 0 && <div className={`pull-refresh-indicator ${pullDistance >= 56 ? "is-ready" : ""}`} aria-live="polite" style={{ height: pullDistance }}>{pullDistance >= 56 ? "Release to refresh" : "Pull to refresh"}</div>}
-      <div className="library-toolbar"><div className="section-title">Masters · {tracks.filter((track) => track.exists).length}</div><button type="button" className="icon-action view-toggle" aria-label={view === "cards" ? "Switch to compact rows" : "Switch to expanded cards"} title={view === "cards" ? "Compact rows" : "Expanded cards"} onClick={toggleView}>{view === "cards" ? <List size={18} /> : <LayoutGrid size={18} />}</button></div>
+      <div className="library-toolbar"><div className="section-title">Masters · {tracks.filter((track) => track.exists).length}</div><HeaderSyncCaption lastSync={lastSync} syncFailed={syncFailed} loading={loading} onRefresh={onRefresh} hidden={false} /><button type="button" className="icon-action view-toggle" aria-label={view === "cards" ? "Switch to compact rows" : "Switch to expanded cards"} title={view === "cards" ? "Compact rows" : "Expanded cards"} onClick={toggleView}>{view === "cards" ? <List size={18} /> : <LayoutGrid size={18} />}</button></div>
       <div className="library-list">
         {tracks.filter((track) => track.exists).length === 0 && <Card padding="md"><EmptyState title="No rendered files found." /></Card>}
         {tracks.filter((track) => track.exists).map((track) => <TrackCard key={track.renderKey} track={track} compact={view === "rows"} onRefresh={onRefresh} onRenderAgain={onRenderAgain} onToast={onToast} onTrackPlay={onTrackPlay} onTrackPlayError={onTrackPlayError} dataTour={track.variantId === tourTrackId ? "library-track" : undefined} />)}
