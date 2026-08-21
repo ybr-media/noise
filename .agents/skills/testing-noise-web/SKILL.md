@@ -446,6 +446,43 @@ captured mid-hydration makes React report "A tree hydrated but some attributes o
 HTML didn't match" — a harness artifact, not an app bug. Confirm by reloading, waiting several seconds
 before any capture, and reading the console: it should be empty.
 
+## Testing render-complete email routes (`/api/og`, `/api/download`, `/api/notifications/unsubscribe`, `/api/renders/notify`, `/api/renders/preview`)
+These routes need auth to be *configured* (not open mode) plus a Redis-backed auth adapter, which you
+can fake entirely without touching app code:
+1. Stand up a tiny Upstash-REST-compatible HTTP server (Flask/`http.server`) implementing
+   `GET /get/<key>`, `POST /set/<key>`, `/setnx`, `/del/<key>`, `/keys/*` returning `{"result": ...}`,
+   and point `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` at it. Seed `user:<id>` and
+   `user:email:<email>` JSON (`{id,email,emailVerified,tutorialCompletedAt,tutorialVersion,renderEmails}`).
+   Dumping keys from that store is the objective proof for unsubscribe (`renderEmails:false`) and for
+   notify idempotency claims (`render-notify:<runId>`).
+2. Export `AUTH_SECRET`, a dummy `AUTH_RESEND_KEY` (so no live mail is sent — `notifyRenderComplete`
+   then returns `"skipped"`, which still proves every gate up to the send), `AUTH_EMAIL_FROM`,
+   `ALLOWED_EMAILS`, `NOISE_APP_URL`, `NOISE_NOTIFY_SECRET`, `NOISE_RENDERING_AVAILABLE=1`.
+3. Sign in by minting a real Auth.js session JWT with `@auth/core/jwt` `encode()` using the same
+   `AUTH_SECRET` and salt `authjs.session-token`, then set that cookie in Chrome. Never stub auth in
+   source. If Chrome keeps showing `/signin` after installing the cookie it is serving the cached 307 —
+   navigate to `/?nocache=1`.
+4. `POST /api/renders/notify` requires the body shape
+   `{kind:"render-complete", requestedBy, renderKeys:[...], finishedAt, runId?}` (a missing `kind`/
+   `finishedAt` gives 400 *after* signature checks pass) and header
+   `X-Noise-Signature: sha256=$(printf '%s' "$BODY" | openssl dgst -sha256 -hmac "$NOISE_NOTIFY_SECRET" -hex | awk '{print $2}')`.
+   Always sign the exact raw bytes you send (`curl --data-raw`).
+5. For the download/unsubscribe links, read the hrefs out of the preview HTML
+   (`/api/renders/preview?renderKey=…`, dev-only + authenticated) and open them in an **incognito
+   window** — that is the only honest proof the middleware bypass works with no session. A 243 MB WAV
+   triggers Chrome's Save-File dialog; click Save and verify the byte count on disk. Flipping the last
+   token character must give a 410 plain-text Library pointer.
+6. Watch `/tmp/dev3000.log` while streaming large files: an aborted download can surface
+   `TypeError: Invalid state: ReadableStream is already closed` as an `uncaughtException` from the
+   local-file streaming path. It may not recur for a completed browser download, but it is worth
+   re-checking on any change to `/api/download`.
+7. Beware a harness artifact: the DOM-annotation step can rewrite long `img src` values to a truncated
+   form, which makes Chrome fetch e.g. `/api/og/track/wn_white_low...` and log spurious 404s. Confirm
+   against the raw HTML (`curl` the route) and `img.naturalWidth` before reporting an image bug.
+8. `next/og` (Satori) silently drops absolutely-positioned zero-width elements, so horizontal grid
+   lines styled with `left:0;right:0` may be missing from the PNG while vertical ones render. Verify
+   grid lines by sampling pixels in the PNG, not by eyeballing the thumbnail.
+
 ## Devin Secrets Needed
 None for UI testing. Publishing/rendering paths (`make publish`, R2) would need the bucket credentials
 from the repo config, but they are not required for any web-console UI test.
