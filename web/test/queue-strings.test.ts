@@ -22,6 +22,8 @@ test("the header render status reports running work ahead of waiting work", () =
   assert.equal(renderStatusSummary(0, 3), "Queued · 3 waiting");
   assert.equal(renderStatusSummary(2, 0), "Rendering · 2 running");
   assert.equal(renderStatusSummary(2, 5), "Rendering · 2 running");
+  assert.equal(renderStatusSummary(0, 0, true), "Render failed — see activity");
+  assert.equal(renderStatusSummary(2, 0, true), "Rendering · 2 running");
 });
 
 test("queue attempt statuses distinguish pending and failed work", () => {
