@@ -9,6 +9,12 @@ removed the Queue tab and folded its steps into one. Every finding below was re-
 that commit and **all of them still hold**; the structural facts in this section (step count, tab
 names, the step table) are the current ones. See "What changed, and what didn't" below.
 
+**Still current at `77b06ba`** (`main`, through PR #148 hash-routing). `web/app/ui/tutorial.tsx`,
+the `.tutorial-*` CSS rules, and `web/demo/` are **byte-identical** between `5fce2db` and
+`77b06ba`; the `tourTrackId` fallback in `noise-lab.tsx` is unchanged (now at `:1437`), the
+`render-status` target still exists, and the dock is still `["create", "library"]`. Nothing in
+this document is affected by those commits.
+
 **Method:** production build (`npm run build && npm start`) with `NOISE_RENDERING_AVAILABLE=1`
 so the render step takes its **action** variant rather than the "unavailable" info variant,
 served against the real `config/` matrix and the bundled `web/demo/` track. Driven with
