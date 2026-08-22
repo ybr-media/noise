@@ -10,7 +10,7 @@ import { releaseList } from "@/lib/releases";
 import { streamZip, type ZipEntry } from "@/lib/zip";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 800;
+export const maxDuration = 300;
 
 async function source(filename: string): Promise<AsyncIterable<Uint8Array>> {
   if (ARTIFACTS_ARE_REMOTE) {

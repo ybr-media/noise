@@ -12,7 +12,7 @@ const index = (filename: string): ArtifactIndex => ({
 });
 
 test("redirects to a prebuilt bundle only when its current name matches", () => {
-  assert.equal(maxDuration, 800);
+  assert.equal(maxDuration, 300);
   assert.equal(prebuiltBundleFilename(index("bundle.zip"), "render-1", "bundle.zip"), "bundle.zip");
   assert.equal(prebuiltBundleFilename(index("old-name.zip"), "render-1", "bundle.zip"), undefined);
   assert.equal(prebuiltBundleFilename(index("bundle.zip"), "other-render", "bundle.zip"), undefined);
