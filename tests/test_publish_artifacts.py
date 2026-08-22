@@ -66,6 +66,38 @@ def test_manifest_keeps_previously_published_masters(rendered: Path) -> None:
     assert fresh["renderStatus"] == "ok"
 
 
+def test_manifest_reads_prebuilt_bundles_and_uploads_zips(rendered: Path) -> None:
+    (rendered / "bundle.zip").write_bytes(b"PK")
+    (rendered / "bundles.json").write_text(
+        json.dumps({"bundles": [{
+            "variantId": "v_one",
+            "renderKey": "one",
+            "filename": "bundle.zip",
+            "sizeBytes": 2,
+        }]}),
+        encoding="utf-8",
+    )
+    manifest = publish_artifacts.build_manifest(rendered)
+    assert manifest["bundles"] == [{
+        "variantId": "v_one",
+        "renderKey": "one",
+        "filename": "bundle.zip",
+        "sizeBytes": 2,
+    }]
+    assert dict(publish_artifacts.uploads(rendered, manifest))[(rendered / "bundle.zip")] == "application/zip"
+
+
+def test_manifest_merges_bundles_by_variant_with_local_wins() -> None:
+    local = {"artifacts": [], "bundles": [{"variantId": "new", "renderKey": "new", "filename": "new.zip", "sizeBytes": 1}]}
+    published = {"artifacts": [], "bundles": [
+        {"variantId": "old", "renderKey": "old", "filename": "old.zip", "sizeBytes": 2},
+        {"variantId": "new", "renderKey": "stale", "filename": "stale.zip", "sizeBytes": 3},
+    ]}
+    merged = publish_artifacts.merged(local, published)
+    assert [bundle["variantId"] for bundle in merged["bundles"]] == ["new", "old"]
+    assert merged["bundles"][0]["filename"] == "new.zip"
+
+
 def test_dry_run_writes_a_manifest_without_credentials(rendered: Path) -> None:
     assert publish_artifacts.main([str(rendered), "--dry-run"]) == 0
     manifest = json.loads((rendered / "manifest.json").read_text(encoding="utf-8"))
