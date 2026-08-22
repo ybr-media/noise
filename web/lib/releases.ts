@@ -81,7 +81,7 @@ export function colorAlbum(color: Color, tracks: LibraryTrack[]): Release {
   return baseRelease(`${color}-album`, "album", `${color[0].toUpperCase()}${color.slice(1)} Noise`, presetTracks(loadVariants().filter((variant) => variant.color === color), tracks));
 }
 
-function presets(tracks: LibraryTrack[]): Release[] {
+export function presets(tracks: LibraryTrack[]): Release[] {
   return [pilotRelease(tracks), ...dimensionValues("color").map((color) => colorAlbum(color as Color, tracks))].filter((release) => release.tracks.length > 0);
 }
 

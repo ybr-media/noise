@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { maxDuration, prebuiltBundleFilename } from "../app/api/bundle/[variantId]/route";
+import { maxDuration } from "../app/api/bundle/[variantId]/route";
+import { prebuiltBundleFilename } from "../lib/bundle-redirect";
 import type { ArtifactIndex } from "../lib/artifacts";
 import { parseRoute, serializeRoute } from "../lib/route";
 
