@@ -327,20 +327,24 @@ button:disabled { cursor: not-allowed; }
 .tooltip-sign-out { display: block; margin-top: 12px; padding: 0; border: 0; color: var(--link); background: transparent; font-size: inherit; font-weight: 700; cursor: pointer; }
 .tooltip-replay { display: block; margin-top: 12px; padding: 0; border: 0; color: var(--link); background: transparent; font-size: inherit; font-weight: 700; cursor: pointer; }
 .tutorial-overlay { position: fixed; z-index: 200; inset: 0; pointer-events: none; }
-.tutorial-blocker { position: fixed; z-index: 0; background: rgba(22,22,26,.58); pointer-events: auto; transition: top .45s cubic-bezier(.32,.72,0,1), right .45s cubic-bezier(.32,.72,0,1), bottom .45s cubic-bezier(.32,.72,0,1), left .45s cubic-bezier(.32,.72,0,1), width .45s cubic-bezier(.32,.72,0,1), height .45s cubic-bezier(.32,.72,0,1); }
-.tutorial-blocker-top { top: 0; right: 0; left: 0; }
-.tutorial-blocker-bottom { right: 0; bottom: 0; left: 0; }
-.tutorial-blocker-left { bottom: auto; left: 0; }
-.tutorial-blocker-right { right: 0; bottom: auto; }
+.tutorial-scrim { position: fixed; z-index: 0; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.tutorial-scrim-fill { fill: rgba(22,22,26,.58); pointer-events: auto; }
 .tutorial-ring { position: fixed; z-index: 1; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
-.tutorial-ring rect { fill: none; stroke: var(--brand); stroke-width: 3; filter: drop-shadow(0 2px 7px rgba(226,72,59,.35)); transition: x .45s cubic-bezier(.32,.72,0,1), y .45s cubic-bezier(.32,.72,0,1), width .45s cubic-bezier(.32,.72,0,1), height .45s cubic-bezier(.32,.72,0,1); animation: tutorial-pulse 1.8s ease-in-out infinite; }
-.tutorial-ring.is-celebrating rect { stroke: var(--success); animation: tutorial-check-flash .42s cubic-bezier(.32,.72,0,1); }
+.tutorial-ring path { fill: none; stroke: var(--brand); filter: drop-shadow(0 2px 7px rgba(226,72,59,.35)); animation: tutorial-pulse 1.8s ease-in-out infinite; }
+.tutorial-ring.is-celebrating path { stroke: var(--success); animation: tutorial-check-flash .42s cubic-bezier(.32,.72,0,1); }
 .tutorial-check { position: fixed; z-index: 2; color: var(--success); transform-origin: center; animation: tutorial-check-scale .42s cubic-bezier(.32,.72,0,1); }
 .tutorial-confetti { position: fixed; z-index: 3; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .tutorial-card { position: fixed; z-index: 2; right: 14px; bottom: calc(18px + env(safe-area-inset-bottom)); left: 14px; width: min(632px, calc(100% - 28px)); margin: 0 auto; pointer-events: auto; box-shadow: 0 18px 44px rgba(30,30,60,.22); animation: tutorial-rise .26s var(--ease-nav); }
 .tutorial-card.is-top { top: calc(14px + env(safe-area-inset-top)); bottom: auto; }
 .tutorial-skip { position: absolute; top: 10px; right: 12px; min-width: 44px; min-height: 44px; padding: 8px 4px; border: 0; color: var(--ink-secondary); background: transparent; font-size: 12px; font-weight: 700; cursor: pointer; }
-.tutorial-step-count { min-height: 10px; margin-bottom: 14px; color: var(--ink-secondary); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.tutorial-progress { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.tutorial-step-count { min-height: 10px; color: var(--ink-secondary); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.tutorial-dots { display: flex; align-items: center; gap: 5px; }
+.tutorial-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--surface-inset); }
+.tutorial-dot.is-done { background: var(--separator); }
+.tutorial-dot.is-current { width: 18px; border-radius: var(--radius-pill); background: var(--brand); }
+.tutorial-card p.tutorial-instruction { color: var(--ink); font-weight: 700; }
+.tutorial-status-link { display: inline-flex; align-items: center; gap: 5px; margin-top: 12px; padding: 0; border: 0; color: var(--link); background: transparent; font-size: 13px; font-weight: 700; cursor: pointer; }
 .tutorial-card h2 { max-width: 85%; margin: 0; color: var(--ink); font-size: 21px; line-height: 1.18; }
 .tutorial-card p { margin: 9px 0 0; color: var(--ink-secondary); font-size: 14px; line-height: 1.45; }
 .tutorial-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 18px; }
@@ -349,7 +353,7 @@ button:disabled { cursor: not-allowed; }
 .tutorial-do-it { opacity: 0; min-height: 40px; margin-right: auto; padding: 0 14px; border: 1px solid var(--separator); border-radius: var(--radius-pill); color: var(--ink-secondary); background: var(--surface); font-size: 13px; font-weight: 700; pointer-events: none; transition: opacity .4s ease; }
 .tutorial-do-it.is-visible { opacity: 1; pointer-events: auto; }
 @keyframes tutorial-pulse { 0%, 100% { opacity: .72; } 50% { opacity: 1; } }
-@keyframes tutorial-check-flash { 0% { stroke-width: 3; opacity: .72; } 45% { stroke-width: 6; opacity: 1; } 100% { stroke-width: 3; opacity: .9; } }
+@keyframes tutorial-check-flash { 0% { opacity: .72; } 45% { opacity: 1; } 100% { opacity: .9; } }
 @keyframes tutorial-check-scale { 0% { transform: scale(.35); opacity: 0; } 65% { transform: scale(1.2); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
 @keyframes tutorial-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 .dock { position: fixed; z-index: 50; bottom: calc(24px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%) scale(1); transform-origin: bottom center; transition: bottom var(--dur-nav) var(--ease-nav), transform var(--dur-nav) var(--ease-nav); }
@@ -421,12 +425,12 @@ button:disabled { cursor: not-allowed; }
 .round-action.is-refreshing svg { animation: spin .8s linear infinite; }
 @media (prefers-reduced-motion: reduce) {
   .intro-splash { display: none; }
-  .tutorial-ring rect { animation: none; }
-  .tutorial-ring.is-celebrating rect { animation: none; stroke: var(--success); }
+  .tutorial-ring path { animation: none; }
+  .tutorial-ring.is-celebrating path { animation: none; stroke: var(--success); }
   .tutorial-check { animation: none; }
   .tutorial-card { animation: none; transition: opacity .2s ease; }
   .tutorial-do-it { transition: opacity .2s ease; }
-  .tutorial-blocker, .tutorial-ring rect { transition: none; }
+  .tutorial-scrim-fill, .tutorial-ring path { transition: none; }
   .current-tab-title { transition: none; }
   .bell-mark, .bell-eyes, .bell-smile, .intro-wordmark { animation: none; }
   .bell-mark { opacity: 1; transform: none; }

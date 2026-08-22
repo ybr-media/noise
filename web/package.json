@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit",
     "check:tokens": "node scripts/check-tokens.mjs",
     "worker": "tsx worker/queue-worker.ts",
-    "test": "tsx --test test/web.test.ts test/remote.test.ts test/build-bundles.test.ts test/name-lint.test.ts test/cover-art.test.ts test/releases.test.ts test/eta.test.ts test/render-jobs.test.ts test/queue-strings.test.ts test/dispatch.test.ts test/fx.test.ts test/dismissals.test.ts test/auth.test.ts test/middleware.test.ts test/tutorial.test.ts test/tutorial-engine.test.ts test/render-overrides.test.ts test/queue-action.test.ts test/route.test.ts test/render-email.test.ts test/download-token.test.ts test/eq-card.test.ts"
+    "test": "tsx --test test/web.test.ts test/remote.test.ts test/build-bundles.test.ts test/name-lint.test.ts test/cover-art.test.ts test/releases.test.ts test/eta.test.ts test/render-jobs.test.ts test/queue-strings.test.ts test/dispatch.test.ts test/fx.test.ts test/dismissals.test.ts test/auth.test.ts test/middleware.test.ts test/tutorial.test.ts test/tutorial-engine.test.ts test/tour-geometry.test.ts test/render-overrides.test.ts test/queue-action.test.ts test/route.test.ts test/render-email.test.ts test/download-token.test.ts test/eq-card.test.ts"
   },
   "dependencies": {
     "@auth/upstash-redis-adapter": "2.11.3",
