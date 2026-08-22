@@ -44,6 +44,20 @@ const manifest = {
       qaChecks: [],
       renderStatus: "ok",
     },
+    {
+      filename: "legacy.zip",
+      sizeBytes: 12_000_000,
+      qaChecks: [],
+      renderStatus: "ok",
+    },
+  ],
+  bundles: [
+    {
+      variantId: "wn_white_mid_drift_balanced",
+      renderKey: "published",
+      filename: "chamberecho - Album [Masters & Stems] - published.zip",
+      sizeBytes: 100_000_000,
+    },
   ],
 };
 
@@ -71,10 +85,20 @@ test("published artifacts come from the manifest rather than the local disk", as
   assert.equal(tracks.find((track) => track.filename === "unpublished.wav")?.exists, false);
 });
 
+test("parses prebuilt bundles without exposing them as library artifacts", async () => {
+  const [{ artifactIndex, bundleFor }] = await modulesPromise;
+  const index = await artifactIndex();
+  assert.equal(bundleFor(index, "published")?.filename, "chamberecho - Album [Masters & Stems] - published.zip");
+  assert.equal(bundleFor(index, "wn_white_mid_drift_balanced")?.sizeBytes, 100_000_000);
+  assert.equal(index.artifacts.has("chamberecho - Album [Masters & Stems] - published.zip"), false);
+  assert.equal(index.artifacts.has("legacy.zip"), false);
+});
+
 test("an unreachable manifest leaves the matrix browsable", async () => {
   const [{ artifactIndex }] = await modulesPromise;
   globalThis.fetch = (async () => new Response("missing", { status: 404 })) as typeof fetch;
   const index = await artifactIndex();
   assert.equal(index.artifacts.size, 0);
   assert.equal(index.origin, baseUrl);
+  assert.equal(index.bundles.size, 0);
 });

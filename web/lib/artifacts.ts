@@ -20,9 +20,17 @@ export type Artifact = {
   renderStatus: string;
 };
 
+export type BundleArtifact = {
+  variantId: string;
+  renderKey: string;
+  filename: string;
+  sizeBytes: number;
+};
+
 export type ArtifactIndex = {
   origin: string;
   artifacts: Map<string, Artifact>;
+  bundles: Map<string, BundleArtifact>;
 };
 
 type QaFile = { files?: Array<{ filename?: string; checks?: QaCheck[] }> };
@@ -76,10 +84,10 @@ function localIndex(): ArtifactIndex {
       renderStatus: statuses.get(variantId) ?? "Not rendered",
     });
   }
-  return { origin: RENDER_DIR, artifacts };
+  return { origin: RENDER_DIR, artifacts, bundles: new Map() };
 }
 
-type RemoteManifest = { artifacts?: Artifact[] };
+type RemoteManifest = { artifacts?: Artifact[]; bundles?: BundleArtifact[] };
 
 let cached: { index: ArtifactIndex; at: number } | null = null;
 
@@ -90,13 +98,15 @@ export function invalidateArtifactCache(): void {
 async function remoteIndex(baseUrl: string): Promise<ArtifactIndex> {
   if (cached && Date.now() - cached.at < MANIFEST_TTL_MS) return cached.index;
   const artifacts = new Map<string, Artifact>();
-  const index: ArtifactIndex = { origin: baseUrl, artifacts };
+  const bundles = new Map<string, BundleArtifact>();
+  const index: ArtifactIndex = { origin: baseUrl, artifacts, bundles };
   const response = await fetch(`${baseUrl}/${MANIFEST_NAME}`, { cache: "no-store" });
   // A missing manifest means nothing has been published yet, which the library
   // already renders as an unrendered matrix.
   if (response.ok) {
     const manifest = (await response.json()) as RemoteManifest;
     for (const artifact of manifest.artifacts ?? []) {
+      if (!artifact.filename.endsWith(".wav")) continue;
       artifacts.set(artifact.filename, {
         filename: artifact.filename,
         sizeBytes: artifact.sizeBytes ?? 0,
@@ -104,6 +114,11 @@ async function remoteIndex(baseUrl: string): Promise<ArtifactIndex> {
         qaChecks: artifact.qaChecks ?? [],
         renderStatus: artifact.renderStatus ?? "Not rendered",
       });
+    }
+    for (const bundle of manifest.bundles ?? []) {
+      if (!bundle || typeof bundle.variantId !== "string" || typeof bundle.renderKey !== "string" || typeof bundle.filename !== "string" || !bundle.filename.endsWith(".zip")) continue;
+      bundles.set(bundle.variantId, bundle);
+      bundles.set(bundle.renderKey, bundle);
     }
   }
   cached = { index, at: Date.now() };
@@ -118,4 +133,8 @@ export function artifactUrl(filename: string): string {
   return ARTIFACTS_BASE_URL
     ? `${ARTIFACTS_BASE_URL}/${encodeURIComponent(filename)}`
     : path.join(RENDER_DIR, filename);
+}
+
+export function bundleFor(index: ArtifactIndex, variantIdOrRenderKey: string): BundleArtifact | undefined {
+  return index.bundles.get(variantIdOrRenderKey);
 }

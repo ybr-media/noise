@@ -16,6 +16,7 @@ from pathlib import Path
 MANIFEST_NAME = "manifest.json"
 RELEASES_NAME = "releases.json"
 EVIDENCE_NAMES = ("qa_results.json", "render_log.jsonl")
+BUNDLES_NAME = "bundles.json"
 
 
 def render_statuses(output_dir: Path) -> dict[str, str]:
@@ -89,9 +90,29 @@ def build_manifest(output_dir: Path) -> dict[str, object]:
                 "renderStatus": statuses.get(variant_id, "Not rendered"),
             }
         )
+    bundles = []
+    bundles_path = output_dir / BUNDLES_NAME
+    if bundles_path.exists():
+        try:
+            document = json.loads(bundles_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            document = {}
+        entries = document.get("bundles", []) if isinstance(document, dict) else []
+        if isinstance(entries, list):
+            bundles = [
+                entry
+                for entry in entries
+                if isinstance(entry, dict)
+                and isinstance(entry.get("variantId"), str)
+                and isinstance(entry.get("renderKey"), str)
+                and isinstance(entry.get("filename"), str)
+                and isinstance(entry.get("sizeBytes"), int)
+                and (output_dir / entry["filename"]).is_file()
+            ]
     return {
         "generatedAt": datetime.now(timezone.utc).isoformat(),
         "artifacts": artifacts,
+        "bundles": bundles,
     }
 
 
@@ -107,6 +128,8 @@ def uploads(output_dir: Path, manifest: dict[str, object]) -> list[tuple[Path, s
         path = output_dir / name
         if path.exists():
             files.append((path, "application/x-ndjson" if path.suffix == ".jsonl" else "application/json"))
+    for bundle in manifest.get("bundles", []):  # type: ignore[union-attr]
+        files.append((output_dir / bundle["filename"], "application/zip"))  # type: ignore[index]
     releases = output_dir / RELEASES_NAME
     if releases.exists():
         files.append((releases, "application/json"))
@@ -141,7 +164,13 @@ def merged(local: dict[str, object], published: dict[str, object]) -> dict[str, 
     """Keep already-published masters that this run did not re-render."""
     entries = _keyed(published, "artifacts", "filename")
     entries.update(_keyed(local, "artifacts", "filename"))
-    return {**local, "artifacts": [entries[name] for name in sorted(entries)]}
+    bundles = _keyed(published, "bundles", "variantId")
+    bundles.update(_keyed(local, "bundles", "variantId"))
+    return {
+        **local,
+        "artifacts": [entries[name] for name in sorted(entries)],
+        "bundles": [bundles[name] for name in sorted(bundles)],
+    }
 
 
 def published_manifest(s3, bucket: str, key: str) -> dict[str, object]:
@@ -194,7 +223,7 @@ def main(argv: list[str] | None = None) -> int:
         manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         print(f"Manifest describes {local_count} master(s) in {local_files} file(s) -> {manifest_path}")
         return 0
-    if not local_files and releases is None:
+    if not local_files and not manifest["bundles"] and releases is None:  # type: ignore[index]
         print("Nothing rendered to publish", file=sys.stderr)
         return 1
 

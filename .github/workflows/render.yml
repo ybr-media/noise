@@ -113,6 +113,11 @@ jobs:
         continue-on-error: true
         run: PYTHONPATH=qa:. .venv/bin/python qa/qa_harness.py out --report out/qa_report.html --json out/qa_results.json
 
+      - name: Build bundle archives
+        run: |
+          npm ci --prefix web
+          npx --prefix web tsx web/scripts/build-bundles.ts out
+
       - name: Publish to R2
         env:
           R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
