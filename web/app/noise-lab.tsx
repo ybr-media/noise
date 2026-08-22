@@ -76,7 +76,7 @@ import { Banner } from "./ui/banner";
 import { EmptyState } from "./ui/empty-state";
 import { Disclosure } from "./ui/disclosure";
 import { useFirstRun } from "@/lib/use-first-run";
-import { playedTrackIdAfterPlayback, useTutorial, type TourStep, type TourSnapshot } from "./ui/tutorial";
+import { playedTrackIdAfterPlayback, tourLibraryTrackId, useTutorial, type TourStep, type TourSnapshot } from "./ui/tutorial";
 import { Switch } from "./ui/switch";
 
 const TAB_ICONS = {
@@ -915,6 +915,17 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
   const [releaseMode, setReleaseMode] = useState<"local" | "dispatch" | "unavailable">("local");
   const [selection, setSelection] = useState({ color: "white", band: "mid", motion: "drift", balance: "balanced" });
   const [toast, setToast] = useState<ToastState | null>(null);
+  const tourActiveRef = useRef(false);
+  const heldToastRef = useRef<ToastState | null>(null);
+  const openActivityRef = useRef<() => void>(() => {});
+  // A toast under the tour's scrim splits attention mid-lesson, so it waits for the tour to end.
+  const showToast = useCallback((next: ToastState | null) => {
+    if (tourActiveRef.current && next) {
+      heldToastRef.current = next;
+      return;
+    }
+    setToast(next);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [lastLibrarySync, setLastLibrarySync] = useState<string | null>(null);
   const [lastQueueSync, setLastQueueSync] = useState<string | null>(null);
@@ -955,11 +966,9 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
       tourNotifyRef.current("fx-changed");
     } else if (step.id === "render") {
       if (selected) void queueRef.current(selected.variantId);
+    } else if (step.id === "library-open") {
+      document.querySelector<HTMLElement>('[data-tour="dock-library"]')?.click();
     } else if (step.id === "library-play") {
-      if (document.querySelector<HTMLElement>('[data-tour="dock-library"]')?.getAttribute("aria-selected") !== "true") {
-        document.querySelector<HTMLElement>('[data-tour="dock-library"]')?.click();
-        return;
-      }
       document.querySelector<HTMLElement>('[data-tour="library-track"] .player-play')?.click();
     }
   }, [selected, setFx]);
@@ -970,8 +979,14 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
     playedTrackId,
     renderStatus: trackedRender ? jobs.find((job) => job.variantId === trackedRender.variantId)?.status ?? "Queued" : undefined,
   }), [jobs, playedTrackId, selected, trackedRender]);
-  const tour = useTutorial({ mode: renderMode, authConfigured, onDoItForMe: onTourDoItForMe, onComplete: firstRun.markCompleted, snapshot: tourSnapshot });
+  const tour = useTutorial({ mode: renderMode, authConfigured, onDoItForMe: onTourDoItForMe, onCheckRenderStatus: () => openActivityRef.current(), onComplete: firstRun.markCompleted, snapshot: tourSnapshot });
   tourNotifyRef.current = tour.notify;
+  tourActiveRef.current = tour.active;
+  useEffect(() => {
+    if (tour.active || !heldToastRef.current) return;
+    setToast(heldToastRef.current);
+    heldToastRef.current = null;
+  }, [tour.active]);
   const tourActive = tour.active;
   const startTour = tour.start;
   const preview = useApproxPreview(selected, fx);
@@ -1002,10 +1017,10 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
       const releasesPayload = (await releasesResponse.json()) as { releases: DerivedRelease[]; mode?: "local" | "dispatch" | "unavailable" };
       setReleases(releasesPayload.releases);
       if (releasesPayload.mode) setReleaseMode(releasesPayload.mode);
-    } catch { setLibrarySyncFailed(true); setToast({ message: "Could not load engine data.", error: true }); }
+    } catch { setLibrarySyncFailed(true); showToast({ message: "Could not load library data.", error: true }); }
     finally { setLoading(false); setEverLoaded(true); }
     return nextTracks;
-  }, []);
+  }, [showToast]);
   const refreshQueue = useCallback(async (showBusy = false) => {
     if (queueFetchInFlight.current || document.visibilityState !== "visible") return;
     queueFetchInFlight.current = true;
@@ -1136,6 +1151,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
     activityEntryPushed.current = true;
     navigate({ ...route, activity: true });
   }, [navigate, route]);
+  openActivityRef.current = openActivity;
   const closeActivity = useCallback(() => {
     if (!route.activity) return;
     if (activityEntryPushed.current) {
@@ -1232,12 +1248,12 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
       const response = await fetch("/api/queue", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(selector) });
       if (!response.ok) {
         const reason = (await response.json().catch(() => ({}))) as { error?: string };
-        setToast({ message: reason.error ?? "Queue request failed.", error: true });
+        showToast({ message: reason.error ?? "Queue request failed.", error: true });
         return;
       }
       const payload = (await response.json()) as { jobs?: QueueJob[] };
       const colorLabel = OPTIONS.color.find(([value]) => value === selection.color)?.[1] ?? selection.color;
-      setToast({
+      showToast({
         message: overrides?.toast ?? `${colorLabel} master and stems being rendered`,
       });
       setTrackedRender({ variantId });
@@ -1256,10 +1272,10 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
       const response = await fetch("/api/queue/retry", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jobId: job.id, variantId: job.variantId }) });
       if (!response.ok) {
         const reason = (await response.json().catch(() => ({}))) as { error?: string };
-        setToast({ message: reason.error ?? "Retry failed.", error: true });
+        showToast({ message: reason.error ?? "Retry failed.", error: true });
         return false;
       }
-      setToast({ message: "Retry dispatched" });
+      showToast({ message: "Retry dispatched" });
       await refreshQueue();
       return true;
     } finally {
@@ -1328,8 +1344,8 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
             ))}
           </div>
         )}
-        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} tourVariantId={trackedRender?.variantId} loading={loading} initialLoad={initialLoad} lastSync={lastLibrarySync} syncFailed={librarySyncFailed} onRefresh={() => void refresh()} onRenderAgain={(track, repeats) => queue(track.variantId, { repeats, takeMarker: `t${Date.now().toString(36)}${window.crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`, fx: track.recipe.fxRecorded ? { ...(track.recipe.eq ? { eq: track.recipe.eq } : {}), ...(track.recipe.reverb ? { reverb: track.recipe.reverb } : {}) } : null, toast: `Matrix ${track.matrixIndex} take queued as a new library entry.` })} onToast={setToast} onTrackPlay={(variantId) => { setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "playing")); tour.notify("track-played", undefined, { variantId }); }} onTrackPlayError={(variantId) => setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "error"))} /></div>
-        {RELEASES_ENABLED && <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={setToast} /></div>}
+        <div id="panel-library" role="tabpanel" aria-labelledby="tab-library" className={`panel ${tab === "library" ? "panel-show" : ""}`} hidden={tab !== "library"}><Library tracks={tracks} tourVariantId={trackedRender?.variantId} loading={loading} initialLoad={initialLoad} lastSync={lastLibrarySync} syncFailed={librarySyncFailed} onRefresh={() => void refresh()} onRenderAgain={(track, repeats) => queue(track.variantId, { repeats, takeMarker: `t${Date.now().toString(36)}${window.crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`, fx: track.recipe.fxRecorded ? { ...(track.recipe.eq ? { eq: track.recipe.eq } : {}), ...(track.recipe.reverb ? { reverb: track.recipe.reverb } : {}) } : null, toast: `Matrix ${track.matrixIndex} take queued as a new library entry.` })} onToast={showToast} onTrackPlay={(variantId) => { setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "playing")); tour.notify("track-played", undefined, { variantId }); }} onTrackPlayError={(variantId) => setPlayedTrackId((current) => playedTrackIdAfterPlayback(current, variantId, "error"))} /></div>
+        {RELEASES_ENABLED && <div id="panel-releases" role="tabpanel" aria-labelledby="tab-releases" className={`panel ${tab === "releases" ? "panel-show" : ""}`} hidden={tab !== "releases"}><Releases releases={releases} releaseId={releaseId} variants={variants} tracks={tracks} mode={releaseMode} initialLoad={initialLoad} onRefresh={() => void refresh()} onToast={showToast} /></div>}
       </div>
       <div className={`current-tab-title ${tabTitleVisible ? "" : "is-hidden"}`} aria-hidden={tabTitleVisible ? undefined : true}>
         <span key={dockTab} className="current-tab-title-text">{dockTab === "create" ? "Create" : "Library"}</span>
@@ -1363,7 +1379,7 @@ export default function NoiseLab({ authConfigured }: { authConfigured: boolean }
           </div>
           <p className="activity-sheet-note">{queueStrings.queueNote[renderMode]}</p>
           <div className="activity-sheet-body">
-            <Queue jobs={jobs} tourVariantId={trackedRender?.variantId} initialLoad={initialLoad} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onRetry={retry} onDone={(job) => { openLibrary(knownVariantId(job.variantId, variants) ?? undefined); }} onDismiss={(jobId) => setDismissedJobIds((current) => new Set(current).add(jobId))} onToast={setToast} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} />
+            <Queue jobs={jobs} tourVariantId={trackedRender?.variantId} initialLoad={initialLoad} mode={renderMode} stats={queueStats} variants={variants} tracks={tracks} onRefresh={() => void refreshQueue(true)} refreshing={queueRefreshing} onRetry={retry} onDone={(job) => { openLibrary(knownVariantId(job.variantId, variants) ?? undefined); }} onDismiss={(jobId) => setDismissedJobIds((current) => new Set(current).add(jobId))} onToast={showToast} queueing={queueing} pilotCount={pilotCount} matrixCount={variants.length} />
           </div>
         </div>
       </div>}
@@ -1426,13 +1442,11 @@ function Library({ tracks, tourVariantId, loading, initialLoad, lastSync, syncFa
       </section>
     );
   }
-  const tourTrackId = tourVariantId && tracks.some((track) => track.exists && track.variantId === tourVariantId)
-    ? tourVariantId
-    : tracks.find((track) => track.exists)?.variantId;
+  const tourTrackId = tourLibraryTrackId(tracks, tourVariantId);
   return (
     <section ref={refreshShellRef} className="panel-section library-refresh-shell">
       {pullDistance > 0 && <div className={`pull-refresh-indicator ${pullDistance >= 56 ? "is-ready" : ""}`} aria-live="polite" style={{ height: pullDistance }}>{pullDistance >= 56 ? "Release to refresh" : "Pull to refresh"}</div>}
-      <div className="library-toolbar"><div className="section-title">Masters · {tracks.filter((track) => track.exists).length}</div><HeaderSyncCaption lastSync={lastSync} syncFailed={syncFailed} loading={loading} onRefresh={onRefresh} hidden={false} /><button type="button" className="icon-action view-toggle" aria-label={view === "cards" ? "Switch to compact rows" : "Switch to expanded cards"} title={view === "cards" ? "Compact rows" : "Expanded cards"} onClick={toggleView}>{view === "cards" ? <List size={18} /> : <LayoutGrid size={18} />}</button></div>
+      <div className="library-toolbar" data-tour="library-header"><div className="section-title">Masters · {tracks.filter((track) => track.exists).length}</div><HeaderSyncCaption lastSync={lastSync} syncFailed={syncFailed} loading={loading} onRefresh={onRefresh} hidden={false} /><button type="button" className="icon-action view-toggle" aria-label={view === "cards" ? "Switch to compact rows" : "Switch to expanded cards"} title={view === "cards" ? "Compact rows" : "Expanded cards"} onClick={toggleView}>{view === "cards" ? <List size={18} /> : <LayoutGrid size={18} />}</button></div>
       <div className="library-list">
         {tracks.filter((track) => track.exists).length === 0 && <Card padding="md"><EmptyState title="No rendered files found. Check the render activity pill above." /></Card>}
         {tracks.filter((track) => track.exists).map((track) => <TrackCard key={track.renderKey} track={track} compact={view === "rows"} onRefresh={onRefresh} onRenderAgain={onRenderAgain} onToast={onToast} onTrackPlay={onTrackPlay} onTrackPlayError={onTrackPlayError} dataTour={track.variantId === tourTrackId ? "library-track" : undefined} />)}
