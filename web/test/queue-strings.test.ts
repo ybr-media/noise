@@ -18,7 +18,7 @@ test("all top-level queue strings avoid restricted implementation terms", () => 
 
 test("the header render status reports running work ahead of waiting work", () => {
   assert.equal(renderStatusSummary(0, 0), "Idle");
-  assert.equal(renderStatusSummary(0, 1), "Queued · waiting for runner");
+  assert.equal(renderStatusSummary(0, 1), "Queued");
   assert.equal(renderStatusSummary(0, 3), "Queued · 3 waiting");
   assert.equal(renderStatusSummary(2, 0), "Rendering · 2 running");
   assert.equal(renderStatusSummary(2, 5), "Rendering · 2 running");
